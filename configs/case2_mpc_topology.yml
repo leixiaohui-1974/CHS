@@ -1,0 +1,48 @@
+# System topology for Case 2: Two-Tank System with MPC Control
+
+components:
+  - name: mpc_controller
+    type: MPCController
+    properties:
+      # State-space model for the two-tank system
+      # x = [storage1, storage2]
+      A: [[0.9, 0.0],
+          [0.1, 0.875]]
+      B: [[1.0],
+          [0.0]]
+      # Weighting matrices
+      Q: [[0.0, 0.0],   # We don't care about the level of the first tank
+          [0.0, 1.0]]   # We only care about the error in the second tank
+      R: [[0.1]]
+      N: 15  # Prediction Horizon
+      setpoint: [0.0, 5.0] # First value is a placeholder, second is the target
+      u_min: 0.0
+
+    connections:
+      # The MPC needs the full state vector [tank1.storage, tank2.storage]
+      # The engine does not yet support vector inputs, so this is a design challenge.
+      # For now, I will assume the engine can be modified to handle this.
+      # Let's define a placeholder and adapt the engine later.
+      measured_value: [tank1.storage, tank2.storage]
+
+  - name: tank1
+    type: FirstOrderInertiaModel
+    properties:
+      initial_storage: 2.0
+      time_constant: 10.0
+    connections:
+      inflow: mpc_controller.output
+
+  - name: tank2
+    type: FirstOrderInertiaModel
+    properties:
+      initial_storage: 4.0
+      time_constant: 8.0
+    connections:
+      inflow: tank1.output
+
+logging:
+  - time
+  - tank1.storage
+  - tank2.storage
+  - mpc_controller.output

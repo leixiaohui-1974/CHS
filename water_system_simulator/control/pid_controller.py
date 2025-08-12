@@ -18,6 +18,7 @@ class PIDController:
         self.setpoint = setpoint
         self.integral = 0
         self.previous_error = 0
+        self.output = 0.0
 
     def calculate(self, measured_value, dt):
         """
@@ -33,6 +34,6 @@ class PIDController:
         error = self.setpoint - measured_value
         self.integral += error * dt
         derivative = (error - self.previous_error) / dt
-        output = self.kp * error + self.ki * self.integral + self.kd * derivative
+        self.output = self.kp * error + self.ki * self.integral + self.kd * derivative
         self.previous_error = error
-        return output
+        return self.output
