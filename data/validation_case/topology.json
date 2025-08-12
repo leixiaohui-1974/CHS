@@ -1,0 +1,18 @@
+{
+  "basin_name": "ValidationCaseBasin",
+  "sinks": ["basin_outlet"],
+  "elements": [
+    { "id": "A1", "type": "sub_basin", "area_km2": 50, "downstream": "A3" },
+    { "id": "A2", "type": "sub_basin", "area_km2": 60, "downstream": "A3" },
+    { "id": "A3", "type": "sub_basin", "area_km2": 40, "downstream": "ReservoirA" },
+    { "id": "ReservoirA", "type": "reservoir", "downstream": "C1" },
+
+    { "id": "B1", "type": "sub_basin", "area_km2": 70, "downstream": "B3" },
+    { "id": "B2", "type": "sub_basin", "area_km2": 80, "downstream": "B3" },
+    { "id": "B3", "type": "sub_basin", "area_km2": 50, "downstream": "C1" },
+
+    { "id": "C1", "type": "sub_basin", "area_km2": 100, "downstream": "C2" },
+    { "id": "C2", "type": "sub_basin", "area_km2": 120, "downstream": "C3" },
+    { "id": "C3", "type": "sub_basin", "area_km2": 110, "downstream": "basin_outlet" }
+  ]
+}

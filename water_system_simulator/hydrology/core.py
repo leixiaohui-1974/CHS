@@ -7,6 +7,7 @@ from .utils.file_parsers import (
 from .models.runoff import RunoffCoefficientModel, XinanjiangModel
 from .models.routing import MuskingumModel
 from .models.interception import HumanActivityModel
+from .models.reservoir import RegulatedReservoir
 
 # --- Model Factories ---
 RUNOFF_MODEL_MAP = {
@@ -16,6 +17,10 @@ RUNOFF_MODEL_MAP = {
 
 ROUTING_MODEL_MAP = {
     "Muskingum": MuskingumModel,
+}
+
+RESERVOIR_MODEL_MAP = {
+    "RegulatedReservoir": RegulatedReservoir
 }
 
 # --- Core Hydrological Components ---
@@ -39,9 +44,34 @@ class SubBasin:
             self.interception_model = HumanActivityModel(interception_params)
 
         self.inflow = 0.0  # Inflow from upstream elements
-        self.outflow = 0.0 # Outflow from this sub-basin (runoff + routed inflow)
+        self.outflow = 0.0 # Outflow from this sub-basin
+        self.storage = 0.0 # Internal storage for routing inflow
 
-    def calculate_runoff(self, precipitation_mm, evaporation_mm, dt_hours):
+    def step(self, precip_mm, evap_mm, dt_hours):
+        """
+        Performs a single simulation step for the sub-basin.
+        It calculates its own local runoff and then routes the total inflow
+        (local runoff + upstream inflow) through a simple linear storage model.
+        """
+        local_runoff_m3s = self.calculate_local_runoff(precip_mm, evap_mm, dt_hours)
+
+        total_inflow_m3s = local_runoff_m3s + self.inflow
+
+        # Simple linear storage model to route the total flow
+        # T is a time constant for the sub-basin, can be parameterized
+        T_hours = 12 # Assume a 12-hour residence time
+
+        # Update storage
+        self.storage += (total_inflow_m3s - self.outflow) * dt_hours * 3600
+        self.storage = max(0, self.storage)
+
+        # Calculate new outflow
+        self.outflow = self.storage / (T_hours * 3600)
+
+        self.inflow = 0 # Reset inflow for next step
+        return self.outflow
+
+    def calculate_local_runoff(self, precipitation_mm, evaporation_mm, dt_hours):
         """
         Calculates the total runoff from the sub-basin for a time step.
         This method now correctly orchestrates the impervious/pervious split,
@@ -78,34 +108,43 @@ class SubBasin:
         return flow_rate_m3s
 
 class Reservoir:
-    """Represents a reservoir in the watershed."""
+    """Represents a reservoir in the watershed, acting as a wrapper for a specific reservoir model."""
     def __init__(self, element_id, params):
         self.id = element_id
         self.params = params
-        self.storage_m3 = params.get("initial_storage_m3", 0)
-        self.time_constant_hr = self.params.get("time_constant_hr", 24)
 
+        # --- Reservoir Model ---
+        storage_model_name = params.get("storage_model", "default")
+        if storage_model_name not in RESERVOIR_MODEL_MAP:
+            raise ValueError(f"Reservoir model '{storage_model_name}' not found for {self.id}")
+        self.storage_model = RESERVOIR_MODEL_MAP[storage_model_name](params.get("parameters", {}))
+
+        # --- State Variables ---
+        self.storage_m3 = params.get("parameters", {}).get("initial_storage_m3", 0)
         self.inflow = 0.0  # m3/s
         self.outflow = 0.0 # m3/s
 
-    def step(self, dt_hours):
+    def step(self, dt_hours, t_step_debug=None):
         """
         Performs a single simulation step for the reservoir.
-        Uses a simple linear reservoir model for now.
         """
-        # Update storage based on inflow over the time step
+        # 1. First, update the storage with the inflow from the current time step.
         self.storage_m3 += self.inflow * dt_hours * 3600
 
-        # Linear reservoir model: outflow (m3/s) is proportional to storage
-        # Outflow = Storage / TimeConstant
-        # We need to be careful with units. Storage is m3, TC is hours.
-        # Outflow (m3/s) = Storage (m3) / (TimeConstant (hr) * 3600 (s/hr))
-        self.outflow = self.storage_m3 / (self.time_constant_hr * 3600)
+        # 2. Now, calculate the outflow based on the updated storage.
+        self.outflow = self.storage_model.calculate_outflow(self.storage_m3)
 
-        # Update storage based on outflow
+        # 3. Finally, update the storage by subtracting the outflow.
         self.storage_m3 -= self.outflow * dt_hours * 3600
 
-        self.inflow = 0 # Reset inflow for next step
+        # Ensure storage doesn't go below zero
+        self.storage_m3 = max(0, self.storage_m3)
+
+        if self.id == "ReservoirA" and t_step_debug and t_step_debug % 30 == 0:
+            print(f"[d:{t_step_debug}] ReservoirA Stats: In={self.inflow:.2f} m3/s, Out={self.outflow:.2f} m3/s, Storage={self.storage_m3 / 1e6:.2f} MCM")
+
+        # 4. Reset inflow for next time step
+        self.inflow = 0
         return self.outflow
 
 class Reach:
@@ -154,7 +193,7 @@ class Basin:
             elif element_data["type"] == "reservoir":
                 self.elements[element_id] = Reservoir(
                     element_id=element_id,
-                    params=params.get("parameters", {})
+                    params=params
                 )
 
             # Create Reaches for routing
@@ -194,7 +233,12 @@ class Basin:
     def run_simulation(self):
         """Runs the full hydrological simulation."""
         dt_hours = self.timeseries_data["time_step_hours"]
-        num_steps = len(self.timeseries_data["data"]["SubBasin1"]["precipitation_mm"])
+
+        # Determine the number of steps from the first available sub-basin data
+        first_subbasin_id = next((el["id"] for el in self.topology_data["elements"] if el["type"] == "sub_basin"), None)
+        if not first_subbasin_id:
+            raise ValueError("No sub-basins found in topology to determine simulation length.")
+        num_steps = len(self.timeseries_data["data"][first_subbasin_id]["precipitation_mm"])
 
         results = {el_id: np.zeros(num_steps) for el_id in self.elements}
 
@@ -202,19 +246,20 @@ class Basin:
             for element_id in self.simulation_order:
                 element = self.elements[element_id]
 
+                # Default local_outflow is 0, important for reservoirs
                 local_outflow = 0
+
                 if isinstance(element, SubBasin):
                     precip = self.timeseries_data["data"][element_id]["precipitation_mm"][t]
                     evap = self.timeseries_data["data"][element_id]["evaporation_mm"][t]
-                    local_outflow = element.calculate_runoff(precip, evap, dt_hours)
-
-                # Total inflow to the element is its local runoff plus inflow from upstream
-                total_inflow_to_element_outlet = local_outflow + element.inflow
+                    outflow = element.step(precip, evap, dt_hours)
+                elif isinstance(element, Reservoir):
+                    outflow = element.step(dt_hours, t_step_debug=t)
 
                 # Now, route this total flow through the reach to the next element
                 if element_id in self.reaches:
                     reach = self.reaches[element_id]
-                    routed_outflow = reach.route(total_inflow_to_element_outlet)
+                    routed_outflow = reach.route(outflow)
 
                     # Add the routed flow to the downstream element's inflow for the next step
                     downstream_element = self.elements[reach.to_id]
@@ -223,6 +268,6 @@ class Basin:
                     results[element_id][t] = routed_outflow
                 else:
                     # This is a sink node
-                    results[element_id][t] = total_inflow_to_element_outlet
+                    results[element_id][t] = outflow
 
         return results

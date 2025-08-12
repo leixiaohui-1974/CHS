@@ -1,0 +1,70 @@
+{
+  "A1": {
+    "runoff_model": "Xinanjiang",
+    "runoff_parameters": {"IM": 0.05, "WM": 120, "B": 0.3},
+    "routing_model": "Muskingum",
+    "routing_parameters": {"K": 20, "x": 0.2, "dt": 24}
+  },
+  "A2": {
+    "runoff_model": "Xinanjiang",
+    "runoff_parameters": {"IM": 0.06, "WM": 110, "B": 0.35},
+    "routing_model": "Muskingum",
+    "routing_parameters": {"K": 22, "x": 0.2, "dt": 24}
+  },
+  "A3": {
+    "runoff_model": "Xinanjiang",
+    "runoff_parameters": {"IM": 0.04, "WM": 130, "B": 0.25},
+    "routing_model": "Muskingum",
+    "routing_parameters": {"K": 15, "x": 0.2, "dt": 24}
+  },
+
+  "ReservoirA": {
+    "storage_model": "RegulatedReservoir",
+    "parameters": {
+      "initial_storage_m3": 50000000,
+      "max_storage_m3": 100000000,
+      "min_outflow_m3s": 10,
+      "max_outflow_m3s": 500
+    },
+    "routing_model": "Muskingum",
+    "routing_parameters": {"K": 5, "x": 0.1, "dt": 24}
+  },
+
+  "B1": {
+    "runoff_model": "Xinanjiang",
+    "runoff_parameters": {"IM": 0.10, "WM": 90, "B": 0.4},
+    "routing_model": "Muskingum",
+    "routing_parameters": {"K": 30, "x": 0.25, "dt": 24}
+  },
+  "B2": {
+    "runoff_model": "Xinanjiang",
+    "runoff_parameters": {"IM": 0.12, "WM": 85, "B": 0.45},
+    "routing_model": "Muskingum",
+    "routing_parameters": {"K": 35, "x": 0.25, "dt": 24}
+  },
+  "B3": {
+    "runoff_model": "Xinanjiang",
+    "runoff_parameters": {"IM": 0.08, "WM": 95, "B": 0.35},
+    "routing_model": "Muskingum",
+    "routing_parameters": {"K": 25, "x": 0.2, "dt": 24}
+  },
+
+  "C1": {
+    "runoff_model": "RunoffCoefficient",
+    "runoff_parameters": {"C": 0.4, "IM": 0.15},
+    "routing_model": "Muskingum",
+    "routing_parameters": {"K": 40, "x": 0.2, "dt": 24}
+  },
+  "C2": {
+    "runoff_model": "RunoffCoefficient",
+    "runoff_parameters": {"C": 0.4, "IM": 0.18},
+    "routing_model": "Muskingum",
+    "routing_parameters": {"K": 45, "x": 0.2, "dt": 24}
+  },
+  "C3": {
+    "runoff_model": "RunoffCoefficient",
+    "runoff_parameters": {"C": 0.4, "IM": 0.16},
+    "routing_model": "Muskingum",
+    "routing_parameters": {"K": 38, "x": 0.2, "dt": 24}
+  }
+}
