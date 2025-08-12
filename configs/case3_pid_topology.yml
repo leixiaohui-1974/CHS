@@ -1,0 +1,40 @@
+# System topology for Case 3: One Gate, One Channel with PID Control
+
+components:
+  - name: inflow_to_channel
+    type: Disturbance
+
+  - name: channel
+    type: IntegralDelayModel
+    properties:
+      initial_outflow: 10.0
+      delay_steps: 5
+    connections:
+      inflow: inflow_to_channel.output
+
+  - name: pid_controller
+    type: PIDController
+    properties:
+      kp: -0.1
+      ki: -0.01
+      kd: -0.02
+      setpoint: 10.0
+    connections:
+      measured_value: channel.output
+
+  - name: gate
+    type: GateModel
+    properties:
+      discharge_coefficient: 0.6
+      area: 1.0 # Initial area
+    connections:
+      upstream_level: channel.output
+      downstream_level: 5.0 # Constant value
+      area: pid_controller.output
+
+logging:
+  - time
+  - channel.output
+  - gate.output # Flow through the gate
+  - pid_controller.output # Gate area
+  - inflow_to_channel.output

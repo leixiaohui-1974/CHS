@@ -1,0 +1,62 @@
+# System topology for Case 4: MPC Control
+# This uses a simplified MIMO linear model for the MPC's internal prediction.
+
+components:
+  - name: upstream_inflow
+    type: Disturbance
+  - name: downstream_demand
+    type: Disturbance
+
+  - name: upstream_channel
+    type: IntegralDelayModel
+    properties:
+      initial_outflow: 10.0
+      delay_steps: 5
+    connections:
+      inflow: upstream_inflow.output
+
+  - name: mpc_controller
+    type: MPCController
+    properties:
+      # Simplified LTI model: x(k+1) = Ax(k) + Bu(k)
+      # State x = [upstream_level, downstream_level]
+      # Control u = [gate_area]
+      A: [[1.0, 0.0],
+          [0.0, 1.0]]
+      B: [[-0.5], # Gate area has a negative effect on upstream level
+          [-0.2]] # and a smaller negative effect on downstream level (simplified)
+      Q: [[1.0, 0.0],   # Weight on upstream level error
+          [0.0, 1.0]]   # Weight on downstream level error
+      R: [[0.2]] # Penalty on changing gate area
+      N: 15
+      setpoint: [10.0, 8.0]
+      u_min: 0.0
+      u_max: 10.0
+    connections:
+      measured_value: [upstream_channel.output, downstream_channel.output]
+
+  - name: gate
+    type: GateModel
+    properties: {discharge_coefficient: 0.6, area: 1.0}
+    connections:
+      upstream_level: upstream_channel.output
+      downstream_level: 8.0
+      area: mpc_controller.output
+
+  - name: net_inflow_calculator
+    type: SummingPoint
+    connections: [gate.output, downstream_demand.output]
+    gains: [1, -1]
+
+  - name: downstream_channel
+    type: IntegralDelayModel
+    properties: {initial_outflow: 8.0, delay_steps: 8}
+    connections: {inflow: net_inflow_calculator.output}
+
+logging:
+  - time
+  - upstream_channel.output
+  - downstream_channel.output
+  - mpc_controller.output # Gate area
+  - upstream_inflow.output
+  - downstream_demand.output

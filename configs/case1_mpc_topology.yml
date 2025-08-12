@@ -1,0 +1,30 @@
+# System topology for Case 1: Single-Tank System with MPC
+
+components:
+  - name: mpc_controller
+    type: MPCController
+    properties:
+      A: [[0.8]]  # A = 1 - dt/T = 1 - 1.0/5.0
+      B: [[1.0]]  # B = dt
+      Q: [[1.0]]  # State weighting
+      R: [[0.1]]  # Input weighting
+      N: 10       # Prediction Horizon
+      setpoint: [1.0]
+      u_min: 0.0  # Minimum inflow is 0
+
+    connections:
+      measured_value: tank1.storage
+
+  - name: tank1
+    type: FirstOrderInertiaModel
+    properties:
+      initial_storage: 0.5
+      time_constant: 5.0
+    connections:
+      inflow: mpc_controller.output
+
+logging:
+  - time
+  - tank1.storage
+  - tank1.output  # Outflow
+  - mpc_controller.output # Inflow

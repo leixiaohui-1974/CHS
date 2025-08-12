@@ -1,0 +1,49 @@
+# System topology for Case 3: One Gate, One Channel with MPC Control
+# NOTE: This uses a simplified linear model for the MPC's internal prediction.
+
+components:
+  - name: inflow_to_channel
+    type: Disturbance
+
+  - name: channel
+    type: IntegralDelayModel
+    properties:
+      initial_outflow: 10.0
+      delay_steps: 5
+    connections:
+      inflow: inflow_to_channel.output
+
+  - name: mpc_controller
+    type: MPCController
+    properties:
+      # Simplified LTI model for MPC: x(k+1) = A*x(k) + B*u(k)
+      # State x is the channel outflow (proxy for level).
+      # Control input u is the gate area.
+      # This is a strong simplification. A = 1, B = -1 (increasing area decreases level)
+      A: [[1.0]]
+      B: [[-1.0]]
+      Q: [[1.0]]
+      R: [[0.5]] # Higher penalty on changing gate area
+      N: 10
+      setpoint: [10.0]
+      u_min: 0.0 # Gate area cannot be negative
+      u_max: 10.0 # Assume a maximum gate area
+    connections:
+      measured_value: channel.output
+
+  - name: gate
+    type: GateModel
+    properties:
+      discharge_coefficient: 0.6
+      area: 1.0 # Initial area
+    connections:
+      upstream_level: channel.output
+      downstream_level: 5.0
+      area: mpc_controller.output
+
+logging:
+  - time
+  - channel.output
+  - gate.output # Flow through the gate
+  - mpc_controller.output # Gate area
+  - inflow_to_channel.output

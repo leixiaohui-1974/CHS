@@ -1,0 +1,37 @@
+# System topology for Case 2: Two-Tank System with PID Control
+
+components:
+  - name: pid_controller
+    type: PIDController
+    properties:
+      kp: 2.0
+      ki: 0.1
+      kd: 0.5
+      setpoint: 5.0  # Setpoint for the second tank's level
+    connections:
+      # PID measures the storage of the second tank
+      measured_value: tank2.storage
+
+  - name: tank1
+    type: FirstOrderInertiaModel
+    properties:
+      initial_storage: 2.0
+      time_constant: 10.0
+    connections:
+      # Inflow to tank1 is the output of the controller
+      inflow: pid_controller.output
+
+  - name: tank2
+    type: FirstOrderInertiaModel
+    properties:
+      initial_storage: 4.0
+      time_constant: 8.0
+    connections:
+      # Inflow to tank2 is the outflow (output) of tank1
+      inflow: tank1.output
+
+logging:
+  - time
+  - tank1.storage
+  - tank2.storage
+  - pid_controller.output

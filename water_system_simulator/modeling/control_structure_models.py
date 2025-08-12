@@ -15,22 +15,28 @@ class GateModel:
         self.discharge_coefficient = discharge_coefficient
         self.area = area
         self.g = 9.81  # acceleration due to gravity
+        self.flow = 0.0 # Initial flow
 
-    def calculate_flow(self, upstream_level, downstream_level):
+    def step(self, upstream_level, downstream_level, area):
         """
-        Calculates the flow through the gate.
+        Calculates the flow through the gate for the current time step.
 
         Args:
             upstream_level (float): The water level upstream of the gate.
             downstream_level (float): The water level downstream of the gate.
+            area (float): The area of the gate opening.
 
         Returns:
             float: The flow rate through the gate.
         """
+        self.area = area # Update area state
         head_diff = upstream_level - downstream_level
-        if head_diff <= 0:
+        if head_diff <= 0 or self.area <=0:
+            self.flow = 0.0
             return 0.0
-        return self.discharge_coefficient * self.area * np.sqrt(2 * self.g * head_diff)
+
+        self.flow = self.discharge_coefficient * self.area * np.sqrt(2 * self.g * head_diff)
+        return self.flow
 
 class PumpModel:
     """

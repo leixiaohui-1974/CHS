@@ -1,0 +1,59 @@
+# System topology for Case 4: Mixed PID Control
+
+components:
+  - name: upstream_inflow
+    type: Disturbance
+  - name: downstream_demand
+    type: Disturbance
+
+  - name: upstream_channel
+    type: IntegralDelayModel
+    properties:
+      initial_outflow: 10.0
+      delay_steps: 5
+    connections:
+      inflow: upstream_inflow.output
+
+  # PID for upstream control
+  - name: pid_upstream
+    type: PIDController
+    properties: {kp: -0.1, ki: -0.01, kd: -0.02, setpoint: 10.0}
+    connections: {measured_value: upstream_channel.output}
+
+  # PID for downstream control
+  - name: pid_downstream
+    type: PIDController
+    properties: {kp: -0.05, ki: -0.005, kd: -0.01, setpoint: 8.0}
+    connections: {measured_value: downstream_channel.output}
+
+  # Summing point to combine PID outputs
+  - name: pid_combiner
+    type: SummingPoint
+    connections: [pid_upstream.output, pid_downstream.output]
+    gains: [0.5, 0.5] # Simple average of the two controller outputs
+
+  - name: gate
+    type: GateModel
+    properties: {discharge_coefficient: 0.6, area: 1.0}
+    connections:
+      upstream_level: upstream_channel.output
+      downstream_level: 8.0
+      area: pid_combiner.output
+
+  - name: net_inflow_calculator
+    type: SummingPoint
+    connections: [gate.output, downstream_demand.output]
+    gains: [1, -1]
+
+  - name: downstream_channel
+    type: IntegralDelayModel
+    properties: {initial_outflow: 8.0, delay_steps: 8}
+    connections: {inflow: net_inflow_calculator.output}
+
+logging:
+  - time
+  - upstream_channel.output
+  - downstream_channel.output
+  - gate.area
+  - upstream_inflow.output
+  - downstream_demand.output

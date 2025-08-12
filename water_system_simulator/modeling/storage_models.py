@@ -16,6 +16,7 @@ class IntegralDelayModel:
         self.outflow = initial_outflow
         self.delay_steps = delay_steps
         self.inflow_history = np.zeros(delay_steps)
+        self.output = initial_outflow # Standardized output attribute
 
     def step(self, inflow):
         """
@@ -34,7 +35,8 @@ class IntegralDelayModel:
         # In this simple model, outflow is equal to the delayed inflow.
         # A more complex model could include storage effects.
         self.outflow = delayed_inflow
-        return self.outflow
+        self.output = self.outflow # Update standardized output
+        return self.output
 
 class FirstOrderInertiaModel:
     """
@@ -51,6 +53,7 @@ class FirstOrderInertiaModel:
         """
         self.storage = initial_storage
         self.time_constant = time_constant
+        self.output = initial_storage / time_constant if time_constant else 0.0
 
     def step(self, inflow):
         """
@@ -69,4 +72,5 @@ class FirstOrderInertiaModel:
         d_storage_dt = inflow - outflow
         self.storage += d_storage_dt
 
-        return outflow
+        self.output = outflow
+        return self.output
