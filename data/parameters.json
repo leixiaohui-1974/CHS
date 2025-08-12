@@ -1,0 +1,40 @@
+{
+  "SubBasin1": {
+    "runoff_model": "Xinanjiang",
+    "runoff_parameters": {
+      "K": 0.2, "C": 0.6, "L": 10, "IM": 0.1, "WM": 100, "B": 0.3
+    },
+    "routing_model": "Muskingum",
+    "routing_parameters": {
+      "K": 12, "x": 0.2, "dt": 1
+    },
+    "human_activity_model": {
+      "enabled": true,
+      "parameters": {
+        "initial_interception_capacity_mm": 15.0,
+        "interception_decay_rate": 0.1
+      }
+    }
+  },
+  "SubBasin2": {
+    "runoff_model": "Xinanjiang",
+    "runoff_parameters": {
+      "K": 0.25, "C": 0.55, "L": 12, "IM": 0.05, "WM": 120, "B": 0.35
+    },
+    "routing_model": "Muskingum",
+    "routing_parameters": {
+      "K": 15, "x": 0.2, "dt": 1
+    }
+  },
+  "Reservoir1": {
+    "storage_model": "LinearReservoir",
+    "parameters": {
+      "initial_storage_m3": 1000000,
+      "time_constant_hr": 50
+    },
+    "routing_model": "Muskingum",
+    "routing_parameters": {
+      "K": 5, "x": 0.1, "dt": 1
+    }
+  }
+}
