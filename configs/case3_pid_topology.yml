@@ -5,12 +5,15 @@ components:
     type: Disturbance
 
   - name: channel
-    type: IntegralDelayModel
+    type: MuskingumChannelModel
     properties:
+      K: 5.0
+      x: 0.2
+      dt: 1.0
+      initial_inflow: 10.0
       initial_outflow: 10.0
-      delay_steps: 5
     connections:
-      inflow: inflow_to_channel.output
+      inflow_current: inflow_to_channel.output
 
   - name: pid_controller
     type: PIDController
@@ -19,6 +22,8 @@ components:
       ki: -0.01
       kd: -0.02
       setpoint: 10.0
+      output_min: 0.0
+      output_max: 10.0
     connections:
       measured_value: channel.output
 

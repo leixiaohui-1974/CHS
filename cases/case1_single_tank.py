@@ -6,6 +6,7 @@ import os
 from water_system_simulator.engine import Simulator
 from water_system_simulator.identification.least_squares import identify_time_constant
 from water_system_simulator.modeling.storage_models import FirstOrderInertiaModel
+from water_system_simulator.control.kalman_filter import KalmanFilter
 
 def run_identification_test(dt: float):
     """
@@ -96,6 +97,62 @@ def run_control_simulations():
         print(f"Could not find log file for plotting: {e}")
 
 
+def run_kalman_filter_test(dt: float):
+    """
+    Generates noisy data and uses the Kalman Filter to estimate the state.
+    """
+    print("\n--- Running Kalman Filter State Estimation Test ---")
+    # System parameters
+    time_constant = 5.0
+    A = np.array([[1 - dt / time_constant]])
+    B = np.array([[dt]])
+    H = np.array([[1.0]]) # We measure the state directly
+
+    # Noise parameters
+    process_noise_std = 0.1
+    measurement_noise_std = 0.5
+    Q = np.array([[process_noise_std**2]]) # Process noise covariance
+    R = np.array([[measurement_noise_std**2]]) # Measurement noise covariance
+
+    # Simulation setup
+    duration = 100
+    tank = FirstOrderInertiaModel(initial_storage=0.5, time_constant=time_constant)
+    inflow_data = np.sin(np.linspace(0, 20, int(duration/dt))) * 2.0 + 2.5
+
+    true_storage = []
+    noisy_measurements = []
+
+    for inflow in inflow_data:
+        # Add process noise to the inflow
+        true_output = tank.step(inflow + np.random.normal(0, process_noise_std))
+        true_storage.append(tank.storage)
+        # Add measurement noise
+        noisy_measurements.append(tank.storage + np.random.normal(0, measurement_noise_std))
+
+    # Kalman Filter setup
+    kf = KalmanFilter(F=A, H=H, Q=Q, R=R, x0=np.array([0.5]), P0=np.eye(1))
+    estimated_storage = []
+
+    for z in noisy_measurements:
+        kf.predict()
+        estimated_state = kf.update(np.array([z]))
+        estimated_storage.append(estimated_state[0])
+
+    # Plot the results
+    plt.figure(figsize=(14, 8))
+    plt.plot(true_storage, label='True Storage', color='blue')
+    plt.plot(noisy_measurements, 'x', label='Noisy Measurements', color='gray', alpha=0.6)
+    plt.plot(estimated_storage, label='Kalman Filter Estimate', color='red', linestyle='--')
+    plt.title('Case 1: Kalman Filter State Estimation')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Water Level (m)')
+    plt.legend()
+    plt.grid(True)
+    plot_file = 'case1_kalman_filter_test.png'
+    plt.savefig(f"results/{plot_file}")
+    print(f"Kalman filter test plot saved to results/{plot_file}")
+
+
 def main():
     """Main function to run Case Study 1."""
     # Ensure results directory exists
@@ -103,6 +160,7 @@ def main():
         os.makedirs('results')
 
     run_identification_test(dt=1.0)
+    run_kalman_filter_test(dt=1.0)
     run_control_simulations()
 
 

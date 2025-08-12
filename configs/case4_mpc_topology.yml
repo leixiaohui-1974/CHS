@@ -8,26 +8,17 @@ components:
     type: Disturbance
 
   - name: upstream_channel
-    type: IntegralDelayModel
-    properties:
-      initial_outflow: 10.0
-      delay_steps: 5
-    connections:
-      inflow: upstream_inflow.output
+    type: MuskingumChannelModel
+    properties: {K: 5.0, x: 0.1, dt: 1.0, initial_inflow: 10.0, initial_outflow: 10.0}
+    connections: {inflow_current: upstream_inflow.output}
 
   - name: mpc_controller
     type: MPCController
     properties:
-      # Simplified LTI model: x(k+1) = Ax(k) + Bu(k)
-      # State x = [upstream_level, downstream_level]
-      # Control u = [gate_area]
-      A: [[1.0, 0.0],
-          [0.0, 1.0]]
-      B: [[-0.5], # Gate area has a negative effect on upstream level
-          [-0.2]] # and a smaller negative effect on downstream level (simplified)
-      Q: [[1.0, 0.0],   # Weight on upstream level error
-          [0.0, 1.0]]   # Weight on downstream level error
-      R: [[0.2]] # Penalty on changing gate area
+      A: [[1.0, 0.0], [0.0, 1.0]]
+      B: [[-0.5], [-0.2]]
+      Q: [[1.0, 0.0], [0.0, 1.0]]
+      R: [[0.2]]
       N: 15
       setpoint: [10.0, 8.0]
       u_min: 0.0
@@ -49,9 +40,9 @@ components:
     gains: [1, -1]
 
   - name: downstream_channel
-    type: IntegralDelayModel
-    properties: {initial_outflow: 8.0, delay_steps: 8}
-    connections: {inflow: net_inflow_calculator.output}
+    type: MuskingumChannelModel
+    properties: {K: 8.0, x: 0.06, dt: 1.0, initial_inflow: 8.0, initial_outflow: 8.0}
+    connections: {inflow_current: net_inflow_calculator.output}
 
 logging:
   - time

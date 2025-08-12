@@ -30,7 +30,7 @@ class Simulator:
         """Dynamically imports a class from a string name."""
         # A mapping from class names to their modules
         module_map = {
-            'IntegralDelayModel': 'water_system_simulator.modeling.storage_models',
+            'MuskingumChannelModel': 'water_system_simulator.modeling.storage_models',
             'FirstOrderInertiaModel': 'water_system_simulator.modeling.storage_models',
             'GateModel': 'water_system_simulator.modeling.control_structure_models',
             'PumpModel': 'water_system_simulator.modeling.control_structure_models',
