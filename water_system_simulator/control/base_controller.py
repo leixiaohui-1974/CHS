@@ -9,7 +9,7 @@ class BaseController(ABC):
         super().__init__()
 
     @abstractmethod
-    def calculate(self, *args, **kwargs):
+    def step(self, *args, **kwargs):
         """
         Represents a single time step of the controller's execution.
 

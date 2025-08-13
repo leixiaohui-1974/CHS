@@ -5,7 +5,7 @@ class MuskingumChannelModel(BaseModel):
     """
     Represents a channel reach using the Muskingum routing model.
     """
-    def __init__(self, K: float, x: float, dt: float, initial_inflow: float, initial_outflow: float):
+    def __init__(self, K: float, x: float, dt: float, initial_inflow: float, initial_outflow: float, **kwargs):
         """
         Initializes the Muskingum channel model.
 
@@ -16,6 +16,7 @@ class MuskingumChannelModel(BaseModel):
             initial_inflow (float): The initial inflow to the reach.
             initial_outflow (float): The initial outflow from the reach.
         """
+        super().__init__(**kwargs)
         self.K = K
         self.x = x
         self.dt = dt
@@ -39,7 +40,7 @@ class MuskingumChannelModel(BaseModel):
              print(f"Warning: Muskingum parameters may lead to instability. "
                    f"Ensure 2*K*x ({2*self.K*self.x:.2f}) <= dt ({self.dt:.2f}).")
 
-    def step(self, inflow: float):
+    def step(self, inflow: float, **kwargs):
         """
         Performs a single routing step.
         O_t+1 = C1*I_t+1 + C2*I_t + C3*O_t
@@ -73,7 +74,7 @@ class FirstOrderInertiaModel(BaseModel):
     Represents a storage object with first-order inertia characteristics.
     This model can represent a reservoir or a lake.
     """
-    def __init__(self, initial_storage, time_constant, solver_class, dt):
+    def __init__(self, initial_storage, time_constant, solver_class, dt, **kwargs):
         """
         Initializes the first-order inertia model.
 
@@ -83,6 +84,7 @@ class FirstOrderInertiaModel(BaseModel):
             solver_class: The class of the numerical solver to use (e.g., EulerIntegrator).
             dt (float): The simulation time step.
         """
+        super().__init__(**kwargs)
         self.storage = initial_storage
         self.time_constant = time_constant
         self.inflow = 0 # To be set by the engine at each step
@@ -95,7 +97,7 @@ class FirstOrderInertiaModel(BaseModel):
         self.solver = solver_class(f=ode_func, dt=dt)
         self.output = initial_storage / time_constant if time_constant > 0 else 0
 
-    def step(self, inflow, t):
+    def step(self, inflow, t, **kwargs):
         """
         Performs a single simulation step using the selected solver.
 

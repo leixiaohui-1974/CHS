@@ -5,17 +5,17 @@ class ConstantHeadReservoir(BaseModel):
     A simple boundary condition model that represents a reservoir with a constant water level (head).
     Its output is always the same, regardless of inputs.
     """
-    def __init__(self, level: float):
+    def __init__(self, level: float, **kwargs):
         """
         Initializes the constant head reservoir.
 
         Args:
             level (float): The constant water level (head) in meters.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.output = level  # The output is the constant level.
 
-    def step(self):
+    def step(self, **kwargs):
         """
         The step method does nothing as the level is constant.
         """

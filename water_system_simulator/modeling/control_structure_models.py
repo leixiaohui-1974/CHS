@@ -6,7 +6,7 @@ class GateStationModel(BaseModel):
     Represents a station with multiple identical sluice gates.
     Calculates flow based on the gate opening and upstream water level.
     """
-    def __init__(self, num_gates: int, gate_width: float, discharge_coeff: float):
+    def __init__(self, num_gates: int, gate_width: float, discharge_coeff: float, **kwargs):
         """
         Initializes the Gate Station model.
 
@@ -15,7 +15,7 @@ class GateStationModel(BaseModel):
             gate_width (float): The width of a single gate (m).
             discharge_coeff (float): The discharge coefficient for the gates (dimensionless).
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.num_gates = num_gates
         self.gate_width = gate_width
         self.discharge_coeff = discharge_coeff
@@ -23,7 +23,7 @@ class GateStationModel(BaseModel):
         self.flow = 0.0
         self.output = self.flow
 
-    def step(self, upstream_level: float, gate_opening: float):
+    def step(self, upstream_level: float, gate_opening: float, **kwargs):
         """
         Calculates the total flow for the next time step.
 
@@ -48,7 +48,7 @@ class PumpStationModel(BaseModel):
     Represents a pump station with one or more pumps operating in parallel.
     The pump's performance is defined by a characteristic curve (head vs. flow).
     """
-    def __init__(self, num_pumps_total: int, curve_coeffs: list, initial_num_pumps_on: int = 1):
+    def __init__(self, num_pumps_total: int, curve_coeffs: list, initial_num_pumps_on: int = 1, **kwargs):
         """
         Initializes the Pump Station model.
 
@@ -57,7 +57,7 @@ class PumpStationModel(BaseModel):
             curve_coeffs (list): For Flow = a*Head^2 + b*Head + c.
             initial_num_pumps_on (int, optional): Number of pumps initially running.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         if len(curve_coeffs) != 3:
             raise ValueError("curve_coeffs must be a list of 3 numbers [a, b, c].")
         self.num_pumps_total = num_pumps_total
@@ -72,7 +72,7 @@ class PumpStationModel(BaseModel):
         flow = a * head_diff**2 + b * head_diff + c
         return max(0, flow)
 
-    def step(self, inlet_pressure: float, outlet_pressure: float, num_pumps_on: int = None):
+    def step(self, inlet_pressure: float, outlet_pressure: float, num_pumps_on: int = None, **kwargs):
         """
         Calculates the total flow for the next time step.
         """
@@ -92,7 +92,7 @@ class HydropowerStationModel(BaseModel):
     Represents a hydropower station.
     Calculates outflow and power generation based on head and guide vane opening.
     """
-    def __init__(self, max_flow_area: float, discharge_coeff: float, efficiency: float):
+    def __init__(self, max_flow_area: float, discharge_coeff: float, efficiency: float, **kwargs):
         """
         Initializes the Hydropower Station model.
 
@@ -101,7 +101,7 @@ class HydropowerStationModel(BaseModel):
             discharge_coeff (float): Discharge coefficient (dimensionless).
             efficiency (float): Overall efficiency of the turbine-generator set.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.max_flow_area = max_flow_area
         self.discharge_coeff = discharge_coeff
         self.efficiency = efficiency
@@ -111,7 +111,7 @@ class HydropowerStationModel(BaseModel):
         self.power = 0.0
         self.output = self.flow
 
-    def step(self, upstream_level: float, downstream_level: float, vane_opening: float):
+    def step(self, upstream_level: float, downstream_level: float, vane_opening: float, **kwargs):
         """
         Calculates the outflow and power generation for the next time step.
         """
