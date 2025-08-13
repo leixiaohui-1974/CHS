@@ -18,3 +18,10 @@ class BaseModel(ABC):
         update the internal state of the model and return its primary output.
         """
         pass
+
+    @abstractmethod
+    def get_state(self):
+        """
+        Returns a dictionary of the model's current state.
+        """
+        pass

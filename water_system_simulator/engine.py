@@ -42,6 +42,8 @@ class Simulator:
         self.components = {}
         self.component_order = []
         self.log_config = self.topology.get('logging', [])
+        self.solver_class = None
+        self.dt = self.topology.get('dt', 1.0) # Get dt from config, default to 1.0
 
         self._build_system()
         print("System built successfully.")
@@ -60,6 +62,13 @@ class Simulator:
                  module_path = 'water_system_simulator.modeling.storage_models'
         elif 'Filter' in class_name:
             module_path = 'water_system_simulator.control.kalman_filter'
+        elif 'Integrator' in class_name:
+            # A bit of a guess, assuming all solvers end in 'Integrator'
+            module_name = class_name.replace('Integrator', '_integrator').lower()
+            if 'rk4' in module_name:
+                 module_path = 'water_system_simulator.basic_tools.rk4_solver'
+            else:
+                 module_path = 'water_system_simulator.basic_tools.solvers'
         else:
             raise ImportError(f"Unknown component type for class name: {class_name}")
 
@@ -73,6 +82,11 @@ class Simulator:
         """
         Constructs the system of components from the parsed topology and applies control parameters.
         """
+        # Load the specified solver, default to Euler
+        solver_name = self.topology.get('solver', 'EulerIntegrator')
+        self.solver_class = self._get_class_from_string(solver_name)
+        print(f"Using solver: {solver_name}")
+
         component_configs = self.topology.get('components', [])
         if not component_configs:
             raise ValueError("No components defined in topology file.")
@@ -87,19 +101,22 @@ class Simulator:
 
             properties = config.get('properties', {})
 
-            # If it's a controller, inject parameters from control_parameters.yaml
             if 'Controller' in comp_type:
-                # First, try to find parameters matching the component's specific name
                 param_key_specific = f"{name}_params"
                 if param_key_specific in self.control_params:
                     properties.update(self.control_params[param_key_specific])
                 else:
-                    # If not found, fall back to a generic key based on the class type
                     param_key_generic = f"{comp_type.replace('Controller', '').lower()}_params"
                     if param_key_generic in self.control_params:
                         properties.update(self.control_params[param_key_generic])
 
             component_class = self._get_class_from_string(comp_type)
+
+            # If the model requires a solver, inject it
+            if 'solver_class' in inspect.signature(component_class.__init__).parameters:
+                properties['solver_class'] = self.solver_class
+                properties['dt'] = self.dt
+
             self.components[name] = component_class(**properties)
             self.component_order.append(name)
 
@@ -126,13 +143,13 @@ class Simulator:
              raise AttributeError(f"Component '{comp_name}' has no attribute '{attr_name}'.")
         return getattr(component, attr_name)
 
-    def run(self, duration: int, dt: float, log_file_prefix: str):
+    def run(self, duration: int, log_file_prefix: str):
         """
         Runs the simulation.
         """
         log_file = f"{log_file_prefix}_log.csv"
-        print(f"Starting simulation for {self.case_path}, duration={duration}s, dt={dt}s...")
-        n_steps = int(duration / dt)
+        print(f"Starting simulation for {self.case_path}, duration={duration}s, dt={self.dt}s...")
+        n_steps = int(duration / self.dt)
 
         logger = CSVLogger(os.path.join('results', log_file), self.log_config)
 
@@ -141,7 +158,7 @@ class Simulator:
         next_disturbance = next(disturbance_iterator, None)
 
         for i in range(n_steps):
-            t = i * dt
+            t = i * self.dt
             step_values = {'time': t}
 
             if next_disturbance and t >= next_disturbance['time']:
@@ -189,7 +206,9 @@ class Simulator:
                             kwargs[param_name] = self._get_connection_value(value_source, step_values)
 
                 if 'dt' in method_params:
-                    kwargs['dt'] = dt
+                    kwargs['dt'] = self.dt
+                if 't' in method_params:
+                    kwargs['t'] = t
 
                 output = method(**kwargs)
                 step_values[f"{comp_name}.output"] = output

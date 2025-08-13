@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import cho_factor, cho_solve
 
 class KalmanFilter:
     """
@@ -41,13 +42,15 @@ class KalmanFilter:
         y = z - self.H @ self.x
         S = self.H @ self.P @ self.H.T + self.R
 
-        # Solve for Kalman gain K using a more stable method than direct inversion
-        # We want to compute K = self.P @ self.H.T @ inv(S)
-        # This is equivalent to solving the system S.T @ K.T = (self.P @ self.H.T).T
-        # Since S is symmetric (S = S.T), we solve S @ K.T = H @ P
-        C = self.P @ self.H.T
-        K_T = np.linalg.solve(S, C.T)
-        K = K_T.T
+        # Solve for Kalman gain K using Cholesky decomposition, which is highly
+        # stable and efficient for symmetric positive definite matrices like S.
+        try:
+            L, low = cho_factor(S)
+            K_T = cho_solve((L, low), self.P @ self.H.T)
+            K = K_T.T
+        except np.linalg.LinAlgError:
+            # Fallback to pseudo-inverse if Cholesky fails (e.g., S is not pos-def)
+            K = self.P @ self.H.T @ np.linalg.pinv(S)
 
         self.x = self.x + K @ y
         self.P = (np.eye(self.P.shape[0]) - K @ self.H) @ self.P

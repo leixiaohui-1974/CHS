@@ -61,39 +61,60 @@ class MuskingumChannelModel(BaseModel):
 
         return self.output
 
+    def get_state(self):
+        return {
+            "inflow_prev": self.inflow_prev,
+            "outflow_prev": self.outflow_prev,
+            "output": self.output
+        }
+
 class FirstOrderInertiaModel(BaseModel):
     """
     Represents a storage object with first-order inertia characteristics.
     This model can represent a reservoir or a lake.
     """
-    def __init__(self, initial_storage, time_constant):
+    def __init__(self, initial_storage, time_constant, solver_class, dt):
         """
         Initializes the first-order inertia model.
 
         Args:
             initial_storage (float): The initial storage of the object.
             time_constant (float): The time constant of the model (T).
+            solver_class: The class of the numerical solver to use (e.g., EulerIntegrator).
+            dt (float): The simulation time step.
         """
         self.storage = initial_storage
         self.time_constant = time_constant
-        self.output = initial_storage / time_constant if time_constant else 0.0
+        self.inflow = 0 # To be set by the engine at each step
 
-    def step(self, inflow):
+        # The ODE function for this model
+        def ode_func(t, y):
+            outflow = y / self.time_constant if self.time_constant > 0 else 0
+            return self.inflow - outflow
+
+        self.solver = solver_class(f=ode_func, dt=dt)
+        self.output = initial_storage / time_constant if time_constant > 0 else 0
+
+    def step(self, inflow, t):
         """
-        Performs a single simulation step.
+        Performs a single simulation step using the selected solver.
 
         Args:
             inflow (float): The inflow to the object at the current time step.
+            t (float): The current simulation time.
 
         Returns:
             float: The outflow from the object at the current time step.
         """
-        # The outflow is proportional to the storage.
-        outflow = self.storage / self.time_constant
+        self.inflow = inflow # Update inflow for the ODE function
+        self.storage = self.solver.step(t, self.storage)
 
-        # Update storage based on inflow and outflow.
-        d_storage_dt = inflow - outflow
-        self.storage += d_storage_dt
-
+        outflow = self.storage / self.time_constant if self.time_constant > 0 else 0
         self.output = outflow
         return self.output
+
+    def get_state(self):
+        return {
+            "storage": self.storage,
+            "output": self.output
+        }

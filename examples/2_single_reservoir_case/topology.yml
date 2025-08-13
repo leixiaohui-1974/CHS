@@ -1,6 +1,9 @@
 # System topology for Case 2: Single Reservoir
 # Controller properties are defined in control_parameters.yaml
 
+solver: RK4Integrator
+dt: 1.0
+
 components:
   - name: pid_controller
     type: PIDController
