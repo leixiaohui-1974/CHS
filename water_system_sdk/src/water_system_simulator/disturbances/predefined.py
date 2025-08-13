@@ -45,6 +45,7 @@ class Disturbance(BaseModel):
 
         # For 'constant', the output never changes from its initial value.
         self.output = self.state.output
+        return self.output
 
     def get_state(self):
         """Returns the current state of the component."""

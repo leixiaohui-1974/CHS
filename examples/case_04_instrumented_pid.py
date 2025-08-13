@@ -1,181 +1,181 @@
-import sys
-import os
 import matplotlib.pyplot as plt
-import pandas as pd
+from water_system_simulator.simulation_manager import SimulationManager
+import os
+import sys
 
-# Adjust the path to import the SDK. The root of the package is the 'src' directory.
-# This allows the relative imports within the SDK to work correctly.
+# This is a temporary solution to make the script runnable without installing the package.
+# A proper setup would involve installing the package in editable mode.
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'water_system_sdk', 'src')))
 
-from water_system_simulator.simulation_manager import SimulationManager
 
-
-def main():
+def run_case_04():
     """
-    This example demonstrates a more realistic closed-loop control system
-    by introducing sensor and actuator models.
-
-    System components:
-    - A Reservoir.
-    - A PID controller to regulate the reservoir's water level.
-    - A LevelSensor that adds noise to the water level measurement.
-    - A GateActuator that simulates the slow movement of a control gate.
-    - A GateStation that releases water based on the actuator's position.
+    Runs Case 04: Instrumented PID control of a single reservoir.
+    This case demonstrates:
+    - A LevelSensor with noise.
+    - A GateActuator with a travel time.
+    - A more complex execution logic using dictionaries.
     """
-    print("--- Setting up instrumented PID control simulation ---")
-
-    # This configuration demonstrates the new "Instrument Layer" and the
-    # expressive execution order.
-    sdk_config = {
+    # 1. Define the simulation configuration
+    config = {
         "simulation_params": {
-            "total_time": 2000,
-            "dt": 1.0,
+            "total_time": 1000,
+            "dt": 1.0
         },
         "components": {
-            "main_reservoir": {
-                "type": "ReservoirModel",
-                "params": {
-                    "area": 150.0,
-                    "initial_level": 5.0,
-                    # Constant inflow to the reservoir
-                    "inflow": 10.0
-                }
+            "outflow_dist": {
+                "type": "Disturbance",
+                "params": {"signal_type": "constant", "value": 8.0}
             },
-            "outlet_gate": {
-                "type": "GateStationModel",
-                "params": {
-                    "num_gates": 1,
-                    "gate_width": 5.0,
-                    "discharge_coeff": 0.6,
-                    # NOTE: For this example, we assume gate_opening is a ratio (0-1)
-                    # directly matching the actuator output. A real system would
-                    # scale this to a physical height.
-                }
+            "reservoir": {
+                "type": "ReservoirModel",
+                "params": {"area": 150.0, "initial_level": 5.0}
             },
             "level_sensor": {
                 "type": "LevelSensor",
+                "params": {"noise_std_dev": 0.15} # 15cm stdev noise
+            },
+            "pid": {
+                "type": "PIDController",
                 "params": {
-                    "noise_std_dev": 0.05 # 5cm of noise
+                    "Kp": 0.05, "Ki": 0.01, "Kd": 0.01,
+                    "set_point": 10.0,
+                    "output_min": 0.0, "output_max": 1.0 # PID output is gate position command
                 }
             },
             "gate_actuator": {
                 "type": "GateActuator",
                 "params": {
-                    "travel_time": 300.0, # 5 minutes for full travel
+                    "travel_time": 120.0, # 2 minutes for full travel
                     "initial_position": 0.1
                 }
             },
-            "pid_controller": {
-                "type": "PIDController",
+            "inflow_gate": {
+                "type": "GateStationModel",
                 "params": {
-                    "Kp": 0.8,
-                    "Ki": 0.03,
-                    "Kd": 0.1,
-                    "set_point": 10.0,
-                    "output_min": 0.0,
-                    "output_max": 1.0 # Output is a gate position command
+                    "num_gates": 2,
+                    "gate_width": 2.0,
+                    "discharge_coeff": 0.8,
                 }
             }
         },
-        "connections": [
-            # The noisy sensor measurement is the input to the PID controller
-            {
-                "source": "level_sensor.measured_value",
-                "target": "pid_controller.input.error_source"
-            },
-            # The flow from the gate is the outflow of the reservoir
-            {
-                "source": "outlet_gate.flow",
-                "target": "main_reservoir.input.outflow"
-            }
-        ],
+        # NOTE: Using the expressive dictionary-based execution order exclusively.
         "execution_order": [
-            # 1. Measure the true value from the reservoir. The result is stored
-            #    in the sensor's 'measured_value' attribute.
+            # 1. Measure the true reservoir level with the noisy sensor.
+            #    The result is stored in `level_sensor.output`.
             {
                 "component": "level_sensor",
-                "method": "measure",
-                "args": { "true_value": "main_reservoir.state.level" }
+                "method": "step",
+                "args": {"true_value": "reservoir.output"}
             },
-            # 2. The PID controller runs. Its input is already connected via the
-            #    'connections' block.
-            "pid_controller",
-            # 3. The actuator moves based on the PID's command.
+            # 2. PID calculates a new target gate position based on the *sensed* level.
             {
-                "component": "gate_actuator",
+                "component": "pid",
                 "method": "step",
                 "args": {
-                    "command": "pid_controller.state.output",
+                    "error_source": "level_sensor.output",
                     "dt": "simulation.dt"
                 }
             },
-            # 4. The gate's flow is calculated based on the actuator's actual
-            #    position and the reservoir's current water level.
+            # 3. Actuator moves the gate towards the target position over dt.
+            #    The result is stored in `gate_actuator.output`.
             {
-                "component": "outlet_gate",
+                "component": "gate_actuator",
+                "method": "step",
+                "args": {"command": "pid.output", "dt": "simulation.dt"}
+            },
+            # 4. Gate model calculates inflow based on actuator's actual position
+            #    and the reservoir's own level (as upstream_level).
+            #    We assume the actuator's 0-1 output can be used as 'gate_opening'.
+            #    The result is stored in `inflow_gate.output` and then copied to reservoir input.
+            {
+                "component": "inflow_gate",
                 "method": "step",
                 "args": {
-                    "upstream_level": "main_reservoir.state.level",
-                    "gate_opening": "gate_actuator.current_position"
-                }
+                    "upstream_level": 12.0,
+                    "gate_opening": "gate_actuator.output"
+                },
+                "result_to": "reservoir.input.inflow"
             },
-            # 5. Finally, the reservoir's state is updated.
-            "main_reservoir"
+            # 5. Update the disturbance and apply it as outflow.
+            {
+                "component": "outflow_dist",
+                "method": "step",
+                "args": {"t": "simulation.t"},
+                "result_to": "reservoir.input.demand_outflow"
+            },
+            # 6. Finally, update the reservoir itself using the new inflow/outflow.
+            {
+                "component": "reservoir",
+                "method": "step",
+                "args": {"dt": "simulation.dt"}
+            }
         ],
         "logger_config": [
-            "main_reservoir.state.level",
-            "level_sensor.measured_value",
-            "pid_controller.set_point",
-            "gate_actuator.current_position",
-            "pid_controller.state.output"
+            "reservoir.output",
+            "level_sensor.output",
+            "pid.output",
+            "gate_actuator.output",
+            "inflow_gate.output"
         ]
     }
 
-    print("--- Initializing SimulationManager ---")
-    # The SimulationManager now needs the config passed at run time
+    # 2. Initialize and run the simulation
     manager = SimulationManager()
+    results_df = manager.run(config)
 
-    print("--- Running simulation ---")
-    results_df = manager.run(config=sdk_config)
+    # 3. Plot the results
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 10), sharex=True)
 
-    print("--- Simulation finished. Plotting results. ---")
-
-    # --- Plotting ---
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 12), sharex=True)
-
-    # Subplot 1: Water Level Control
-    ax1.plot(results_df["time"], results_df["main_reservoir.state.level"], label="True Water Level", color='blue', linewidth=2)
-    ax1.plot(results_df["time"], results_df["level_sensor.measured_value"], label="Measured Water Level", color='skyblue', linestyle='--', alpha=0.7)
-    ax1.axhline(y=sdk_config["components"]["pid_controller"]["params"]["set_point"], color='r', linestyle='--', label="Setpoint")
-    ax1.set_title("Reservoir Level Control with Sensor Noise")
-    ax1.set_ylabel("Water Level (m)")
+    # Subplot 1: Water Levels
+    ax1.plot(results_df['time'], results_df['reservoir.output'], 'b-', linewidth=2, label='True Water Level (m)')
+    ax1.plot(results_df['time'], results_df['level_sensor.output'], 'k.', markersize=2, alpha=0.8, label='Sensed Water Level (m)')
+    ax1.axhline(y=config['components']['pid']['params']['set_point'], color='r', linestyle='--', label='Setpoint (10m)')
+    ax1.set_ylabel('Water Level (m)')
     ax1.legend()
     ax1.grid(True)
+    ax1.set_title('Case 04: Instrumented PID Control Simulation')
 
-    # Subplot 2: Actuator and PID Output
-    ax2.plot(results_df["time"], results_df["pid_controller.state.output"], label="PID Output (Commanded Position)", color='green', linestyle='--')
-    ax2.plot(results_df["time"], results_df["gate_actuator.current_position"], label="Actuator Position (Actual)", color='purple', linewidth=2)
-    ax2.set_title("Gate Actuator Response")
-    ax2.set_ylabel("Gate Position (0-1)")
-    ax2.set_xlabel("Time (s)")
-    ax2.legend()
+    # Subplot 2: Actuator and Controller
+    ax2.plot(results_df['time'], results_df['pid.output'], 'g--', label='PID Command (Target Position)')
+    ax2.plot(results_df['time'], results_df['gate_actuator.output'], 'm-', linewidth=2, label='Actual Gate Position (0-1)')
+    ax2.set_xlabel('Time (s)')
+    ax2.set_ylabel('Normalized Position')
+    ax2.legend(loc='upper left')
     ax2.grid(True)
 
-    plt.tight_layout()
+    # Second y-axis for inflow
+    ax2b = ax2.twinx()
+    ax2b.plot(results_df['time'], results_df['inflow_gate.output'], 'c:', label='Inflow (m³/s)')
+    ax2b.set_ylabel('Flow Rate (m³/s)', color='c')
+    ax2b.tick_params(axis='y', labelcolor='c')
+    ax2b.legend(loc='upper right')
 
-    # Save the plot
-    output_filename = "case_04_instrumented_pid.png"
+    fig.tight_layout()
+
+    # Save the figure
+    os.makedirs("results", exist_ok=True)
+    output_filename = "results/case_04_instrumented_pid.png"
     plt.savefig(output_filename)
     print(f"Plot saved to {output_filename}")
 
-    # Check for simulation success
-    final_level = results_df["main_reservoir.state.level"].iloc[-1]
-    set_point = sdk_config["components"]["pid_controller"]["params"]["set_point"]
-    if abs(final_level - set_point) < 0.5:
-        print("Example script finished successfully: Final level is close to setpoint.")
-    else:
-        print(f"Warning: Final level ({final_level:.2f}) is not close to setpoint ({set_point:.2f}).")
+    # Verification
+    final_level = results_df['reservoir.output'].iloc[-1]
+    set_point = config['components']['pid']['params']['set_point']
+    print(f"Final water level: {final_level:.2f} m")
+    print(f"Setpoint: {set_point:.2f} m")
+    # Check if the level settles close to the setpoint (with some tolerance for noise)
+    assert abs(final_level - set_point) < 0.5, "Verification failed: Level did not settle near setpoint."
+
+    final_inflow = results_df['inflow_gate.output'].iloc[-1]
+    final_outflow = config['components']['outflow_dist']['params']['value']
+    print(f"Final inflow: {final_inflow:.2f} m³/s")
+    print(f"Final outflow: {final_outflow:.2f} m³/s")
+    # Check if inflow stabilizes to match outflow (with some tolerance for noise)
+    assert abs(final_inflow - final_outflow) < 0.5, "Verification failed: Inflow did not stabilize to match outflow."
+
+    print("Verification successful!")
 
 
 if __name__ == "__main__":
-    main()
+    run_case_04()

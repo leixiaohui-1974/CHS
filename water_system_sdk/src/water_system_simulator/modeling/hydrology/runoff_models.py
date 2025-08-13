@@ -26,7 +26,6 @@ class XinanjiangModel(BaseRunoffModel):
     Implementation of the Xinanjiang rainfall-runoff model.
     """
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
         self.params = kwargs
         # Initialize states. Parameters are passed in calculate_runoff.
         self.W = 0.0

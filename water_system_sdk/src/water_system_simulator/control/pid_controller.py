@@ -34,17 +34,25 @@ class PIDController(BaseController):
         # Input variables are grouped in the 'input' object
         # The simulation manager will write to these attributes.
         self.input = Input(error_source=0.0, current_value_offset=0.0)
+        self.output = self.state.output # Expose a top-level output attribute
 
-    def step(self, dt, **kwargs):
+    def step(self, dt, error_source=None, **kwargs):
         """
         Calculates the control output based on values in self.input.
         Includes anti-windup logic (conditional integration).
 
         Args:
             dt (float): The time step.
+            error_source (float, optional): The measured process variable. If provided,
+                                           it updates `self.input.error_source`.
         """
         if dt <= 0:
             return
+
+        # If error_source is passed as an argument, update the input state.
+        # This makes the component compatible with the expressive execution_order.
+        if error_source is not None:
+            self.input.error_source = error_source
 
         # The "error_source" is the measured process variable (e.g., water level)
         # An offset can be added to simulate sensor drift or other biases.
@@ -79,6 +87,7 @@ class PIDController(BaseController):
         # --- Update state for the next time step ---
         self.state.previous_error = error
         self.state.output = clamped_output
+        self.output = self.state.output # Update top-level attribute
         return self.state.output
 
     def get_state(self):

@@ -1,5 +1,5 @@
 import pytest
-from water_system_simulator.simulation_manager import SimulationManager
+from water_system_simulator.simulation_manager import SimulationManager, getattr_by_path, setattr_by_path
 from water_system_simulator.modeling.storage_models import ReservoirModel
 from water_system_simulator.control.pid_controller import PIDController
 
@@ -20,7 +20,7 @@ def simple_pid_config():
         },
         "connections": [
             {
-                "source": "reservoir_A.state.level",
+                "source": "reservoir_A.output",
                 "target": "pid_controller.input.error_source"
             }
         ],
@@ -37,7 +37,7 @@ def simple_pid_config():
                 "args": {"dt": "simulation.dt"}
             }
         ],
-        "logger_config": ["reservoir_A.state.level"]
+        "logger_config": ["reservoir_A.output"]
     }
 
 def test_component_creation(simple_pid_config):
@@ -69,15 +69,15 @@ def test_connection_data_flow(simple_pid_config):
     manager._build_system()
 
     # Get initial state of the reservoir
-    initial_level = manager.components["reservoir_A"].state.level
+    initial_level = manager.components["reservoir_A"].output
     assert initial_level == 5.0
 
     # Manually process connections for the first step
     for conn in manager.config.get("connections", []):
         source_comp_name, source_attr_path = conn["source"].split('.', 1)
         target_comp_name, target_attr_path = conn["target"].split('.', 1)
-        value = manager.getattr_by_path(manager.components[source_comp_name], source_attr_path)
-        manager.setattr_by_path(manager.components[target_comp_name], target_attr_path, value)
+        value = getattr_by_path(manager.components[source_comp_name], source_attr_path)
+        setattr_by_path(manager.components[target_comp_name], target_attr_path, value)
 
     # Assert that the PID controller's input has been updated
     # with the reservoir's initial level.
