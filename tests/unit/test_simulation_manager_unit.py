@@ -23,6 +23,9 @@ class MockComponent(BaseModel):
     def step(self, dt, t):
         self.value += 1 # Just to have some state change
 
+    def get_state(self):
+        return {"value": self.value, "output": self.output}
+
 class TestSimulationManager(unittest.TestCase):
 
     def setUp(self):

@@ -19,14 +19,16 @@ class TestInstrumentModels(unittest.TestCase):
         true_level = 10.0
         sensor = LevelSensor(noise_std_dev=0.05)
 
-        # After one measurement, the value should be different due to noise
-        measured_value = sensor.measure(true_value=true_level)
-        self.assertNotEqual(measured_value, true_level)
-        self.assertEqual(measured_value, sensor.measured_value)
-        self.assertEqual(measured_value, sensor.output)
+        # After one step, the value should be different due to noise
+        sensor.step(true_value=true_level)
+        self.assertNotEqual(sensor.measured_value, true_level)
+        self.assertEqual(sensor.measured_value, sensor.output)
 
         # Over many measurements, the mean should be close to the true value
-        measurements = [sensor.measure(true_value=true_level) for _ in range(1000)]
+        measurements = []
+        for _ in range(1000):
+            sensor.step(true_value=true_level)
+            measurements.append(sensor.measured_value)
         mean_measured = np.mean(measurements)
         self.assertAlmostEqual(mean_measured, true_level, delta=0.05)
 

@@ -39,6 +39,7 @@ class GateModel(BaseModel):
             flow_per_gate = self.discharge_coeff * area_per_gate * np.sqrt(2 * self.g * upstream_level)
             self.flow = flow_per_gate * self.num_gates
         self.output = self.flow
+        return self.output
 
     def get_state(self):
         return {"flow": self.flow, "output": self.output}

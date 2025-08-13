@@ -31,7 +31,7 @@ class TestReservoir(unittest.TestCase):
         current_outflow = reservoir.step(t=0)
 
         # Get the new storage
-        new_storage = reservoir.state.storage
+        new_storage = reservoir._state.storage
 
         # Verify the mass balance
         # The ODE is dS/dt = I - O, where O = S/T

@@ -1,40 +1,73 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 import numpy as np
-from .base_model import BaseModel
+from water_system_simulator.modeling.base_model import BaseModel
 
-class BaseSensor(BaseModel, ABC):
+# Phase 1: Instrument Layer
+# Action 1: Create new base classes (Corrected Implementation)
+
+class BaseSensor(BaseModel):
     """
     Abstract base class for all sensor models.
-    A sensor measures a true value from the system and produces a measurement.
+    A sensor measures a true value from the system.
+    It implements the 'step' method by wrapping a 'measure' method.
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.measured_value = None
+        self.measured_value = 0.0
+        self.output = 0.0 # Ensure output is initialized
 
     @abstractmethod
-    def measure(self, true_value: float):
+    def measure(self, true_value: float) -> float:
         """
-        Takes a true value from the system and updates the sensor's
-        internal state (e.g., its measured_value).
+        Takes a true value and produces a measured value.
+        This is the core logic to be implemented by concrete sensors.
         """
         pass
 
-class BaseActuator(BaseModel, ABC):
+    def step(self, true_value: float):
+        """
+        Standard step method for SimulationManager. It wraps the measure method.
+        The 'true_value' is passed in via the execution_order config.
+        """
+        self.measured_value = self.measure(true_value)
+        self.output = self.measured_value
+
+    def get_state(self):
+        """
+        Returns the current state of the sensor.
+        """
+        return {"measured_value": self.measured_value, "output": self.output}
+
+
+class BaseActuator(BaseModel):
     """
     Abstract base class for all actuator models.
-    An actuator takes a command and translates it into a physical change.
+    An actuator takes a command and acts upon the system.
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.current_position = 0.0
+        self.current_position = kwargs.get('initial_position', 0.0)
+        self.output = self.current_position # Ensure output is initialized
 
     @abstractmethod
     def step(self, command: float, dt: float):
         """
-        Updates the actuator's internal state based on a command over a
-        time step dt. Note the different signature from BaseModel.step.
+        Executes a command over a time step dt.
+        This is the core logic to be implemented by concrete actuators.
+        Note: The signature differs from the simple BaseModel.step(), but is
+        compatible with the `step(*args, **kwargs)` definition and is called
+        via the expressive execution_order config.
         """
         pass
+
+    def get_state(self):
+        """
+        Returns the current state of the actuator.
+        """
+        return {"current_position": self.current_position, "output": self.output}
+
+
+# Action 2: Develop concrete instrument models
 
 class LevelSensor(BaseSensor):
     """
@@ -43,33 +76,30 @@ class LevelSensor(BaseSensor):
     def __init__(self, noise_std_dev: float = 0.05, **kwargs):
         super().__init__(**kwargs)
         self.noise_std_dev = noise_std_dev
-        # Initialize measured_value
-        self.measured_value = 0.0
 
-    def measure(self, true_value: float):
+    def measure(self, true_value: float) -> float:
         """
         Adds Gaussian noise to the true water level.
-        The result is stored in the `measured_value` attribute.
         """
         noise = np.random.normal(0, self.noise_std_dev)
-        self.measured_value = true_value + noise
-        # For consistency, also update the 'output' attribute from BaseModel
-        self.output = self.measured_value
-        return self.measured_value
+        measured_value = true_value + noise
+        return measured_value
+
 
 class GateActuator(BaseActuator):
     """
-    An actuator that simulates the movement of a gate, considering its travel time.
-    The gate position is represented as a value from 0.0 (fully closed) to 1.0 (fully open).
+    A model for a gate actuator that has a finite travel time.
+    The position is represented as a value from 0.0 (closed) to 1.0 (open).
     """
-    def __init__(self, travel_time: float = 120.0, initial_position: float = 0.0, **kwargs):
+    def __init__(self, travel_time: float = 120.0, **kwargs):
+        """
+        Args:
+            travel_time: Time in seconds to go from fully closed (0) to fully open (1).
+        """
         super().__init__(**kwargs)
         if travel_time <= 0:
             raise ValueError("travel_time must be positive.")
-        self.travel_time = travel_time # Time for full travel (e.g., 0 to 1)
-        self.current_position = initial_position # Initial position of the gate
-        # For consistency, also update the 'output' attribute from BaseModel
-        self.output = self.current_position
+        self.travel_time = travel_time
 
     def step(self, command: float, dt: float):
         """
@@ -79,27 +109,16 @@ class GateActuator(BaseActuator):
             command: The target position for the gate (0.0 to 1.0).
             dt: The simulation time step in seconds.
         """
-        # Sanitize the command to be within [0, 1]
         target_position = np.clip(command, 0.0, 1.0)
-
-        # Maximum change in position per second
         max_speed = 1.0 / self.travel_time
-
-        # Maximum change for this time step
         max_change = max_speed * dt
+        difference = target_position - self.current_position
 
-        # Required change to reach the target
-        required_change = target_position - self.current_position
-
-        # Actual change is limited by max_change
-        if abs(required_change) > max_change:
-            actual_change = max_change * np.sign(required_change)
+        if abs(difference) <= max_change:
+            self.current_position = target_position
         else:
-            actual_change = required_change
+            self.current_position += np.sign(difference) * max_change
 
-        # Update the position and ensure it stays within the [0, 1] bounds
-        self.current_position = np.clip(self.current_position + actual_change, 0.0, 1.0)
-
-        # For consistency, also update the 'output' attribute from BaseModel
+        self.current_position = np.clip(self.current_position, 0.0, 1.0)
         self.output = self.current_position
         return self.current_position

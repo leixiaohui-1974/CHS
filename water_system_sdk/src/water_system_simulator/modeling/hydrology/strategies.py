@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
-from water_system_simulator.modeling.base_model import BaseModel
 
-class BaseRunoffModel(BaseModel, ABC):
+class BaseRunoffModel(ABC):
     """
     Abstract base class for all runoff models.
     It defines the interface for calculating runoff from rainfall.
@@ -22,7 +21,7 @@ class BaseRunoffModel(BaseModel, ABC):
         """
         pass
 
-class BaseRoutingModel(BaseModel, ABC):
+class BaseRoutingModel(ABC):
     """
     Abstract base class for all routing models.
     It defines the interface for routing flow through a sub-basin.

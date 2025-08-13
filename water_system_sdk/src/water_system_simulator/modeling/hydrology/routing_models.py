@@ -5,7 +5,6 @@ class MuskingumModel(BaseRoutingModel):
     Implements the Muskingum method for river routing.
     """
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
         # Initialize states. Parameters are passed in route_flow.
         self.I_prev = 0.0
         self.O_prev = 0.0
