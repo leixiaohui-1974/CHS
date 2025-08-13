@@ -1,0 +1,50 @@
+# This example tests the 2D hydrodynamic model's ability to receive
+# an inflow from an external source, simulating a 1D-2D coupling.
+
+components:
+  floodplain:
+    type: "TwoDimensionalHydrodynamicModel"
+    params:
+      mesh_file: "test_slope.msh" # Using the simple 2-cell mesh from the unit test
+      manning_n: 0.02
+      initial_h: 0.0 # Start with a dry floodplain
+      cfl: 0.4
+      coupling_boundaries:
+        inflow_A: [0] # Cell 0 is the designated inflow boundary
+
+  inflow_source:
+    type: "Disturbance"
+    params:
+      signal_type: "constant"
+      value: 0.1 # A constant inflow of 0.1 m^3/s
+
+simulation_params:
+  total_time: 100
+  dt: 1.0 # This dt is for the manager, the 2D model will use its own adaptive dt
+
+# The execution order is critical for coupling.
+execution_order:
+  # 1. Get the inflow value from the source.
+  - component: inflow_source
+    method: step
+    args:
+      t: "simulation.t"
+    result_to: "inflow_source.output" # Store the result back on the component
+
+  # 2. Pass the inflow to the 2D model's boundary.
+  - component: floodplain
+    method: set_coupling_boundary_flow
+    args:
+      boundary_name: "inflow_A"
+      flow: "inflow_source.output"
+
+  # 3. Step the 2D model forward in time.
+  - component: floodplain
+    method: step
+    args:
+      dt: "simulation.dt" # Note: this is ignored by the 2D model but required by the manager
+      t: "simulation.t"
+
+# What to log at each time step.
+logger_config:
+  - "floodplain.output"
