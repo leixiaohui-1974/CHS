@@ -41,6 +41,7 @@ class ComponentRegistry:
         "FirstOrderInertiaModel": "water_system_simulator.modeling.storage_models.FirstOrderInertiaModel",
         "IntegralDelayModel": "water_system_simulator.modeling.delay_models.IntegralDelayModel",
         "GateStationModel": "water_system_simulator.modeling.control_structure_models.GateStationModel",
+        "TwoDimensionalHydrodynamicModel": "water_system_simulator.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
         # Instruments
         "LevelSensor": "water_system_simulator.modeling.instrument_models.LevelSensor",
         "GateActuator": "water_system_simulator.modeling.instrument_models.GateActuator",
@@ -111,8 +112,13 @@ class SimulationManager:
                 elif source_path == "simulation.t":
                     args[arg_name] = t
                 else:
-                    source_comp, source_attr = source_path.split('.', 1)
-                    args[arg_name] = getattr_by_path(self.components[source_comp], source_attr)
+                    # If the source path contains a dot, treat it as a reference to another component's attribute.
+                    # Otherwise, treat it as a literal value.
+                    if isinstance(source_path, str) and '.' in source_path:
+                        source_comp, source_attr = source_path.split('.', 1)
+                        args[arg_name] = getattr_by_path(self.components[source_comp], source_attr)
+                    else:
+                        args[arg_name] = source_path
 
             # Get the component and its method
             component = self.components[comp_name]
