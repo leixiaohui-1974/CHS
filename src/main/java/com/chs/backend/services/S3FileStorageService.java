@@ -9,9 +9,16 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import com.amazonaws.services.s3.model.ObjectMetadata;
+import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 @Service
 public class S3FileStorageService implements FileStorageService {
@@ -35,15 +42,30 @@ public class S3FileStorageService implements FileStorageService {
 
     @Override
     public String storeFile(MultipartFile file, String path) {
-        // Placeholder implementation
-        logger.info("Placeholder: Storing file {} to path {}", file.getOriginalFilename(), path);
-        throw new UnsupportedOperationException("File storage is not fully implemented yet.");
+        String key = path + "/" + file.getOriginalFilename();
+        try {
+            ObjectMetadata metadata = new ObjectMetadata();
+            metadata.setContentLength(file.getSize());
+            metadata.setContentType(file.getContentType());
+            s3client.putObject(new PutObjectRequest(bucketName, key, file.getInputStream(), metadata));
+            logger.info("Successfully uploaded file {} to S3 with key {}", file.getOriginalFilename(), key);
+            return key;
+        } catch (IOException e) {
+            logger.error("Failed to upload file {} to S3", file.getOriginalFilename(), e);
+            throw new RuntimeException("Failed to store file", e);
+        }
     }
 
     @Override
     public Resource loadFileAsResource(String fileName, String path) {
-        // Placeholder implementation
-        logger.info("Placeholder: Loading file {} from path {}", fileName, path);
-        throw new UnsupportedOperationException("File loading is not fully implemented yet.");
+        String key = path + "/" + fileName;
+        try {
+            S3Object s3Object = s3client.getObject(bucketName, key);
+            S3ObjectInputStream inputStream = s3Object.getObjectContent();
+            return new InputStreamResource(inputStream);
+        } catch (Exception e) {
+            logger.error("Failed to load file {} from S3", key, e);
+            throw new RuntimeException("Failed to load file", e);
+        }
     }
 }

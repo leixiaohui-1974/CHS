@@ -6,8 +6,8 @@ import java.util.Set;
 import java.util.Objects;
 
 @Entity
-@Table(name = "projects")
-public class Project {
+@Table(name = "scenarios")
+public class Scenario {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,11 +20,14 @@ public class Project {
     private String description;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "project_id", nullable = false)
+    private Project project;
 
-    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<Scenario> scenarios = new HashSet<>();
+    @OneToMany(mappedBy = "scenario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<TestCase> testCases = new HashSet<>();
+
+    @OneToMany(mappedBy = "scenario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<VersionCommit> versionCommits = new HashSet<>();
 
     // Getters and Setters
 
@@ -52,28 +55,36 @@ public class Project {
         this.description = description;
     }
 
-    public User getUser() {
-        return user;
+    public Project getProject() {
+        return project;
     }
 
-    public void setUser(User user) {
-        this.user = user;
+    public void setProject(Project project) {
+        this.project = project;
     }
 
-    public Set<Scenario> getScenarios() {
-        return scenarios;
+    public Set<TestCase> getTestCases() {
+        return testCases;
     }
 
-    public void setScenarios(Set<Scenario> scenarios) {
-        this.scenarios = scenarios;
+    public void setTestCases(Set<TestCase> testCases) {
+        this.testCases = testCases;
+    }
+
+    public Set<VersionCommit> getVersionCommits() {
+        return versionCommits;
+    }
+
+    public void setVersionCommits(Set<VersionCommit> versionCommits) {
+        this.versionCommits = versionCommits;
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Project project = (Project) o;
-        return Objects.equals(id, project.id);
+        Scenario scenario = (Scenario) o;
+        return Objects.equals(id, scenario.id);
     }
 
     @Override

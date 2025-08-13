@@ -13,6 +13,10 @@ public class ModelDefinition {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
+
     @Column(nullable = false, unique = true)
     private String name;
 
@@ -54,6 +58,14 @@ public class ModelDefinition {
 
     public void setVersions(List<ModelVersion> versions) {
         this.versions = versions;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     @Override

@@ -16,6 +16,9 @@ public class RabbitMQConfig {
     public static final String EXCHANGE_NAME = "chs_exchange";
     public static final String QUEUE_SIMULATION_TASKS = "simulation_tasks";
     public static final String QUEUE_SIMULATION_STATUS_UPDATES = "simulation_status_updates";
+    public static final String QUEUE_CONTROL_MESSAGES = "control_messages";
+    public static final String ROUTING_KEY_SIMULATION_TASKS = "simulation.tasks";
+    public static final String ROUTING_KEY_CONTROL_MESSAGES = "simulation.control";
     public static final String ROUTING_KEY_STATUS_UPDATE = "simulation.status.#";
 
 
@@ -35,8 +38,23 @@ public class RabbitMQConfig {
     }
 
     @Bean
-    public Binding binding(Queue simulationStatusUpdatesQueue, TopicExchange exchange) {
+    public Queue controlMessagesQueue() {
+        return new Queue(QUEUE_CONTROL_MESSAGES, true);
+    }
+
+    @Bean
+    public Binding statusBinding(Queue simulationStatusUpdatesQueue, TopicExchange exchange) {
         return BindingBuilder.bind(simulationStatusUpdatesQueue).to(exchange).with(ROUTING_KEY_STATUS_UPDATE);
+    }
+
+    @Bean
+    public Binding taskBinding(Queue simulationTasksQueue, TopicExchange exchange) {
+        return BindingBuilder.bind(simulationTasksQueue).to(exchange).with(ROUTING_KEY_SIMULATION_TASKS);
+    }
+
+    @Bean
+    public Binding controlBinding(Queue controlMessagesQueue, TopicExchange exchange) {
+        return BindingBuilder.bind(controlMessagesQueue).to(exchange).with(ROUTING_KEY_CONTROL_MESSAGES);
     }
 
     @Bean
