@@ -41,6 +41,23 @@ class ComponentRegistry:
         "FirstOrderInertiaModel": "water_system_simulator.modeling.storage_models.FirstOrderInertiaModel",
         "IntegralDelayModel": "water_system_simulator.modeling.delay_models.IntegralDelayModel",
         "GateStationModel": "water_system_simulator.modeling.control_structure_models.GateStationModel",
+        "SemiDistributedHydrologyModel": "water_system_simulator.modeling.hydrology.semi_distributed.SemiDistributedHydrologyModel",
+        # Runoff Models
+        "RunoffCoefficientModel": "water_system_simulator.modeling.hydrology.runoff_models.RunoffCoefficientModel",
+        "XinanjiangModel": "water_system_simulator.modeling.hydrology.runoff_models.XinanjiangModel",
+        "SCSRunoffModel": "water_system_simulator.modeling.hydrology.runoff_models.SCSRunoffModel",
+        "TankModel": "water_system_simulator.modeling.hydrology.runoff_models.TankModel",
+        "HYMODModel": "water_system_simulator.modeling.hydrology.runoff_models.HYMODModel",
+        "GreenAmptRunoffModel": "water_system_simulator.modeling.hydrology.runoff_models.GreenAmptRunoffModel",
+        "TOPMODEL": "water_system_simulator.modeling.hydrology.runoff_models.TOPMODEL",
+        "WETSPAModel": "water_system_simulator.modeling.hydrology.runoff_models.WETSPAModel",
+        "ShanbeiModel": "water_system_simulator.modeling.hydrology.runoff_models.ShanbeiModel",
+        "HebeiModel": "water_system_simulator.modeling.hydrology.runoff_models.HebeiModel",
+        # Routing Models
+        "MuskingumModel": "water_system_simulator.modeling.hydrology.routing_models.MuskingumModel",
+        "UnitHydrographRoutingModel": "water_system_simulator.modeling.hydrology.routing_models.UnitHydrographRoutingModel",
+        "LinearReservoirRoutingModel": "water_system_simulator.modeling.hydrology.routing_models.LinearReservoirRoutingModel",
+        "VariableVolumeRoutingModel": "water_system_simulator.modeling.hydrology.routing_models.VariableVolumeRoutingModel",
         # Instruments
         "LevelSensor": "water_system_simulator.modeling.instrument_models.LevelSensor",
         "GateActuator": "water_system_simulator.modeling.instrument_models.GateActuator",
@@ -52,19 +69,13 @@ class ComponentRegistry:
         if class_name not in cls._CLASS_MAP:
             raise ImportError(f"Component type '{class_name}' not found in registry.")
 
-        module_path, class_name_only = cls._CLASS_MAP[class_name].rsplit('.', 1)
+        full_path = cls._CLASS_MAP[class_name]
+        module_path, class_name_only = full_path.rsplit('.', 1)
 
         try:
-            # First, try to import it as if it's part of the SDK package
-            if 'water_system_simulator' in module_path:
-                relative_module_path = module_path.split('.', 1)[1]
-                module = importlib.import_module(f".{relative_module_path}", package='water_system_simulator')
-                return getattr(module, class_name_only)
-            else:
-                # If not, try a direct, absolute import (for extensions/tests)
-                module = importlib.import_module(module_path)
-                return getattr(module, class_name_only)
-        except (ImportError, AttributeError, IndexError) as e:
+            module = importlib.import_module(module_path)
+            return getattr(module, class_name_only)
+        except (ImportError, AttributeError) as e:
             raise ImportError(f"Could not import class '{class_name_only}' from '{module_path}'. Error: {e}")
 
 # --- Simulation Manager ---
@@ -80,6 +91,13 @@ class SimulationManager:
         self.components: Dict[str, Any] = {}
         self.config: Dict[str, Any] = {}
 
+    def _create_strategy(self, strategy_info: dict):
+        """Creates a strategy object from its configuration info."""
+        strategy_type = strategy_info["type"]
+        strategy_params = strategy_info.get("params", {})
+        strategy_class = ComponentRegistry.get_class(strategy_type)
+        return strategy_class(**strategy_params)
+
     def _build_system(self):
         """Constructs the system of components from the configuration."""
         if "components" not in self.config:
@@ -90,8 +108,25 @@ class SimulationManager:
             comp_type = comp_info["type"]
             params = comp_info.get("params", {})
 
-            component_class = ComponentRegistry.get_class(comp_type)
-            self.components[name] = component_class(**params)
+            if comp_type == "SemiDistributedHydrologyModel":
+                # Special handling for the hydrology model to inject strategies
+                strategies_config = params.pop("strategies", None)
+                if not strategies_config:
+                    raise ValueError("SemiDistributedHydrologyModel requires a 'strategies' config.")
+
+                runoff_strategy = self._create_strategy(strategies_config["runoff"])
+                routing_strategy = self._create_strategy(strategies_config["routing"])
+
+                component_class = ComponentRegistry.get_class(comp_type)
+                self.components[name] = component_class(
+                    runoff_strategy=runoff_strategy,
+                    routing_strategy=routing_strategy,
+                    **params
+                )
+            else:
+                # Default behavior for all other components
+                component_class = ComponentRegistry.get_class(comp_type)
+                self.components[name] = component_class(**params)
 
     def _execute_step(self, instruction: Any, t: float, dt: float):
         """Executes a single instruction from the execution_order."""
