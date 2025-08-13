@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import WorkbenchPage from './pages/WorkbenchPage';
+import SituationalAwarenessPage from './pages/SituationalAwarenessPage';
 import MainLayout from './layouts/MainLayout';
 import authService from './services/authService';
 
@@ -21,10 +22,11 @@ const App = () => {
             currentUser ? (
               <MainLayout>
                 <Routes>
+                  <Route path="/" element={<SituationalAwarenessPage />} />
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/workbench" element={<WorkbenchPage />} />
                   {/* Other protected routes can go here */}
-                  <Route path="*" element={<Navigate to="/dashboard" />} />
+                  <Route path="*" element={<Navigate to="/" />} />
                 </Routes>
               </MainLayout>
             ) : (
