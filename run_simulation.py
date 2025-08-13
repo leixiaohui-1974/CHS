@@ -25,10 +25,9 @@ def main():
         sim = Simulator(args.case_path)
 
         duration = 200
-        dt = 1.0
         log_prefix = os.path.basename(os.path.normpath(args.case_path))
 
-        sim.run(duration=duration, dt=dt, log_file_prefix=log_prefix)
+        sim.run(duration=duration, log_file_prefix=log_prefix)
 
     except Exception as e:
         print(f"\nAn error occurred during simulation: {e}")

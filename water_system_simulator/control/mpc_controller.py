@@ -111,3 +111,11 @@ class MPCController(BaseController):
             print(f"Error during MPC solve: {e}. Returning zero control.")
             self.output = 0.0
             return 0.0
+
+    def get_state(self):
+        return {
+            "output": self.output
+            # The internal states of the MPC (like the optimal sequence x, u)
+            # are complex and not easily summarized as a simple state.
+            # We return the primary output for logging and connection purposes.
+        }

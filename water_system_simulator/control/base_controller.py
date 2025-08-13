@@ -17,3 +17,10 @@ class BaseController(ABC):
         calculate the control action and return it.
         """
         pass
+
+    @abstractmethod
+    def get_state(self):
+        """
+        Returns a dictionary of the controller's current state.
+        """
+        pass

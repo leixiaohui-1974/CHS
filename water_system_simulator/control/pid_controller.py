@@ -54,3 +54,10 @@ class PIDController(BaseController):
         self.output = output
         self.previous_error = error
         return self.output
+
+    def get_state(self):
+        return {
+            "integral": self.integral,
+            "previous_error": self.previous_error,
+            "output": self.output
+        }
