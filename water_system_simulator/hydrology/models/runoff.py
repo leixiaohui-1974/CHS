@@ -4,8 +4,8 @@ from .base import RunoffModel
 class RunoffCoefficientModel(RunoffModel):
     """A simple runoff model based on a runoff coefficient."""
 
-    def __init__(self, parameters):
-        super().__init__(parameters)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.runoff_coeff = self.params.get("C", 0.5)
 
     def calculate_pervious_runoff(self, pervious_precipitation, evaporation):
@@ -18,8 +18,8 @@ class XinanjiangModel(RunoffModel):
     Implementation of the Xinanjiang rainfall-runoff model.
     This version has been corrected for a more standard water balance calculation.
     """
-    def __init__(self, parameters):
-        super().__init__(parameters)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         # Model parameters
         self.WM = self.params.get("WM", 100)  # Soil moisture capacity
         self.B = self.params.get("B", 0.3)    # Exponent of storage capacity curve
