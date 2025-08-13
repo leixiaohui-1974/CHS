@@ -1,46 +1,37 @@
-"""
-Main entry point for the water system simulation product.
-"""
 import argparse
+import os
 from water_system_simulator.engine import Simulator
-import matplotlib.pyplot as plt
-import pandas as pd
 
 def main():
     """
-    Main function to run a simulation from configuration files.
+    Main function to run a simulation from a specified case directory.
     """
-    # For now, we will hardcode the paths for testing case 1.
-    # Later, this can be replaced with command-line argument parsing.
-    topology_path = 'configs/case1_topology.yml'
-    disturbance_path = 'configs/disturbances.csv'
-    log_file = 'case1_simulation_log.csv'
+    parser = argparse.ArgumentParser(description="Run a water system simulation case.")
+    parser.add_argument(
+        "case_path",
+        type=str,
+        help="Path to the case directory (e.g., 'examples/2_single_reservoir_case/')."
+    )
+    args = parser.parse_args()
 
-    # Instantiate and run the simulator
+    if not os.path.isdir(args.case_path):
+        print(f"Error: Case path not found at '{args.case_path}'")
+        return
+
     try:
-        sim = Simulator(topology_path, disturbance_path)
-        sim.run(duration=100, dt=1.0, log_file=log_file)
+        # The engine will find and load the correct files.
+        # This generic runner can be expanded to select different topologies
+        # or controller params from within the case directory.
+        sim = Simulator(args.case_path)
 
-        # Plot the results for verification
-        print("\nPlotting results...")
-        df = pd.read_csv(f"results/{log_file}")
+        duration = 200
+        dt = 1.0
+        log_prefix = os.path.basename(os.path.normpath(args.case_path))
 
-        plt.figure(figsize=(12, 6))
-        plt.plot(df['time'], df['tank1.storage'], label='Tank 1 Storage (Water Level)')
-        plt.axhline(y=1.0, color='r', linestyle='--', label='Setpoint')
-        plt.title('Case 1: Single-Tank PID Control')
-        plt.xlabel('Time (s)')
-        plt.ylabel('Water Level (m)')
-        plt.legend()
-        plt.grid(True)
-        plot_file = 'case1_results.png'
-        plt.savefig(f"results/{plot_file}")
-        print(f"Plot saved to results/{plot_file}")
-        # plt.show() # Cannot show plot in this environment
+        sim.run(duration=duration, dt=dt, log_file_prefix=log_prefix)
 
-    except (FileNotFoundError, ValueError, ImportError, AttributeError) as e:
+    except Exception as e:
         print(f"\nAn error occurred during simulation: {e}")
-
 
 if __name__ == "__main__":
     main()

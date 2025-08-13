@@ -1,0 +1,45 @@
+# Controller parameters for Case 5: One Gate, Two Channels
+
+# These are for the single-controller topologies
+upstream_pid_params:
+  kp: -0.1
+  ki: -0.01
+  kd: -0.02
+  setpoint: 10.0
+  output_min: 0.0
+  output_max: 10.0
+
+downstream_pid_params:
+  kp: -0.05
+  ki: -0.005
+  kd: -0.01
+  setpoint: 8.0
+  output_min: 0.0
+  output_max: 10.0
+
+# These are for the mixed_pid topology
+pid_upstream_params:
+  kp: -0.1
+  ki: -0.01
+  kd: -0.02
+  setpoint: 10.0
+  output_min: 0.0
+  output_max: 10.0
+
+pid_downstream_params:
+  kp: -0.05
+  ki: -0.005
+  kd: -0.01
+  setpoint: 8.0
+  output_min: 0.0
+  output_max: 10.0
+
+mpc_params:
+  A: [[1.0, 0.0], [0.0, 1.0]]
+  B: [[-0.5], [-0.2]]
+  Q: [[1.0, 0.0], [0.0, 1.0]]
+  R: [[0.2]]
+  N: 15
+  setpoint: [10.0, 8.0]
+  u_min: 0.0
+  u_max: 10.0

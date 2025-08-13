@@ -1,5 +1,4 @@
-# System topology for Case 4: MPC Control
-# This uses a simplified MIMO linear model for the MPC's internal prediction.
+# System topology for Case 5: Local Upstream Control PID
 
 components:
   - name: upstream_inflow
@@ -10,21 +9,11 @@ components:
   - name: upstream_channel
     type: MuskingumChannelModel
     properties: {K: 5.0, x: 0.1, dt: 1.0, initial_inflow: 10.0, initial_outflow: 10.0}
-    connections: {inflow_current: upstream_inflow.output}
+    connections: {inflow: upstream_inflow.output}
 
-  - name: mpc_controller
-    type: MPCController
-    properties:
-      A: [[1.0, 0.0], [0.0, 1.0]]
-      B: [[-0.5], [-0.2]]
-      Q: [[1.0, 0.0], [0.0, 1.0]]
-      R: [[0.2]]
-      N: 15
-      setpoint: [10.0, 8.0]
-      u_min: 0.0
-      u_max: 10.0
-    connections:
-      measured_value: [upstream_channel.output, downstream_channel.output]
+  - name: pid_controller_upstream
+    type: PIDController
+    connections: {measured_value: upstream_channel.output}
 
   - name: gate
     type: GateModel
@@ -32,7 +21,7 @@ components:
     connections:
       upstream_level: upstream_channel.output
       downstream_level: 8.0
-      area: mpc_controller.output
+      area: pid_controller_upstream.output
 
   - name: net_inflow_calculator
     type: SummingPoint
@@ -42,12 +31,12 @@ components:
   - name: downstream_channel
     type: MuskingumChannelModel
     properties: {K: 8.0, x: 0.06, dt: 1.0, initial_inflow: 8.0, initial_outflow: 8.0}
-    connections: {inflow_current: net_inflow_calculator.output}
+    connections: {inflow: net_inflow_calculator.output}
 
 logging:
   - time
   - upstream_channel.output
   - downstream_channel.output
-  - mpc_controller.output # Gate area
+  - pid_controller_upstream.output
   - upstream_inflow.output
   - downstream_demand.output

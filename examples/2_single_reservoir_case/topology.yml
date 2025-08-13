@@ -1,0 +1,22 @@
+# System topology for Case 2: Single Reservoir
+# Controller properties are defined in control_parameters.yaml
+
+components:
+  - name: pid_controller
+    type: PIDController
+    connections:
+      measured_value: tank1.storage
+
+  - name: tank1
+    type: FirstOrderInertiaModel
+    properties:
+      initial_storage: 0.5
+      time_constant: 5.0
+    connections:
+      inflow: pid_controller.output
+
+logging:
+  - time
+  - tank1.storage
+  - tank1.output
+  - pid_controller.output

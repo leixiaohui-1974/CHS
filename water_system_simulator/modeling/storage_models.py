@@ -39,23 +39,23 @@ class MuskingumChannelModel(BaseModel):
              print(f"Warning: Muskingum parameters may lead to instability. "
                    f"Ensure 2*K*x ({2*self.K*self.x:.2f}) <= dt ({self.dt:.2f}).")
 
-    def step(self, inflow_current: float):
+    def step(self, inflow: float):
         """
         Performs a single routing step.
         O_t+1 = C1*I_t+1 + C2*I_t + C3*O_t
 
         Args:
-            inflow_current (float): The inflow to the reach at the current time step (I_t+1).
+            inflow (float): The inflow to the reach at the current time step (I_t+1).
 
         Returns:
             float: The outflow from the reach at the current time step (O_t+1).
         """
-        outflow_current = (self.C1 * inflow_current +
+        outflow_current = (self.C1 * inflow +
                            self.C2 * self.inflow_prev +
                            self.C3 * self.outflow_prev)
 
         # Update states for the next time step
-        self.inflow_prev = inflow_current
+        self.inflow_prev = inflow
         self.outflow_prev = outflow_current
         self.output = outflow_current
 

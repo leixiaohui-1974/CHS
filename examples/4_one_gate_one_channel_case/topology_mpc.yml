@@ -1,4 +1,5 @@
-# System topology for Case 3: One Gate, One Channel with PID Control
+# System topology for Case 4: One Gate, One Channel (MPC version)
+# Controller properties are defined in control_parameters.yaml
 
 components:
   - name: inflow_to_channel
@@ -8,22 +9,15 @@ components:
     type: MuskingumChannelModel
     properties:
       K: 5.0
-      x: 0.2
+      x: 0.1 # Corrected for stability
       dt: 1.0
       initial_inflow: 10.0
       initial_outflow: 10.0
     connections:
-      inflow_current: inflow_to_channel.output
+      inflow: inflow_to_channel.output
 
-  - name: pid_controller
-    type: PIDController
-    properties:
-      kp: -0.1
-      ki: -0.01
-      kd: -0.02
-      setpoint: 10.0
-      output_min: 0.0
-      output_max: 10.0
+  - name: mpc_controller
+    type: MPCController
     connections:
       measured_value: channel.output
 
@@ -34,12 +28,12 @@ components:
       area: 1.0 # Initial area
     connections:
       upstream_level: channel.output
-      downstream_level: 5.0 # Constant value
-      area: pid_controller.output
+      downstream_level: 5.0
+      area: mpc_controller.output
 
 logging:
   - time
   - channel.output
-  - gate.output # Flow through the gate
-  - pid_controller.output # Gate area
+  - gate.output
+  - mpc_controller.output
   - inflow_to_channel.output

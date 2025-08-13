@@ -1,5 +1,5 @@
-# System topology for Case 3: One Gate, One Channel with MPC Control
-# NOTE: This uses a simplified linear model for the MPC's internal prediction.
+# System topology for Case 4: One Gate, One Channel
+# Controller properties are defined in control_parameters.yaml
 
 components:
   - name: inflow_to_channel
@@ -9,24 +9,15 @@ components:
     type: MuskingumChannelModel
     properties:
       K: 5.0
-      x: 0.2
+      x: 0.1 # Corrected for stability
       dt: 1.0
       initial_inflow: 10.0
       initial_outflow: 10.0
     connections:
-      inflow_current: inflow_to_channel.output
+      inflow: inflow_to_channel.output
 
-  - name: mpc_controller
-    type: MPCController
-    properties:
-      A: [[1.0]]
-      B: [[-1.0]]
-      Q: [[1.0]]
-      R: [[0.5]]
-      N: 10
-      setpoint: [10.0]
-      u_min: 0.0
-      u_max: 10.0
+  - name: pid_controller
+    type: PIDController
     connections:
       measured_value: channel.output
 
@@ -38,11 +29,11 @@ components:
     connections:
       upstream_level: channel.output
       downstream_level: 5.0
-      area: mpc_controller.output
+      area: pid_controller.output
 
 logging:
   - time
   - channel.output
-  - gate.output # Flow through the gate
-  - mpc_controller.output # Gate area
+  - gate.output
+  - pid_controller.output
   - inflow_to_channel.output

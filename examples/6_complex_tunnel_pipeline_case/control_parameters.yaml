@@ -1,0 +1,19 @@
+# Controller parameters for Case 6
+
+# PID to stabilize the tunnel level by controlling the siphon gates
+siphon_pid_params:
+  kp: -0.5
+  ki: -0.05
+  kd: -0.1
+  setpoint: 50.0 # Target for tunnel outflow (m^3/s)
+  output_min: 0.0
+  output_max: 5.0 # Max area for each siphon gate
+
+# PID to control the flow through the pressure valve
+pressure_pid_params:
+  kp: 0.2
+  ki: 0.02
+  kd: 0.05
+  setpoint: 35.0 # Target flow rate (m^3/s)
+  output_min: 0.0
+  output_max: 2.0 # Max area for the valve

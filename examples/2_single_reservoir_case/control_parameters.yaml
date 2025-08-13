@@ -1,0 +1,16 @@
+# Controller parameters for Case 2: Single Reservoir
+
+pid_params:
+  kp: 1.5
+  ki: 0.05
+  kd: 1.0
+  setpoint: 1.0
+
+mpc_params:
+  A: [[0.8]]
+  B: [[1.0]]
+  Q: [[1.0]]
+  R: [[0.1]]
+  N: 10
+  setpoint: [1.0]
+  u_min: 0.0

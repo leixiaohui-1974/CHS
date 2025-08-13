@@ -1,0 +1,22 @@
+# System topology for Case 2: Single Reservoir (MPC version)
+# Controller properties are defined in control_parameters.yaml
+
+components:
+  - name: mpc_controller
+    type: MPCController
+    connections:
+      measured_value: tank1.storage
+
+  - name: tank1
+    type: FirstOrderInertiaModel
+    properties:
+      initial_storage: 0.5
+      time_constant: 5.0
+    connections:
+      inflow: mpc_controller.output
+
+logging:
+  - time
+  - tank1.storage
+  - tank1.output
+  - mpc_controller.output

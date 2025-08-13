@@ -1,0 +1,19 @@
+# This is a placeholder for the Hydrological Model Case.
+# A full implementation would require a dedicated hydrological model component.
+
+components:
+  - name: hydrological_model_placeholder
+    type: FirstOrderInertiaModel # Using a simple tank as a placeholder
+    properties:
+      initial_storage: 100
+      time_constant: 24 # Represents a 24-hour response time
+
+    connections:
+      inflow: rainfall_disturbance.output
+
+  - name: rainfall_disturbance
+    type: Disturbance
+
+logging:
+  - time
+  - hydrological_model_placeholder.output # This would be the runoff

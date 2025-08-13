@@ -1,4 +1,4 @@
-# System topology for Case 4: Distant Downstream Control PID
+# System topology for Case 5: Distant Downstream Control PID
 
 components:
   - name: upstream_inflow
@@ -9,14 +9,11 @@ components:
   - name: upstream_channel
     type: MuskingumChannelModel
     properties: {K: 5.0, x: 0.1, dt: 1.0, initial_inflow: 10.0, initial_outflow: 10.0}
-    connections:
-      inflow_current: upstream_inflow.output
+    connections: {inflow: upstream_inflow.output}
 
   - name: pid_controller_downstream
     type: PIDController
-    properties: {kp: -0.05, ki: -0.005, kd: -0.01, setpoint: 8.0, output_min: 0.0, output_max: 10.0}
-    connections:
-      measured_value: downstream_channel.output
+    connections: {measured_value: downstream_channel.output}
 
   - name: gate
     type: GateModel
@@ -34,8 +31,7 @@ components:
   - name: downstream_channel
     type: MuskingumChannelModel
     properties: {K: 8.0, x: 0.06, dt: 1.0, initial_inflow: 8.0, initial_outflow: 8.0}
-    connections:
-      inflow_current: net_inflow_calculator.output
+    connections: {inflow: net_inflow_calculator.output}
 
 logging:
   - time
