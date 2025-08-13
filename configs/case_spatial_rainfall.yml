@@ -1,0 +1,63 @@
+# --- Configuration for Spatial Rainfall Interpolation Test ---
+
+datasets:
+  rain_gauges:
+    - id: "station_A"
+      coords: [10, 80]
+      time_series_path: "data/rain_gauges/station_A.csv"
+    - id: "station_B"
+      coords: [80, 80]
+      time_series_path: "data/rain_gauges/station_B.csv"
+    - id: "station_C"
+      coords: [50, 20]
+      time_series_path: "data/rain_gauges/station_C.csv"
+
+preprocessing:
+  - rainfall_provider # Run this component before the simulation loop
+
+components:
+  rainfall_provider:
+    type: "RainfallProcessor"
+    params:
+      source_dataset: "rain_gauges"
+      strategy:
+        type: "InverseDistanceWeightingInterpolator" # Can be switched to ThiessenPolygonInterpolator or KrigingInterpolator
+        params:
+          power: 2.0
+
+  main_watershed:
+    type: "SemiDistributedHydrologyModel"
+    params:
+      sub_basins:
+        - id: "SB1"
+          area: 100
+          coords: [30, 60] # Closer to station A
+          params: { some_param: 1 }
+        - id: "SB2"
+          area: 150
+          coords: [70, 60] # Closer to station B
+          params: { some_param: 2 }
+      strategies:
+        runoff:
+          type: "RunoffCoefficientModel"
+          params:
+            coefficient: 0.5
+        routing:
+          type: "LinearReservoirRoutingModel"
+          params:
+            time_constant: 5.0
+
+simulation_params:
+  total_time: 10
+  dt: 1.0
+
+connections:
+  - source: "rainfall_provider.state.interpolated_rainfall"
+    target: "main_watershed.input_rainfall"
+
+execution_order:
+  - main_watershed
+
+logger_config:
+  - "main_watershed.output"
+  - "main_watershed.input_rainfall" # Log the input to see if it's working
