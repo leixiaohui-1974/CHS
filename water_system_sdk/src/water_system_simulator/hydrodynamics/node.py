@@ -9,6 +9,7 @@ class Node:
         self.name = name
         self.head = kwargs.get('head', 0.0)  # Water surface elevation (m)
         self.bed_elevation = kwargs.get('bed_elevation', 0.0) # Bed elevation (m)
+        self.surface_area = kwargs.get('surface_area', 1000.0) # Nodal surface area (m^2)
 
     def __repr__(self):
         return f"{self.__class__.__name__}(name='{self.name}', head={self.head:.2f}, z={self.bed_elevation:.2f})"

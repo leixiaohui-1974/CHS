@@ -46,3 +46,55 @@ class Reach:
         """Calculates the top width for a given water depth."""
         if water_depth < 0: return 0
         return self.bottom_width + 2 * self.side_slope * water_depth
+
+    def get_critical_depth(self, discharge: float, g: float = 9.81, tolerance=1e-6, max_iter=20) -> float:
+        """
+        Calculates the critical depth for a given discharge using Newton-Raphson method.
+        Solves the equation: Q^2 / g = A^3 / T
+        """
+        if abs(discharge) < 1e-6:
+            return 0.0
+
+        # Initial guess using the formula for a wide rectangular channel
+        y_crit = (discharge**2 / (self.bottom_width**2 * g))**(1/3)
+
+        for _ in range(max_iter):
+            A = self.get_area(y_crit)
+            T = self.get_top_width(y_crit)
+
+            if A < 1e-6 or T < 1e-6: # Avoid division by zero
+                return y_crit
+
+            f = A**3 / T - discharge**2 / g
+
+            # Derivative of f(y) w.r.t y
+            dA_dy = T
+            dT_dy = 2 * self.side_slope
+            df_dy = (3 * A**2 * dA_dy * T - A**3 * dT_dy) / T**2
+
+            if abs(df_dy) < 1e-6:
+                break # Avoid division by zero, solution converged
+
+            y_new = y_crit - f / df_dy
+
+            if abs(y_new - y_crit) < tolerance:
+                return y_new
+            y_crit = y_new
+
+        return y_crit # Return best guess if not converged
+
+    def get_froude_number(self, water_depth: float, discharge: float, g: float = 9.81) -> float:
+        """Calculates the Froude number for a given water depth and discharge."""
+        if water_depth <= 1e-6:
+            return 0.0
+
+        area = self.get_area(water_depth)
+        if area <= 1e-6:
+            return 0.0
+
+        top_width = self.get_top_width(water_depth)
+        hydraulic_depth = area / top_width
+        velocity = discharge / area
+
+        froude = velocity / np.sqrt(g * hydraulic_depth)
+        return froude
