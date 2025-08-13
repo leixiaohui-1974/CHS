@@ -7,19 +7,36 @@ from typing import Dict, Any, List
 # --- Helper functions for attribute access ---
 
 def getattr_by_path(obj: Any, path: str) -> Any:
-    """Access a nested attribute or dictionary key using a dot-separated path."""
-    def _get_attr_or_key(current_obj, key):
-        if isinstance(current_obj, dict):
-            try:
-                return current_obj[key]
-            except KeyError:
-                raise AttributeError(f"Dictionary does not have key '{key}'")
+    """
+    Access a nested attribute or dictionary key using a dot-separated path.
+    Handles the special keyword 'state' by calling the object's get_state() method.
+    """
+    path_keys = path.split('.')
+    current_val = obj
+
+    # Special handling for the 'state' keyword, which is a common convention in this SDK
+    if path_keys[0] == 'state':
+        if hasattr(current_val, 'get_state') and callable(getattr(current_val, 'get_state')):
+            current_val = current_val.get_state()
+            path_keys.pop(0) # Remove 'state' from the path to be processed
         else:
-            return getattr(current_obj, key)
-    try:
-        return functools.reduce(_get_attr_or_key, path.split('.'), obj)
-    except (AttributeError, KeyError):
-        raise AttributeError(f"Could not find attribute or key '{path}' in object {obj}.")
+            # If there's no get_state() method, it might be a literal attribute named 'state'
+            # Proceed with the standard getattr logic below.
+            pass
+
+    for key in path_keys:
+        if isinstance(current_val, dict):
+            try:
+                current_val = current_val[key]
+            except KeyError:
+                raise AttributeError(f"Dictionary does not have key '{key}' in path '{path}'")
+        else:
+            try:
+                current_val = getattr(current_val, key)
+            except AttributeError:
+                 raise AttributeError(f"Object {current_val} does not have attribute '{key}' in path '{path}'")
+
+    return current_val
 
 
 def setattr_by_path(obj: Any, path: str, value: Any):
@@ -43,6 +60,7 @@ class ComponentRegistry:
         "KrigingInterpolator": "water_system_simulator.preprocessing.interpolators.KrigingInterpolator",
         # Controllers
         "PIDController": "water_system_simulator.control.pid_controller.PIDController",
+        "RuleBasedOperationalController": "water_system_simulator.control.rule_based_controller.RuleBasedOperationalController",
         # Disturbances
         "Disturbance": "water_system_simulator.disturbances.predefined.Disturbance",
         "TimeSeriesDisturbance": "water_system_simulator.disturbances.timeseries_disturbance.TimeSeriesDisturbance",
@@ -57,7 +75,8 @@ class ComponentRegistry:
         "MuskingumChannelModel": "water_system_simulator.modeling.storage_models.MuskingumChannelModel",
         "FirstOrderInertiaModel": "water_system_simulator.modeling.storage_models.FirstOrderInertiaModel",
         "IntegralDelayModel": "water_system_simulator.modeling.delay_models.IntegralDelayModel",
-        "GateStationModel": "water_system_simulator.modeling.control_structure_models.GateModel",
+        "GateModel": "water_system_simulator.modeling.control_structure_models.GateModel",
+        "PumpStationModel": "water_system_simulator.modeling.control_structure_models.PumpStationModel",
         "TwoDimensionalHydrodynamicModel": "water_system_simulator.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
         "SemiDistributedHydrologyModel": "water_system_simulator.modeling.hydrology.semi_distributed.SemiDistributedHydrologyModel",
         # Runoff Models
@@ -208,6 +227,8 @@ class SimulationManager:
                     args[arg_name] = dt
                 elif source_path == "simulation.t":
                     args[arg_name] = t
+                elif source_path == "simulation.system_state":
+                    args[arg_name] = self.components
                 else:
                     # If the source path contains a dot, treat it as a reference to another component's attribute.
                     # Otherwise, treat it as a literal value.
