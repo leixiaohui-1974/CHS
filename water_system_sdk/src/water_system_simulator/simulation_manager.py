@@ -36,6 +36,10 @@ class ComponentRegistry:
         "MuskingumChannelModel": "water_system_simulator.modeling.storage_models.MuskingumChannelModel",
         "FirstOrderInertiaModel": "water_system_simulator.modeling.storage_models.FirstOrderInertiaModel",
         "IntegralDelayModel": "water_system_simulator.modeling.delay_models.IntegralDelayModel",
+        "GateStationModel": "water_system_simulator.modeling.control_structure_models.GateStationModel",
+        # Instruments
+        "LevelSensor": "water_system_simulator.modeling.instrument_models.LevelSensor",
+        "GateActuator": "water_system_simulator.modeling.instrument_models.GateActuator",
     }
 
     @classmethod
@@ -47,10 +51,16 @@ class ComponentRegistry:
         module_path, class_name_only = cls._CLASS_MAP[class_name].rsplit('.', 1)
 
         try:
-            # The root package is 'water_system_simulator'
-            module = importlib.import_module(f".{module_path.split('.', 1)[1]}", package='water_system_simulator')
-            return getattr(module, class_name_only)
-        except (ImportError, AttributeError) as e:
+            # First, try to import it as if it's part of the SDK package
+            if 'water_system_simulator' in module_path:
+                relative_module_path = module_path.split('.', 1)[1]
+                module = importlib.import_module(f".{relative_module_path}", package='water_system_simulator')
+                return getattr(module, class_name_only)
+            else:
+                # If not, try a direct, absolute import (for extensions/tests)
+                module = importlib.import_module(module_path)
+                return getattr(module, class_name_only)
+        except (ImportError, AttributeError, IndexError) as e:
             raise ImportError(f"Could not import class '{class_name_only}' from '{module_path}'. Error: {e}")
 
 # --- Simulation Manager ---
@@ -79,6 +89,41 @@ class SimulationManager:
             component_class = ComponentRegistry.get_class(comp_type)
             self.components[name] = component_class(**params)
 
+    def _execute_step(self, instruction: Any, t: float, dt: float):
+        """Executes a single instruction from the execution_order."""
+        if isinstance(instruction, str):
+            # It's a simple component name, call the standard step method
+            self.components[instruction].step(dt=dt, t=t)
+        elif isinstance(instruction, dict):
+            # It's a detailed instruction for a method call
+            comp_name = instruction["component"]
+            method_name = instruction["method"]
+
+            # Prepare arguments for the method call
+            args = {}
+            for arg_name, source_path in instruction.get("args", {}).items():
+                if source_path == "simulation.dt":
+                    args[arg_name] = dt
+                elif source_path == "simulation.t":
+                    args[arg_name] = t
+                else:
+                    source_comp, source_attr = source_path.split('.', 1)
+                    args[arg_name] = getattr_by_path(self.components[source_comp], source_attr)
+
+            # Get the component and its method
+            component = self.components[comp_name]
+            method = getattr(component, method_name)
+
+            # Call the method
+            result = method(**args)
+
+            # Store the result if a destination is specified
+            if "result_to" in instruction and result is not None:
+                target_comp, target_attr = instruction["result_to"].split('.', 1)
+                setattr_by_path(self.components[target_comp], target_attr, result)
+        else:
+            raise TypeError(f"Unsupported instruction type in execution_order: {type(instruction)}")
+
     def run(self, config: Dict[str, Any]) -> pd.DataFrame:
         """
         Runs the simulation according to the provided configuration.
@@ -103,24 +148,22 @@ class SimulationManager:
         execution_order = self.config.get("execution_order", [])
         logger_config = self.config.get("logger_config", [])
 
+        if not execution_order:
+            raise ValueError("'execution_order' cannot be empty.")
+
         history = []
 
         for t in np.arange(0, total_time, dt):
-            # 1. Process connections: transfer data between components
+            # 1. Process connections (for simple, state-copying links)
             for conn in connections:
                 source_comp_name, source_attr_path = conn["source"].split('.', 1)
                 target_comp_name, target_attr_path = conn["target"].split('.', 1)
+                value = getattr_by_path(self.components[source_comp_name], source_attr_path)
+                setattr_by_path(self.components[target_comp_name], target_attr_path, value)
 
-                source_obj = self.components[source_comp_name]
-                target_obj = self.components[target_comp_name]
-
-                value = getattr_by_path(source_obj, source_attr_path)
-                setattr_by_path(target_obj, target_attr_path, value)
-
-            # 2. Execute components in the specified order
-            for comp_name in execution_order:
-                component = self.components[comp_name]
-                component.step(dt=dt, t=t)
+            # 2. Execute components based on the new expressive execution order
+            for instruction in execution_order:
+                self._execute_step(instruction, t=t, dt=dt)
 
             # 3. Log data for this time step
             step_log = {"time": t}

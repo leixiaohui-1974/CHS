@@ -40,7 +40,8 @@ class TestChannel(unittest.TestCase):
                             C3 * initial_outflow)
 
         # --- Run one step in the model ---
-        calculated_outflow = channel.step(inflow=current_inflow)
+        channel.input.inflow = current_inflow
+        calculated_outflow = channel.step()
 
         # --- Assert ---
         self.assertAlmostEqual(calculated_outflow, expected_outflow, places=5)
@@ -61,7 +62,8 @@ class TestChannel(unittest.TestCase):
                                   C3 * previous_outflow_step2)
 
         # --- Run the second step ---
-        calculated_outflow_step2 = channel.step(inflow=current_inflow_step2)
+        channel.input.inflow = current_inflow_step2
+        calculated_outflow_step2 = channel.step()
 
         # --- Assert for step 2 ---
         self.assertAlmostEqual(calculated_outflow_step2, expected_outflow_step2, places=5)

@@ -27,10 +27,11 @@ class TestReservoir(unittest.TestCase):
         )
 
         # Run one step
-        current_outflow = reservoir.step(inflow=inflow, t=0)
+        reservoir.input.inflow = inflow
+        current_outflow = reservoir.step(t=0)
 
         # Get the new storage
-        new_storage = reservoir.storage
+        new_storage = reservoir.state.storage
 
         # Verify the mass balance
         # The ODE is dS/dt = I - O, where O = S/T

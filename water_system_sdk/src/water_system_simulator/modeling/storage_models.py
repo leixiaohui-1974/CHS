@@ -66,6 +66,7 @@ class MuskingumChannelModel(BaseModel):
         self.state.outflow_prev = outflow_current
         self.state.output = outflow_current
         self.output = outflow_current
+        return self.output
 
     def get_state(self):
         return self.state.__dict__
@@ -97,6 +98,7 @@ class FirstOrderInertiaModel(BaseModel):
         outflow = self.state.storage / self.time_constant if self.time_constant > 0 else 0
         self.state.output = outflow
         self.output = outflow
+        return self.output
 
     def get_state(self):
         return self.state.__dict__
