@@ -19,16 +19,16 @@ def main():
         return
 
     try:
-        # The engine will find and load the correct files.
-        # This generic runner can be expanded to select different topologies
-        # or controller params from within the case directory.
-        manager = SimulationManager(args.case_path)
+        # The engine will find and load the correct files from the given path.
+        # We must use the 'case_path' keyword argument.
+        manager = SimulationManager(case_path=args.case_path)
 
         # Get duration from topology config, with a default fallback
         duration = manager.topology.get('duration', 200)
         log_prefix = os.path.basename(os.path.normpath(args.case_path))
 
-        manager.run(duration=duration, log_file_prefix=log_prefix)
+        # Run the simulation and save the log file.
+        manager.run(duration=duration, log_to_file=True, log_file_prefix=log_prefix)
 
     except Exception as e:
         print(f"\nAn error occurred during simulation: {e}")
