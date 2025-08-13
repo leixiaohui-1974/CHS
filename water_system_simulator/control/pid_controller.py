@@ -1,6 +1,7 @@
 import numpy as np
+from .base_controller import BaseController
 
-class PIDController:
+class PIDController(BaseController):
     """
     A simple PID controller.
     """

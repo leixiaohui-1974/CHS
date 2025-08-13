@@ -1,0 +1,17 @@
+# Test configuration for PumpStationModel
+
+components:
+  - name: my_pump_station
+    type: PumpStationModel
+    properties:
+      number_of_pumps: 2
+      pump_configs:
+        - {max_flow: 10, max_head: 20}
+        - {max_flow: 12, max_head: 25}
+    connections:
+      head_diff: 10.0
+      speeds: [0.8, 1.0]
+
+logging:
+  - time
+  - my_pump_station.output

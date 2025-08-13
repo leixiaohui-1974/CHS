@@ -1,6 +1,7 @@
 import numpy as np
+from .base_model import BaseModel
 
-class MuskingumChannelModel:
+class MuskingumChannelModel(BaseModel):
     """
     Represents a channel reach using the Muskingum routing model.
     """
@@ -60,7 +61,7 @@ class MuskingumChannelModel:
 
         return self.output
 
-class FirstOrderInertiaModel:
+class FirstOrderInertiaModel(BaseModel):
     """
     Represents a storage object with first-order inertia characteristics.
     This model can represent a reservoir or a lake.

@@ -28,22 +28,26 @@ class Simulator:
 
     def _get_class_from_string(self, class_name: str):
         """Dynamically imports a class from a string name."""
-        # A mapping from class names to their modules
-        module_map = {
-            'MuskingumChannelModel': 'water_system_simulator.modeling.storage_models',
-            'FirstOrderInertiaModel': 'water_system_simulator.modeling.storage_models',
-            'GateModel': 'water_system_simulator.modeling.control_structure_models',
-            'PumpModel': 'water_system_simulator.modeling.control_structure_models',
-            'PIDController': 'water_system_simulator.control.pid_controller',
-            'MPCController': 'water_system_simulator.control.mpc_controller',
-            'KalmanFilter': 'water_system_simulator.control.kalman_filter',
-        }
+        """Dynamically imports a class from a string name."""
+        if 'Controller' in class_name:
+            module_path = f"water_system_simulator.control.{class_name.replace('Controller', '_controller').lower()}"
+        elif 'Model' in class_name:
+            if 'Pipeline' in class_name:
+                module_path = 'water_system_simulator.modeling.pipeline_model'
+            elif 'Gate' in class_name or 'Pump' in class_name or 'Hydropower' in class_name:
+                 module_path = 'water_system_simulator.modeling.control_structure_models'
+            else:
+                 module_path = 'water_system_simulator.modeling.storage_models'
+        elif 'Filter' in class_name:
+            module_path = 'water_system_simulator.control.kalman_filter'
+        else:
+            raise ImportError(f"Unknown component type for class name: {class_name}")
+
         try:
-            module_path = module_map[class_name]
             module = importlib.import_module(module_path)
             return getattr(module, class_name)
-        except (KeyError, ImportError, AttributeError) as e:
-            raise ImportError(f"Could not import class '{class_name}'. Ensure it is in the module_map. Error: {e}")
+        except (ImportError, AttributeError) as e:
+            raise ImportError(f"Could not import class '{class_name}' from '{module_path}'. Error: {e}")
 
     def _build_system(self):
         """

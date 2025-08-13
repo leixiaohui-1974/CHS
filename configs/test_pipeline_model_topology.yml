@@ -1,0 +1,18 @@
+# Test configuration for PipelineModel
+
+components:
+  - name: my_pipe
+    type: PipelineModel
+    properties:
+      length: 1000
+      diameter: 1
+      friction_factor: 0.02
+      initial_flow: 0.0
+    connections:
+      inlet_pressure: 10.0
+      outlet_pressure: 5.0
+      dt: 1.0
+
+logging:
+  - time
+  - my_pipe.output
