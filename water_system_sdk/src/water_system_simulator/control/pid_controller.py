@@ -33,7 +33,7 @@ class PIDController(BaseController):
 
         # Input variables are grouped in the 'input' object
         # The simulation manager will write to these attributes.
-        self.input = Input(error_source=0.0)
+        self.input = Input(error_source=0.0, current_value_offset=0.0)
 
     def step(self, dt, **kwargs):
         """
@@ -47,7 +47,9 @@ class PIDController(BaseController):
             return
 
         # The "error_source" is the measured process variable (e.g., water level)
-        error = self.set_point - self.input.error_source
+        # An offset can be added to simulate sensor drift or other biases.
+        measured_value = self.input.error_source + self.input.current_value_offset
+        error = self.set_point - measured_value
 
         # --- Calculate integral term with anti-windup ---
         # This is a simple and effective method.
