@@ -9,17 +9,17 @@ import {
   DownOutlined,
 } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
-import authService from '../services/authService';
+import useAuthStore from '../store/useAuthStore';
 
 const { Header, Sider, Content } = Layout;
 
 const MainLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
-  const currentUser = authService.getCurrentUser();
+  const { user, logout } = useAuthStore();
 
   const handleLogout = () => {
-    authService.logout();
+    logout();
     navigate('/login');
   };
 
@@ -58,7 +58,7 @@ const MainLayout = ({ children }) => {
             <a onClick={e => e.preventDefault()} style={{color: '#fff'}}>
               <Space>
                 <Avatar icon={<UserOutlined />} />
-                {currentUser?.username}
+                {user?.username}
                 <DownOutlined />
               </Space>
             </a>

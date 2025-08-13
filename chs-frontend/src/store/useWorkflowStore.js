@@ -7,8 +7,10 @@ const useWorkflowStore = create((set, get) => ({
   edges: [], // These are the edges for React Flow, derived from connections
   components: [], // The ground truth for all components/nodes
   connections: [], // The ground truth for all connections/edges
+  selectedNodeId: null, // To track the selected node
 
   // Actions: Functions to manipulate the state
+  setSelectedNodeId: (nodeId) => set({ selectedNodeId: nodeId }),
   onNodesChange: (changes) => {
     set({
       nodes: applyNodeChanges(changes, get().nodes),
@@ -57,11 +59,17 @@ const useWorkflowStore = create((set, get) => ({
   // Example of how a component's parameters could be updated
   updateComponentParams: (nodeId, newParams) => {
     set((state) => ({
-        components: state.components.map(comp =>
-            comp.id === nodeId
-            ? { ...comp, parameters: { ...comp.parameters, ...newParams } }
-            : comp
-        ),
+      components: state.components.map(comp =>
+        comp.id === nodeId
+          ? { ...comp, ...newParams }
+          : comp
+      ),
+      // Also update the label on the corresponding node in React Flow
+      nodes: state.nodes.map(node =>
+        node.id === nodeId
+          ? { ...node, data: { ...node.data, label: newParams.name || node.data.label } }
+          : node
+      ),
     }));
   },
 
