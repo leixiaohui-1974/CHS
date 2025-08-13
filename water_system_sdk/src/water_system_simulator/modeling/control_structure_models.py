@@ -1,14 +1,14 @@
 import numpy as np
 from .base_model import BaseModel
 
-class GateStationModel(BaseModel):
+class GateModel(BaseModel):
     """
     Represents a station with multiple identical sluice gates.
     Calculates flow based on the gate opening and upstream water level.
     """
     def __init__(self, num_gates: int, gate_width: float, discharge_coeff: float, **kwargs):
         """
-        Initializes the Gate Station model.
+        Initializes the Gate model.
 
         Args:
             num_gates (int): The number of identical gates in the station.
