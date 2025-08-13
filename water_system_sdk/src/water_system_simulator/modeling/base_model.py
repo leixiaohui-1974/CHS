@@ -25,3 +25,11 @@ class BaseModel(ABC):
         """
         # Return all instance attributes as the default state
         return {key: value for key, value in self.__dict__.items() if not key.startswith('_')}
+
+    @property
+    def state(self):
+        """
+        A property to access the model's state using dot notation, e.g., model.state.
+        This is useful for the connection logic in the SimulationManager.
+        """
+        return self.get_state()

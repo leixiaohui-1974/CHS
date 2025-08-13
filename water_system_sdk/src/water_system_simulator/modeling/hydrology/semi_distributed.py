@@ -1,4 +1,5 @@
-from typing import List
+import pandas as pd
+from typing import List, Union
 from water_system_simulator.modeling.base_model import BaseModel
 from water_system_simulator.modeling.hydrology.sub_basin import SubBasin
 from .strategies import BaseRunoffModel, BaseRoutingModel
@@ -12,7 +13,7 @@ class SemiDistributedHydrologyModel(BaseModel):
 
     def __init__(
         self,
-        sub_basins: List[SubBasin],
+        sub_basins: List[dict],
         runoff_strategy: BaseRunoffModel,
         routing_strategy: BaseRoutingModel,
         **kwargs
@@ -21,16 +22,18 @@ class SemiDistributedHydrologyModel(BaseModel):
         Initializes the SemiDistributedHydrologyModel.
 
         Args:
-            sub_basins (List[SubBasin]): A list of SubBasin objects that make up the watershed.
+            sub_basins (List[dict]): A list of dictionaries, each describing a sub-basin's properties.
             runoff_strategy (BaseRunoffModel): The strategy for calculating runoff.
             routing_strategy (BaseRoutingModel): The strategy for routing flow.
             **kwargs: Additional keyword arguments for the BaseModel.
         """
         super().__init__(**kwargs)
-        self.sub_basins = sub_basins
+        # Instantiate SubBasin objects from the config dictionaries
+        self.sub_basins = [SubBasin(**sb_info) for sb_info in sub_basins]
         self.runoff_strategy = runoff_strategy
         self.routing_strategy = routing_strategy
         self.output = 0.0  # Initialize output
+        self.input_rainfall: Union[pd.DataFrame, None] = None # For interpolated rainfall
 
     def step(self, dt: float, t: float, **kwargs):
         """
@@ -42,14 +45,26 @@ class SemiDistributedHydrologyModel(BaseModel):
         Args:
             dt (float): The time step in hours.
             t (float): The current simulation time.
-            **kwargs: Must contain 'precipitation' (in mm/hr) for the current time step.
+            **kwargs: Can contain 'precipitation' (in mm/hr) for backward compatibility.
         """
-        precipitation_per_hour = kwargs.get('precipitation', 0.0)
-        # Convert precipitation from mm/hr to mm for the time step
-        precipitation_mm = precipitation_per_hour * dt
-
         total_outflow_m3_per_s = 0.0
+
+        # Determine the current time step index
+        current_step_index = round(t / dt)
+
         for sub_basin in self.sub_basins:
+            precipitation_mm = 0.0
+            if self.input_rainfall is not None:
+                # Use spatially distributed rainfall if available
+                if not self.input_rainfall.empty and sub_basin.id in self.input_rainfall.columns:
+                    # Assuming the input_rainfall DataFrame index aligns with simulation steps
+                    if current_step_index < len(self.input_rainfall):
+                        precipitation_mm = self.input_rainfall[sub_basin.id].iloc[current_step_index]
+            else:
+                # Fallback to uniform precipitation for backward compatibility
+                precipitation_per_hour = kwargs.get('precipitation', 0.0)
+                precipitation_mm = precipitation_per_hour * dt
+
             # 1. Call the runoff strategy to calculate effective rainfall
             effective_rainfall_mm = self.runoff_strategy.calculate_runoff(
                 rainfall=precipitation_mm,

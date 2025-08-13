@@ -7,11 +7,20 @@ from typing import Dict, Any, List
 # --- Helper functions for attribute access ---
 
 def getattr_by_path(obj: Any, path: str) -> Any:
-    """Access a nested attribute using a dot-separated path."""
+    """Access a nested attribute or dictionary key using a dot-separated path."""
+    def _get_attr_or_key(current_obj, key):
+        if isinstance(current_obj, dict):
+            try:
+                return current_obj[key]
+            except KeyError:
+                raise AttributeError(f"Dictionary does not have key '{key}'")
+        else:
+            return getattr(current_obj, key)
     try:
-        return functools.reduce(getattr, path.split('.'), obj)
-    except AttributeError:
-        raise AttributeError(f"Could not find attribute '{path}' in object {obj}.")
+        return functools.reduce(_get_attr_or_key, path.split('.'), obj)
+    except (AttributeError, KeyError):
+        raise AttributeError(f"Could not find attribute or key '{path}' in object {obj}.")
+
 
 def setattr_by_path(obj: Any, path: str, value: Any):
     """Set a nested attribute using a dot-separated path."""
@@ -27,6 +36,11 @@ def setattr_by_path(obj: Any, path: str, value: Any):
 class ComponentRegistry:
     """A registry for dynamically loading component classes."""
     _CLASS_MAP = {
+        # Preprocessing
+        "RainfallProcessor": "water_system_simulator.preprocessing.rainfall_processor.RainfallProcessor",
+        "InverseDistanceWeightingInterpolator": "water_system_simulator.preprocessing.interpolators.InverseDistanceWeightingInterpolator",
+        "ThiessenPolygonInterpolator": "water_system_simulator.preprocessing.interpolators.ThiessenPolygonInterpolator",
+        "KrigingInterpolator": "water_system_simulator.preprocessing.interpolators.KrigingInterpolator",
         # Controllers
         "PIDController": "water_system_simulator.control.pid_controller.PIDController",
         # Disturbances
@@ -90,6 +104,7 @@ class SimulationManager:
         """Initializes the simulation manager."""
         self.components: Dict[str, Any] = {}
         self.config: Dict[str, Any] = {}
+        self.datasets: Dict[str, Any] = {}
 
     def _create_strategy(self, strategy_info: dict):
         """Creates a strategy object from its configuration info."""
@@ -108,8 +123,8 @@ class SimulationManager:
             comp_type = comp_info["type"]
             params = comp_info.get("params", {})
 
+            # Special handling for components that require strategy injection
             if comp_type == "SemiDistributedHydrologyModel":
-                # Special handling for the hydrology model to inject strategies
                 strategies_config = params.pop("strategies", None)
                 if not strategies_config:
                     raise ValueError("SemiDistributedHydrologyModel requires a 'strategies' config.")
@@ -121,6 +136,18 @@ class SimulationManager:
                 self.components[name] = component_class(
                     runoff_strategy=runoff_strategy,
                     routing_strategy=routing_strategy,
+                    **params
+                )
+            elif comp_type == "RainfallProcessor":
+                strategy_config = params.pop("strategy", None)
+                if not strategy_config:
+                    raise ValueError("RainfallProcessor requires a 'strategy' config.")
+
+                interpolation_strategy = self._create_strategy(strategy_config)
+
+                component_class = ComponentRegistry.get_class(comp_type)
+                self.components[name] = component_class(
+                    strategy=interpolation_strategy,
                     **params
                 )
             else:
@@ -176,9 +203,21 @@ class SimulationManager:
         """
         # Reset state for the new run
         self.config = config
+        self.datasets = config.get("datasets", {})
         self.components = {}
         self._build_system()
 
+        # --- Preprocessing Step ---
+        preprocessing_order = self.config.get("preprocessing", [])
+        for comp_name in preprocessing_order:
+            if comp_name not in self.components:
+                raise ValueError(f"Component '{comp_name}' in 'preprocessing' order not found.")
+            component = self.components[comp_name]
+            if not hasattr(component, 'run_preprocessing'):
+                raise TypeError(f"Component '{comp_name}' does not have a 'run_preprocessing' method.")
+            component.run_preprocessing(self)
+
+        # --- Simulation Loop ---
         sim_params = self.config.get("simulation_params", {})
         total_time = sim_params.get("total_time", 100)
         dt = sim_params.get("dt", 1.0)
