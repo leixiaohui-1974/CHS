@@ -4,11 +4,14 @@ import com.chs.backend.models.*;
 import com.chs.backend.payload.LoginRequest;
 import com.chs.backend.payload.RegisterRequest;
 import com.chs.backend.payload.SimulationRequest;
+import com.chs.backend.payload.SimulationRunDTO;
 import com.chs.backend.repositories.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
@@ -43,6 +46,9 @@ public class SimulationIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @MockBean
+    private RabbitTemplate rabbitTemplate;
 
     private String token;
 
@@ -91,14 +97,14 @@ public class SimulationIntegrationTest {
         headers.setBearerAuth(token);
         HttpEntity<SimulationRequest> entity = new HttpEntity<>(simulationRequest, headers);
 
-        ResponseEntity<SimulationRun> response = restTemplate.exchange(
+        ResponseEntity<SimulationRunDTO> response = restTemplate.exchange(
                 "http://localhost:" + port + "/api/projects/" + project.getId() + "/simulations",
                 HttpMethod.POST,
                 entity,
-                SimulationRun.class
+                SimulationRunDTO.class
         );
 
-        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
         assertEquals(project.getId(), response.getBody().getProject().getId());
     }
 }

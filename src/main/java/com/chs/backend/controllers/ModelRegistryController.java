@@ -5,6 +5,7 @@ import com.chs.backend.models.ModelVersion;
 import com.chs.backend.payload.ModelDefinitionRequest;
 import com.chs.backend.payload.ModelVersionRequest;
 import com.chs.backend.security.UserPrincipal;
+import com.chs.backend.services.ModelDeploymentService;
 import com.chs.backend.services.ModelRegistryService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -12,7 +12,7 @@ public class ModelDeploymentServiceImpl implements ModelDeploymentService {
 
     @Override
     public void deploy(ModelVersion modelVersion) {
-        logger.info("Placeholder: Deploying model version {} with Docker image {}", modelVersion.getVersionTag(), modelVersion.getDockerImage());
+        logger.info("Placeholder: Deploying model version {} with Docker image {}", modelVersion.getVersionTag(), modelVersion.getDockerImageUri());
         // In a real implementation, this would call a container orchestration API (e.g., Kubernetes)
     }
 
