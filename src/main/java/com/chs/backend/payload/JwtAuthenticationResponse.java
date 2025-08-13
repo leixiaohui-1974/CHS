@@ -1,11 +1,15 @@
 package com.chs.backend.payload;
 
+import com.chs.backend.security.UserPrincipal;
+
 public class JwtAuthenticationResponse {
     private String accessToken;
     private String tokenType = "Bearer";
+    private UserPrincipal user;
 
-    public JwtAuthenticationResponse(String accessToken) {
+    public JwtAuthenticationResponse(String accessToken, UserPrincipal user) {
         this.accessToken = accessToken;
+        this.user = user;
     }
 
     public String getAccessToken() {
@@ -22,5 +26,13 @@ public class JwtAuthenticationResponse {
 
     public void setTokenType(String tokenType) {
         this.tokenType = tokenType;
+    }
+
+    public UserPrincipal getUser() {
+        return user;
+    }
+
+    public void setUser(UserPrincipal user) {
+        this.user = user;
     }
 }

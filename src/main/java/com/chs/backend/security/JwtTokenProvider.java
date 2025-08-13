@@ -20,29 +20,35 @@ public class JwtTokenProvider {
     private final long jwtExpirationInMs = 86400000; // 24 hours
 
     public String generateToken(Authentication authentication) {
-        UserDetails userPrincipal = (UserDetails) authentication.getPrincipal();
-        return generateToken(userPrincipal.getUsername());
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        return generateToken(userPrincipal);
     }
 
-    public String generateToken(String username) {
+    public String generateToken(UserPrincipal userPrincipal) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
 
         return Jwts.builder()
-                .subject(username)
+                .subject(Long.toString(userPrincipal.getId()))
                 .issuedAt(now)
                 .expiration(expiryDate)
                 .signWith(jwtSecret)
                 .compact();
     }
 
-    public String getUsernameFromJWT(String token) {
-        return getClaimFromToken(token, Claims::getSubject);
+    public Long getUserIdFromJWT(String token) {
+        Claims claims = getAllClaimsFromToken(token);
+        return Long.parseLong(claims.getSubject());
     }
 
-    public boolean validateToken(String authToken, UserDetails userDetails) {
-        final String username = getUsernameFromJWT(authToken);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(authToken));
+    public boolean validateToken(String authToken) {
+        try {
+            Jwts.parser().verifyWith(jwtSecret).build().parseSignedClaims(authToken);
+            return true;
+        } catch (Exception ex) {
+            // Can be more specific with exceptions
+        }
+        return false;
     }
 
     private <T> T getClaimFromToken(String token, Function<Claims, T> claimsResolver) {

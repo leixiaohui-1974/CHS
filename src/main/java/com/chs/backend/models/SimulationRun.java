@@ -16,6 +16,10 @@ public class SimulationRun {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "scenario_id")
+    private Scenario scenario;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SimulationStatus status;
@@ -44,6 +48,14 @@ public class SimulationRun {
 
     public void setProject(Project project) {
         this.project = project;
+    }
+
+    public Scenario getScenario() {
+        return scenario;
+    }
+
+    public void setScenario(Scenario scenario) {
+        this.scenario = scenario;
     }
 
     public SimulationStatus getStatus() {
