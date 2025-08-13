@@ -9,19 +9,19 @@ class BaseModel(ABC):
         self.output = None
         super().__init__()
 
-    @abstractmethod
-    def step(self, *args, **kwargs):
+    def step(self, dt, t):
         """
         Represents a single time step of the model's execution.
 
-        This method must be implemented by all subclasses. It should
-        update the internal state of the model and return its primary output.
+        This method can be implemented by subclasses that need to perform
+        time-based updates.
         """
         pass
 
-    @abstractmethod
     def get_state(self):
         """
         Returns a dictionary of the model's current state.
+        This can be overridden by subclasses to expose their state.
         """
-        pass
+        # Return all instance attributes as the default state
+        return {key: value for key, value in self.__dict__.items() if not key.startswith('_')}

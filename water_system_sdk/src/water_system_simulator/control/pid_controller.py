@@ -79,6 +79,7 @@ class PIDController(BaseController):
         # --- Update state for the next time step ---
         self.state.previous_error = error
         self.state.output = clamped_output
+        return self.state.output
 
     def get_state(self):
         return self.state.__dict__
