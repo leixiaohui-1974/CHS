@@ -1,116 +1,130 @@
 import numpy as np
 from .base_model import BaseModel
 
-class GateModel(BaseModel):
-    """
-    Represents a gate using the orifice flow equation.
-    """
-    def __init__(self, discharge_coefficient, area):
-        self.discharge_coefficient = discharge_coefficient
-        self.area = area
-        self.g = 9.81
-        self.flow = 0.0
-        self.output = 0.0
-
-    def step(self, upstream_level, downstream_level, area):
-        self.area = area
-        head_diff = upstream_level - downstream_level
-        if head_diff <= 0 or self.area <= 0:
-            self.flow = 0.0
-        else:
-            self.flow = self.discharge_coefficient * self.area * np.sqrt(2 * self.g * head_diff)
-        self.output = self.flow
-        return self.output
-
-    def get_state(self):
-        return {"flow": self.flow, "area": self.area}
-
-class PumpModel(BaseModel):
-    """
-    Represents a pump with a simple characteristic curve.
-    """
-    def __init__(self, max_flow, max_head):
-        self.max_flow = max_flow
-        self.max_head = max_head
-        self.output = 0.0
-
-    def step(self, head_diff, speed):
-        if speed <= 0:
-            self.output = 0.0
-        else:
-            flow = self.max_flow * (1 - head_diff / self.max_head) * speed
-            self.output = max(0.0, flow)
-        return self.output
-
-    def get_state(self):
-        return {"flow": self.output}
-
 class GateStationModel(BaseModel):
     """
-    Represents a station with multiple gates.
+    Represents a station with multiple identical sluice gates.
+    Calculates flow based on the gate opening and upstream water level.
     """
-    def __init__(self, number_of_gates: int, gate_configs: list):
-        if number_of_gates != len(gate_configs):
-            raise ValueError("Number of gates must match the length of gate_configs.")
-        self.gates = [GateModel(**config) for config in gate_configs]
-        self.output = 0.0
+    def __init__(self, num_gates: int, gate_width: float, discharge_coeff: float):
+        """
+        Initializes the Gate Station model.
 
-    def step(self, upstream_level: float, downstream_level: float, areas: list):
-        if len(areas) != len(self.gates):
-            raise ValueError("The number of areas provided must match the number of gates.")
-        total_flow = sum(gate.step(upstream_level, downstream_level, areas[i]) for i, gate in enumerate(self.gates))
-        self.output = total_flow
-        return self.output
-
-    def get_state(self):
-        return {"total_flow": self.output, "gate_areas": [g.area for g in self.gates]}
-
-class HydropowerStationModel(BaseModel):
-    """
-    Represents a simple hydropower station.
-    """
-    def __init__(self, rated_flow: float, rated_head: float, efficiency: float = 0.90):
-        if rated_head <= 0:
-            raise ValueError("Rated head must be positive.")
-        self.flow_coeff = rated_flow / np.sqrt(rated_head)
-        self.efficiency = efficiency
+        Args:
+            num_gates (int): The number of identical gates in the station.
+            gate_width (float): The width of a single gate (m).
+            discharge_coeff (float): The discharge coefficient for the gates (dimensionless).
+        """
+        super().__init__()
+        self.num_gates = num_gates
+        self.gate_width = gate_width
+        self.discharge_coeff = discharge_coeff
         self.g = 9.81
-        self.rho = 1000
-        self.output = 0.0
-        self.power_generation = 0.0
+        self.flow = 0.0
+        self.output = self.flow
 
-    def step(self, upstream_level: float, downstream_level: float, guide_vane_opening: float):
-        head_diff = upstream_level - downstream_level
-        guide_vane_opening = np.clip(guide_vane_opening, 0, 1)
-        if head_diff <= 0 or guide_vane_opening <= 0:
-            self.output = 0.0
-            self.power_generation = 0.0
+    def step(self, upstream_level: float, gate_opening: float):
+        """
+        Calculates the total flow for the next time step.
+
+        Args:
+            upstream_level (float): The water level upstream of the gate (m).
+            gate_opening (float): The height of the gate opening (m).
+        """
+        gate_opening = np.clip(gate_opening, 0, np.inf)
+        if upstream_level <= 0 or gate_opening <= 0:
+            self.flow = 0.0
         else:
-            flow = self.flow_coeff * guide_vane_opening * np.sqrt(head_diff)
-            self.output = flow
-            power = self.efficiency * self.rho * self.g * flow * head_diff
-            self.power_generation = power / 1e6
-        return self.output
+            area_per_gate = self.gate_width * gate_opening
+            flow_per_gate = self.discharge_coeff * area_per_gate * np.sqrt(2 * self.g * upstream_level)
+            self.flow = flow_per_gate * self.num_gates
+        self.output = self.flow
 
     def get_state(self):
-        return {"flow": self.output, "power_generation_MW": self.power_generation}
+        return {"flow": self.flow, "output": self.output}
 
 class PumpStationModel(BaseModel):
     """
-    Represents a station with multiple pumps.
+    Represents a pump station with one or more pumps operating in parallel.
+    The pump's performance is defined by a characteristic curve (head vs. flow).
     """
-    def __init__(self, number_of_pumps: int, pump_configs: list):
-        if number_of_pumps != len(pump_configs):
-            raise ValueError("Number of pumps must match the length of pump_configs.")
-        self.pumps = [PumpModel(**config) for config in pump_configs]
-        self.output = 0.0
+    def __init__(self, num_pumps_total: int, curve_coeffs: list, initial_num_pumps_on: int = 1):
+        """
+        Initializes the Pump Station model.
 
-    def step(self, head_diff: float, speeds: list):
-        if len(speeds) != len(self.pumps):
-            raise ValueError("The number of speeds provided must match the number of pumps.")
-        total_flow = sum(pump.step(head_diff, speeds[i]) for i, pump in enumerate(self.pumps))
-        self.output = total_flow
-        return self.output
+        Args:
+            num_pumps_total (int): Total number of pumps in the station.
+            curve_coeffs (list): For Flow = a*Head^2 + b*Head + c.
+            initial_num_pumps_on (int, optional): Number of pumps initially running.
+        """
+        super().__init__()
+        if len(curve_coeffs) != 3:
+            raise ValueError("curve_coeffs must be a list of 3 numbers [a, b, c].")
+        self.num_pumps_total = num_pumps_total
+        self.curve_coeffs = np.array(curve_coeffs)
+        self.num_pumps_on = initial_num_pumps_on
+        self.flow = 0.0
+        self.output = self.flow
+
+    def _calculate_flow_per_pump(self, head_diff: float) -> float:
+        a, b, c = self.curve_coeffs
+        if head_diff < 0: head_diff = 0
+        flow = a * head_diff**2 + b * head_diff + c
+        return max(0, flow)
+
+    def step(self, inlet_pressure: float, outlet_pressure: float, num_pumps_on: int = None):
+        """
+        Calculates the total flow for the next time step.
+        """
+        if num_pumps_on is not None:
+            self.num_pumps_on = np.clip(int(num_pumps_on), 0, self.num_pumps_total)
+        head_diff = outlet_pressure - inlet_pressure
+        flow_per_pump = self._calculate_flow_per_pump(head_diff)
+        self.flow = flow_per_pump * self.num_pumps_on
+        self.output = self.flow
 
     def get_state(self):
-        return {"total_flow": self.output}
+        return {"flow": self.flow, "num_pumps_on": self.num_pumps_on, "output": self.output}
+
+
+class HydropowerStationModel(BaseModel):
+    """
+    Represents a hydropower station.
+    Calculates outflow and power generation based on head and guide vane opening.
+    """
+    def __init__(self, max_flow_area: float, discharge_coeff: float, efficiency: float):
+        """
+        Initializes the Hydropower Station model.
+
+        Args:
+            max_flow_area (float): Max flow area through the turbine (m^2).
+            discharge_coeff (float): Discharge coefficient (dimensionless).
+            efficiency (float): Overall efficiency of the turbine-generator set.
+        """
+        super().__init__()
+        self.max_flow_area = max_flow_area
+        self.discharge_coeff = discharge_coeff
+        self.efficiency = efficiency
+        self.g = 9.81
+        self.rho = 1000
+        self.flow = 0.0
+        self.power = 0.0
+        self.output = self.flow
+
+    def step(self, upstream_level: float, downstream_level: float, vane_opening: float):
+        """
+        Calculates the outflow and power generation for the next time step.
+        """
+        vane_opening = np.clip(vane_opening, 0.0, 1.0)
+        head = upstream_level - downstream_level
+        if head <= 0:
+            self.flow = 0.0
+            self.power = 0.0
+        else:
+            effective_area = self.max_flow_area * vane_opening
+            self.flow = self.discharge_coeff * effective_area * np.sqrt(2 * self.g * head)
+            self.power = self.efficiency * self.rho * self.g * self.flow * head
+        self.output = self.flow
+
+    def get_state(self):
+        return {"flow": self.flow, "power": self.power, "output": self.output}

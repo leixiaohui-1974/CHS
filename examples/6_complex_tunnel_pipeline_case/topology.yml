@@ -24,11 +24,10 @@ components:
     connections: {measured_value: main_tunnel.output}
   - name: siphon_gates
     type: GateStationModel
-    properties: {number_of_gates: 2, gate_configs: [{discharge_coefficient: 0.7, area: 5}, {discharge_coefficient: 0.7, area: 5}]}
+    properties: {num_gates: 2, gate_width: 5.0, discharge_coeff: 0.7} # Simplified from old config
     connections:
       upstream_level: main_tunnel.output
-      downstream_level: surge_tank.storage
-      areas: [siphon_pid.output, siphon_pid.output] # Both gates controlled by one PID
+      gate_opening: siphon_pid.output # Both gates controlled by one PID
 
   # --- Part 3: Surge Tank & Pressure Pipe 1 ---
   - name: surge_tank
@@ -38,23 +37,22 @@ components:
   - name: pressure_pipe_1
     type: PipelineModel
     properties: {length: 2000, diameter: 2, friction_factor: 0.015, initial_flow: 40}
-    connections: {inlet_pressure: surge_tank.storage, outlet_pressure: 20.0, dt: 1.0} # Placeholder outlet pressure
+    connections: {inlet_pressure: surge_tank.storage, outlet_pressure: 20.0} # Placeholder outlet pressure
 
   # --- Part 4: In-line Valve, Pressure Pipe 2 & Control ---
   - name: pressure_pid
     type: PIDController # Controls valve to stabilize pressure after it
     connections: {measured_value: pressure_pipe_2.output} # Control flow instead of pressure
   - name: pressure_valve
-    type: GateModel # Using a gate to model the valve
-    properties: {discharge_coefficient: 0.8, area: 2.0}
+    type: GateStationModel # Using a gate to model the valve
+    properties: {num_gates: 1, gate_width: 2.0, discharge_coeff: 0.8}
     connections:
       upstream_level: 20.0 # Placeholder
-      downstream_level: 15.0 # Placeholder
-      area: pressure_pid.output
+      gate_opening: pressure_pid.output
   - name: pressure_pipe_2
     type: PipelineModel
     properties: {length: 1500, diameter: 1.8, friction_factor: 0.015, initial_flow: 35}
-    connections: {inlet_pressure: 15.0, outlet_pressure: high_level_tank.storage, dt: 1.0}
+    connections: {inlet_pressure: 15.0, outlet_pressure: high_level_tank.storage}
 
   # --- Part 5: High-level Tank and Pump Station ---
   - name: high_level_tank
@@ -63,10 +61,12 @@ components:
     connections: {inflow: pressure_pipe_2.output}
   - name: pump_station
     type: PumpStationModel
-    properties: {number_of_pumps: 1, pump_configs: [{max_flow: 10, max_head: 50}]}
+    # Approximating old curve: max_flow=10, max_head=50 -> Flow = -0.004*H^2 + 0*H + 10
+    properties: {num_pumps_total: 1, curve_coeffs: [-0.004, 0, 10]}
     connections:
-      head_diff: 20.0 # Assume constant head difference for pump
-      speeds: [1.0] # Assume constant speed for now
+      inlet_pressure: 30.0   # Placeholder
+      outlet_pressure: 50.0  # Placeholder, gives head_diff of 20
+      num_pumps_on: 1.0      # Assume constant speed
   - name: final_channel
     type: MuskingumChannelModel
     properties: {K: 2.0, x: 0.1, dt: 1.0, initial_inflow: 10, initial_outflow: 10}

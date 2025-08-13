@@ -1,0 +1,83 @@
+# New Test Case: Complex Network System
+
+dt: 1.0
+duration: 1000
+solver: EulerIntegrator
+
+components:
+  # --- Main River ---
+  - name: main_inlet
+    type: ConstantHeadReservoir
+    properties: {level: 100.0}
+
+  - name: main_river_channel
+    type: FirstOrderInertiaModel # Using a simple model for the river
+    properties: {initial_storage: 1000, time_constant: 100}
+    connections: {inflow: 50.0} # Assume constant inflow for simplicity
+
+  # --- Branch 1 (Gate + Channel) ---
+  - name: branch1_gate
+    type: GateStationModel
+    properties: {num_gates: 1, gate_width: 3.0, discharge_coeff: 0.6}
+    connections:
+      upstream_level: main_river_channel.storage # Connect to main river storage (as level)
+      gate_opening: 0.8 # 80% open
+
+  - name: branch1_channel
+    type: MuskingumChannelModel
+    properties: {K: 2.0, x: 0.2, dt: 1.0, initial_inflow: 10, initial_outflow: 10} # Adjusted K for stability
+    connections: {inflow: branch1_gate.output}
+
+  # --- Branch 2 (Pump + Pipe) ---
+  - name: branch2_pump
+    type: PumpStationModel
+    properties: {num_pumps_total: 2, curve_coeffs: [-0.001, 0.01, 2]} # Reduced pump power
+    connections:
+      inlet_pressure: main_river_channel.storage # Pump from the main river
+      outlet_pressure: 120.0 # Pumping up to a higher pressure
+      num_pumps_on: 1
+
+  - name: branch2_pipe
+    type: PipelineModel
+    properties: {length: 2000, diameter: 0.5, friction_factor: 0.025}
+    connections:
+      inlet_pressure: 120.0
+      outlet_pressure: regulating_reservoir.storage # Flowing into the reservoir
+
+  # --- Convergence Point ---
+  - name: inflow_to_reservoir
+    type: SummingPoint
+    connections: [branch1_channel.output, branch2_pipe.output]
+
+  - name: regulating_reservoir
+    type: FirstOrderInertiaModel
+    properties: {initial_storage: 500, time_constant: 50}
+    connections: {inflow: inflow_to_reservoir.output}
+
+  # --- Final Discharge ---
+  - name: final_hydropower
+    type: HydropowerStationModel
+    properties: {max_flow_area: 2.0, discharge_coeff: 0.8, efficiency: 0.9} # Reduced flow area
+    connections:
+      upstream_level: regulating_reservoir.storage
+      downstream_level: 50.0 # Discharging to a low level
+      vane_opening: 0.75
+
+  - name: final_valve
+    type: GateStationModel # Modeling valve as a gate
+    properties: {num_gates: 1, gate_width: 1.0, discharge_coeff: 0.7}
+    connections:
+      upstream_level: regulating_reservoir.storage
+      gate_opening: 0.5
+
+  - name: total_outflow
+    type: SummingPoint
+    connections: [final_hydropower.output, final_valve.output]
+
+logging:
+  - time
+  - main_river_channel.storage
+  - branch1_channel.output
+  - branch2_pipe.output
+  - regulating_reservoir.storage
+  - total_outflow.output
