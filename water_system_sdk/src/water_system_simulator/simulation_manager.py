@@ -29,13 +29,16 @@ class ComponentRegistry:
     _CLASS_MAP = {
         # Controllers
         "PIDController": "water_system_simulator.control.pid_controller.PIDController",
-        # Disturbances
+        # External Data Agents (New)
+        "CsvDataAgent": "water_system_simulator.external_data.agents.CsvDataAgent",
+        # Disturbances (Legacy)
         "Disturbance": "water_system_simulator.disturbances.predefined.Disturbance",
-        "RainfallAgent": "water_system_simulator.disturbances.agents.RainfallAgent",
-        "DemandAgent": "water_system_simulator.disturbances.agents.DemandAgent",
-        "PriceAgent": "water_system_simulator.disturbances.agents.PriceAgent",
-        "FaultAgent": "water_system_simulator.disturbances.agents.FaultAgent",
+        "RainfallAgent": "water_system_simulator.disturbances.legacy_agents.RainfallAgent",
+        "DemandAgent": "water_system_simulator.disturbances.legacy_agents.DemandAgent",
+        "PriceAgent": "water_system_simulator.disturbances.legacy_agents.PriceAgent",
+        "FaultAgent": "water_system_simulator.disturbances.legacy_agents.FaultAgent",
         # Models
+        "StVenantModel": "water_system_simulator.modeling.st_venant_model.StVenantModel",
         "ReservoirModel": "water_system_simulator.modeling.storage_models.ReservoirModel",
         "MuskingumChannelModel": "water_system_simulator.modeling.storage_models.MuskingumChannelModel",
         "FirstOrderInertiaModel": "water_system_simulator.modeling.storage_models.FirstOrderInertiaModel",
