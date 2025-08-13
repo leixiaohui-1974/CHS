@@ -1,0 +1,102 @@
+# ----------------------------------------------------
+# Example Case 18: Adaptive Model Simulation
+# ----------------------------------------------------
+# This case demonstrates the dynamic model switching
+# and online parameter update capabilities of the SDK.
+# ----------------------------------------------------
+
+simulation_params:
+  total_time: 100
+  dt: 1.0
+
+components:
+  # An input source to drive the simulation
+  inflow_source:
+    type: "TimeSeriesDisturbance"
+    params:
+      times: [0, 20, 20.1, 100]
+      values:     [100, 100, 1200, 1200]
+
+  # The river entity with a model bank
+  long_river_A:
+    type: "RiverEntity"
+    dynamic_model_bank:
+      - id: "daily_balance_model"
+        type: "SimpleWaterBalanceModel"
+        params:
+          evaporation_coeff: 0.01
+      - id: "hourly_flood_model"
+        type: "MuskingumModel"
+        params:
+          K: 3.0 # Initial parameter
+          X: 0.2
+          segments: 5
+          initial_outflow: 100.0
+    initial_active_model: "daily_balance_model"
+
+  # A dummy component to provide a dynamic parameter value
+  param_driver:
+    type: "TimeSeriesDisturbance"
+    params:
+      times: [0, 50, 50.1, 100]
+      values:     [3.0, 3.0, 5.0, 5.0]
+
+# --- Events for dynamic adaptation ---
+events:
+  - id: "switch_to_flood_model"
+    trigger:
+      type: "condition"
+      value: "inflow_source.output > 1000.0"
+    action:
+      type: "switch_model"
+      target: "long_river_A"
+      value: "hourly_flood_model"
+
+  - id: "switch_back_to_balance_model"
+    trigger:
+      type: "condition"
+      value: "inflow_source.output <= 1000.0"
+    action:
+      type: "switch_model"
+      target: "long_river_A"
+      value: "daily_balance_model"
+
+  - id: "online_calibration_fixed"
+    trigger:
+      type: "condition"
+      value: "simulation.t >= 80"
+    action:
+      type: "set_param"
+      target: "long_river_A::hourly_flood_model.params.X"
+      value: 0.4
+
+  - id: "online_calibration_dynamic"
+    trigger:
+      type: "always"
+    action:
+      type: "set_param"
+      target: "long_river_A::hourly_flood_model.params.K"
+      value_from: "param_driver.output"
+
+# --- Execution Logic ---
+execution_order:
+  - component: "inflow_source"
+    method: "step"
+    args: { dt: "simulation.dt", t: "simulation.t" }
+  - component: "param_driver"
+    method: "step"
+    args: { dt: "simulation.dt", t: "simulation.t" }
+  - "long_river_A"
+
+# --- Data Logging ---
+logger_config:
+  - "inflow_source.output"
+  - "long_river_A.output" # Log the entity's output directly
+  - "long_river_A.active_dynamic_model_id"
+  - "long_river_A.dynamic_model_bank.hourly_flood_model.params.K"
+  - "long_river_A.dynamic_model_bank.hourly_flood_model.params.X"
+
+# --- Connections ---
+connections:
+  - source: "inflow_source.output"
+    target: "long_river_A.input.inflow" # Connect to the entity directly
