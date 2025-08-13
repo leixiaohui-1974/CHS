@@ -4,8 +4,8 @@ class MuskingumModel(RoutingModel):
     """
     Implements the Muskingum method for river routing.
     """
-    def __init__(self, parameters):
-        super().__init__(parameters)
+    def __init__(self, params, states={}):
+        super().__init__(params, states)
         # Model parameters
         self.K = self.params.get("K", 24)  # Storage time constant (hours)
         self.x = self.params.get("x", 0.2)  # Weighting factor

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from ...modeling.base_model import BaseModel
+from water_system_sdk.src.water_system_simulator.modeling.base_model import BaseModel
 
 class RunoffModel(BaseModel, ABC):
     """Abstract base class for all runoff models."""
@@ -56,15 +56,16 @@ class RunoffModel(BaseModel, ABC):
 class RoutingModel(ABC):
     """Abstract base class for all routing models."""
 
-    def __init__(self, parameters):
+    def __init__(self, params, states={}):
         """
         Initializes the routing model with its parameters.
 
         Args:
-            parameters (dict): A dictionary of parameters required by the model.
+            params (dict): A dictionary of parameters required by the model.
+            states (dict): A dictionary of initial states for the model.
         """
-        self.params = parameters
-        self.states = {}
+        self.params = params
+        self.states = states
 
     @abstractmethod
     def route(self, inflow):
