@@ -1,4 +1,4 @@
-import create from 'zustand';
+import { create } from 'zustand';
 import { addEdge, applyNodeChanges, applyEdgeChanges } from 'reactflow';
 
 const useWorkflowStore = create((set, get) => ({

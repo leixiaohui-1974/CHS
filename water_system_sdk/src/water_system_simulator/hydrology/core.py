@@ -4,9 +4,9 @@ from .utils.file_parsers import (
     load_parameters_from_json,
     load_timeseries_from_json,
 )
-from .models.runoff import RunoffCoefficientModel, XinanjiangModel
-from .models.routing import MuskingumModel
-from .models.interception import HumanActivityModel
+from ..modeling.hydrology.runoff_models import RunoffCoefficientModel, XinanjiangModel
+from ..modeling.hydrology.routing_models import MuskingumModel
+from ..modeling.hydrology.interception_models import HumanActivityModel
 
 # --- Model Factories ---
 RUNOFF_MODEL_MAP = {
@@ -30,7 +30,7 @@ class SubBasin:
         runoff_model_name = params.get("runoff_model", "default")
         if runoff_model_name not in RUNOFF_MODEL_MAP:
             raise ValueError(f"Runoff model '{runoff_model_name}' not found for {self.id}")
-        self.runoff_model = RUNOFF_MODEL_MAP[runoff_model_name](params.get("runoff_parameters", {}))
+        self.runoff_model = RUNOFF_MODEL_MAP[runoff_model_name](**params.get("runoff_parameters", {}))
 
         # --- Human Activity Interception Model (Optional) ---
         self.interception_model = None
@@ -47,31 +47,20 @@ class SubBasin:
         This method now correctly orchestrates the impervious/pervious split,
         interception, and pervious runoff calculation.
         """
-        # --- 1. Impervious Area Runoff ---
-        # Runoff from impervious areas is immediate and not subject to interception.
-        # We need the impervious fraction (IM) from the runoff model parameters.
         impervious_fraction = self.runoff_model.params.get("IM", 0.0)
         impervious_runoff_depth = precipitation_mm * impervious_fraction
 
-        # --- 2. Pervious Area Rainfall ---
-        # This is the rainfall that is subject to interception and infiltration.
         pervious_precip_mm = precipitation_mm * (1 - impervious_fraction)
 
-        # --- 3. Apply Interception Model (if it exists) ---
-        # The interception model simulates storage in small dams and vegetation.
         if self.interception_model:
             pervious_precip_mm = self.interception_model.intercept(pervious_precip_mm)
 
-        # --- 4. Pervious Area Runoff ---
-        # The (potentially reduced) pervious rainfall is passed to the runoff model.
-        pervious_runoff_depth = self.runoff_model.calculate_pervious_runoff(
-            pervious_precip_mm, evaporation_mm
+        pervious_runoff_depth = self.runoff_model.calculate_runoff(
+            pervious_precip_mm, self.runoff_model.params, dt_hours
         )
 
-        # --- 5. Total Runoff and Unit Conversion ---
         total_runoff_depth_mm = impervious_runoff_depth + pervious_runoff_depth
 
-        # Convert runoff depth (mm) over the area (km2) to flow rate (m3/s)
         volume_m3 = total_runoff_depth_mm * self.area_km2 * 1000
         flow_rate_m3s = volume_m3 / (dt_hours * 3600)
 
