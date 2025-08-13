@@ -1,0 +1,39 @@
+# Case 02: Watershed Rainfall-Runoff Simulation
+# This case demonstrates a simple hydrological process: rainfall generates
+# runoff via the Xinanjiang model, and the runoff is then routed through a channel.
+
+case_name: case_02_watershed_rainfall_runoff
+duration: 100 # hours
+dt: 1.0
+solver: EulerIntegrator # Not used by these models, but required by manager
+
+components:
+  - name: watershed1
+    type: XinanjiangModel
+    properties:
+      WM: 120.0
+      B: 0.3
+      IM: 0.1
+      initial_states:
+        initial_W: 60.0
+    connections:
+      precipitation: "rainfall" # from disturbances.csv
+      evaporation: "evaporation" # from disturbances.csv
+
+  - name: river1
+    type: MuskingumChannelModel
+    properties:
+      K: 15.0
+      x: 0.2
+      dt: 1.0 # The model needs dt
+      initial_inflow: 5.0
+      initial_outflow: 5.0
+    connections:
+      inflow: "watershed1.pervious_runoff" # Runoff from the watershed is inflow to the river
+
+logging:
+  - time
+  - rainfall
+  - evaporation
+  - watershed1.pervious_runoff
+  - river1.output # Outflow from the river

@@ -1,0 +1,24 @@
+# Case 01: Reservoir Open Loop Simulation
+# This case demonstrates the response of a single reservoir to a varying inflow.
+
+case_name: case_01_reservoir_open_loop
+duration: 100 # hours
+dt: 1.0
+solver: EulerIntegrator
+
+components:
+  - name: reservoir1
+    type: FirstOrderInertiaModel
+    properties:
+      initial_storage: 5000.0 # m^3
+      time_constant: 100.0 # T, where Outflow = Storage / T
+      # The solver class and dt for the model are passed by the engine
+    connections:
+      inflow: "inflow_disturbance" # Connects to the disturbance
+      # t is passed by the engine
+
+logging:
+  - time
+  - reservoir1.storage
+  - reservoir1.output # This is the outflow
+  - inflow_disturbance # Log the inflow to see the relationship
