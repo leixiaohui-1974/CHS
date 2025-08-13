@@ -1,0 +1,30 @@
+.workbench-layout {
+  display: flex;
+  height: 100%;
+}
+
+.workbench-sider {
+  padding: 10px;
+  border-right: 1px solid #f0f0f0;
+  background: #fff;
+}
+
+.workbench-main {
+  flex-grow: 1;
+  height: 100%;
+}
+
+.react-flow-wrapper {
+  height: 100%;
+  width: 100%;
+}
+
+.component-palette .draggable-node {
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border: 1px solid #1890ff;
+    border-radius: 4px;
+    background: #e6f7ff;
+    cursor: grab;
+    text-align: center;
+}
