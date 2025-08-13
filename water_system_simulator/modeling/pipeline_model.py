@@ -6,7 +6,7 @@ class PipelineModel(BaseModel):
     Represents a simple pressurized pipeline, considering friction and inertia.
     Uses the Darcy-Weisbach equation for friction loss.
     """
-    def __init__(self, length: float, diameter: float, friction_factor: float, initial_flow: float = 0.0):
+    def __init__(self, length: float, diameter: float, friction_factor: float, initial_flow: float = 0.0, **kwargs):
         """
         Initializes the Pipeline model.
 
@@ -16,7 +16,7 @@ class PipelineModel(BaseModel):
             friction_factor (float): Darcy-Weisbach friction factor (dimensionless).
             initial_flow (float, optional): Initial flow rate (m^3/s). Defaults to 0.0.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.length = length
         self.diameter = diameter
         self.friction_factor = friction_factor
@@ -26,7 +26,7 @@ class PipelineModel(BaseModel):
         self.output = initial_flow  # Primary output is flow rate
         self.g = 9.81
 
-    def step(self, inlet_pressure: float, outlet_pressure: float, dt: float):
+    def step(self, inlet_pressure: float, outlet_pressure: float, dt: float, **kwargs):
         """
         Calculates the flow for the next time step by updating internal state.
 

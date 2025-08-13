@@ -6,7 +6,7 @@ class MPCController(BaseController):
     """
     A Model Predictive Control (MPC) controller for linear time-invariant (LTI) systems.
     """
-    def __init__(self, A, B, Q, R, N, setpoint, u_min=None, u_max=None, x_min=None, x_max=None):
+    def __init__(self, A, B, Q, R, N, setpoint, u_min=None, u_max=None, x_min=None, x_max=None, **kwargs):
         """
         Initializes the MPC controller.
 
@@ -22,6 +22,7 @@ class MPCController(BaseController):
             x_min (float, optional): Minimum state value. Defaults to None.
             x_max (float, optional): Maximum state value. Defaults to None.
         """
+        super().__init__(**kwargs)
         # Ensure matrices are numpy arrays right away
         A = np.array(A)
         B = np.array(B)
@@ -81,7 +82,7 @@ class MPCController(BaseController):
 
         print("MPC Controller initialized successfully.")
 
-    def calculate(self, measured_value, dt=None):
+    def step(self, measured_value, dt=None, **kwargs):
         """
         Calculates the optimal control output.
 

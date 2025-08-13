@@ -2,7 +2,6 @@ import yaml
 import csv
 import importlib
 import numpy as np
-import inspect
 import os
 
 from water_system_simulator.config_parser import parse_topology, parse_disturbances
@@ -108,9 +107,10 @@ class SimulationManager:
 
             component_class = ComponentRegistry.get_class(comp_type)
 
-            if 'solver_class' in inspect.signature(component_class.__init__).parameters:
-                properties['solver_class'] = self.solver_class
-                properties['dt'] = self.dt
+            # Inject solver and dt into properties for components that might need them.
+            # The component's __init__ must accept **kwargs to ignore unused ones.
+            properties['solver_class'] = self.solver_class
+            properties['dt'] = self.dt
 
             self.components[name] = component_class(**properties)
             self.component_order.append(name)
@@ -181,25 +181,26 @@ class SimulationManager:
     def _process_component(self, config, comp_name, t, step_values):
         """Calculates the output of a regular component."""
         component = self.components[comp_name]
-        method_name = 'step' if hasattr(component, 'step') else 'calculate'
-        if not hasattr(component, method_name):
+        # All steppable components are now expected to have a 'step' method.
+        if not hasattr(component, 'step'):
             return
 
-        method = getattr(component, method_name)
-        method_params = inspect.signature(method).parameters
+        method = getattr(component, 'step')
 
+        # Prepare kwargs from connections in the config file.
         kwargs = {}
         connections = config.get('connections', {})
         for param_name, value_source in connections.items():
-            if param_name in method_params:
-                if isinstance(value_source, list):
-                    kwargs[param_name] = np.array([self._get_connection_value(v, step_values) for v in value_source])
-                else:
-                    kwargs[param_name] = self._get_connection_value(value_source, step_values)
+            if isinstance(value_source, list):
+                kwargs[param_name] = np.array([self._get_connection_value(v, step_values) for v in value_source])
+            else:
+                kwargs[param_name] = self._get_connection_value(value_source, step_values)
 
-        if 'dt' in method_params: kwargs['dt'] = self.dt
-        if 't' in method_params: kwargs['t'] = t
+        # Always provide time context. The component's step method can ignore them if not needed.
+        kwargs['t'] = t
+        kwargs['dt'] = self.dt
 
+        # The component's step method should accept **kwargs to ignore unused parameters.
         method(**kwargs)
         step_values[f"{comp_name}.output"] = component.output
 

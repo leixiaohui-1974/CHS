@@ -5,7 +5,7 @@ class PIDController(BaseController):
     """
     A simple PID controller.
     """
-    def __init__(self, kp, ki, kd, setpoint, output_min=None, output_max=None):
+    def __init__(self, kp, ki, kd, setpoint, output_min=None, output_max=None, **kwargs):
         """
         Initializes the PID controller.
 
@@ -17,6 +17,7 @@ class PIDController(BaseController):
             output_min (float, optional): The minimum limit for the output. Defaults to None.
             output_max (float, optional): The maximum limit for the output. Defaults to None.
         """
+        super().__init__(**kwargs)
         self.kp = kp
         self.ki = ki
         self.kd = kd
@@ -27,7 +28,7 @@ class PIDController(BaseController):
         self.previous_error = 0
         self.output = 0.0
 
-    def calculate(self, measured_value, dt):
+    def step(self, measured_value, dt, **kwargs):
         """
         Calculates the control output.
 
