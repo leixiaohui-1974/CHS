@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Form, Input, Button, Checkbox, Card, Typography, Alert } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
-import authService from '../services/authService';
+import useAuthStore from '../store/useAuthStore';
 
 const { Title } = Typography;
 
@@ -10,26 +10,25 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const login = useAuthStore((state) => state.login);
 
-  const onFinish = (values) => {
+  const onFinish = async (values) => {
     setLoading(true);
     setError('');
-    authService.login(values.username, values.password).then(
-      () => {
-        navigate('/dashboard');
-        window.location.reload(); // To update auth state in header
-      },
-      (err) => {
-        const resMessage =
-          (err.response &&
-            err.response.data &&
-            err.response.data.message) ||
-          err.message ||
-          err.toString();
-        setError(resMessage);
-        setLoading(false);
-      }
-    );
+    try {
+      await login(values.username, values.password);
+      navigate('/dashboard');
+    } catch (err) {
+      const resMessage =
+        (err.response &&
+          err.response.data &&
+          err.response.data.message) ||
+        err.message ||
+        err.toString();
+      setError(resMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
