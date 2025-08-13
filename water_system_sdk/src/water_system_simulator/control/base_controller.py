@@ -1,26 +1,13 @@
-from abc import ABC, abstractmethod
+from ..modeling.base_model import BaseModel
 
-class BaseController(ABC):
+class BaseController(BaseModel):
     """
     Abstract base class for all controller models.
+    Inherits from BaseModel to be compatible with the simulation manager.
     """
     def __init__(self, **kwargs):
-        self.output = None
-        super().__init__()
+        super().__init__(**kwargs)
 
-    @abstractmethod
-    def step(self, *args, **kwargs):
-        """
-        Represents a single time step of the controller's execution.
-
-        This method must be implemented by all subclasses. It should
-        calculate the control action and return it.
-        """
-        pass
-
-    @abstractmethod
-    def get_state(self):
-        """
-        Returns a dictionary of the controller's current state.
-        """
-        pass
+    # step and get_state are already abstract in BaseModel,
+    # so they don't need to be redeclared here.
+    # Subclasses of BaseController will still be required to implement them.
