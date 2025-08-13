@@ -1,0 +1,18 @@
+# Test configuration for GateStationModel
+
+components:
+  - name: my_gate_station
+    type: GateStationModel
+    properties:
+      number_of_gates: 2
+      gate_configs:
+        - {discharge_coefficient: 0.6, area: 1.0}
+        - {discharge_coefficient: 0.5, area: 1.0}
+    connections:
+      upstream_level: 10.0
+      downstream_level: 5.0
+      areas: [1.5, 2.0]
+
+logging:
+  - time
+  - my_gate_station.output

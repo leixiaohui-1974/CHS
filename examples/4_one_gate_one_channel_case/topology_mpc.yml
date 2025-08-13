@@ -1,0 +1,39 @@
+# System topology for Case 4: One Gate, One Channel (MPC version)
+# Controller properties are defined in control_parameters.yaml
+
+components:
+  - name: inflow_to_channel
+    type: Disturbance
+
+  - name: channel
+    type: MuskingumChannelModel
+    properties:
+      K: 5.0
+      x: 0.1 # Corrected for stability
+      dt: 1.0
+      initial_inflow: 10.0
+      initial_outflow: 10.0
+    connections:
+      inflow: inflow_to_channel.output
+
+  - name: mpc_controller
+    type: MPCController
+    connections:
+      measured_value: channel.output
+
+  - name: gate
+    type: GateModel
+    properties:
+      discharge_coefficient: 0.6
+      area: 1.0 # Initial area
+    connections:
+      upstream_level: channel.output
+      downstream_level: 5.0
+      area: mpc_controller.output
+
+logging:
+  - time
+  - channel.output
+  - gate.output
+  - mpc_controller.output
+  - inflow_to_channel.output

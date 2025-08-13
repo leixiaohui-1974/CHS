@@ -1,0 +1,18 @@
+# Test configuration for HydropowerStationModel
+
+components:
+  - name: my_hydro_station
+    type: HydropowerStationModel
+    properties:
+      rated_flow: 100
+      rated_head: 50
+      efficiency: 0.9
+    connections:
+      upstream_level: 100.0
+      downstream_level: 50.0
+      guide_vane_opening: 0.8
+
+logging:
+  - time
+  - my_hydro_station.output
+  - my_hydro_station.power_generation

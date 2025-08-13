@@ -1,7 +1,8 @@
 import cvxpy as cp
 import numpy as np
+from .base_controller import BaseController
 
-class MPCController:
+class MPCController(BaseController):
     """
     A Model Predictive Control (MPC) controller for linear time-invariant (LTI) systems.
     """
@@ -33,6 +34,7 @@ class MPCController:
         self.R = R
         self.N = N
         self.setpoint = np.array(setpoint).flatten() # Ensure it's a 1D array
+        self.output = 0.0
 
         # Constraints
         self.u_min = u_min
@@ -99,10 +101,13 @@ class MPCController:
 
             if self.problem.status in ["infeasible", "unbounded"]:
                 print(f"Warning: MPC problem is {self.problem.status}. Returning zero control.")
+                self.output = 0.0
                 return 0.0
 
             # Return the first control action in the optimal sequence
-            return self.u.value[0, 0]
+            self.output = self.u.value[0, 0]
+            return self.output
         except Exception as e:
             print(f"Error during MPC solve: {e}. Returning zero control.")
+            self.output = 0.0
             return 0.0

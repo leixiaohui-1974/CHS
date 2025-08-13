@@ -1,24 +1,23 @@
-# System topology for Case 3: One Gate, One Channel with PID Control
+# System topology for Case 4: One Gate, One Channel
+# Controller properties are defined in control_parameters.yaml
 
 components:
   - name: inflow_to_channel
     type: Disturbance
 
   - name: channel
-    type: IntegralDelayModel
+    type: MuskingumChannelModel
     properties:
+      K: 5.0
+      x: 0.1 # Corrected for stability
+      dt: 1.0
+      initial_inflow: 10.0
       initial_outflow: 10.0
-      delay_steps: 5
     connections:
       inflow: inflow_to_channel.output
 
   - name: pid_controller
     type: PIDController
-    properties:
-      kp: -0.1
-      ki: -0.01
-      kd: -0.02
-      setpoint: 10.0
     connections:
       measured_value: channel.output
 
@@ -29,12 +28,12 @@ components:
       area: 1.0 # Initial area
     connections:
       upstream_level: channel.output
-      downstream_level: 5.0 # Constant value
+      downstream_level: 5.0
       area: pid_controller.output
 
 logging:
   - time
   - channel.output
-  - gate.output # Flow through the gate
-  - pid_controller.output # Gate area
+  - gate.output
+  - pid_controller.output
   - inflow_to_channel.output

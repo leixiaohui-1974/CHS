@@ -1,4 +1,4 @@
-# System topology for Case 4: Mixed PID Control
+# System topology for Case 5: Mixed PID Control
 
 components:
   - name: upstream_inflow
@@ -7,30 +7,22 @@ components:
     type: Disturbance
 
   - name: upstream_channel
-    type: IntegralDelayModel
-    properties:
-      initial_outflow: 10.0
-      delay_steps: 5
-    connections:
-      inflow: upstream_inflow.output
+    type: MuskingumChannelModel
+    properties: {K: 5.0, x: 0.1, dt: 1.0, initial_inflow: 10.0, initial_outflow: 10.0}
+    connections: {inflow: upstream_inflow.output}
 
-  # PID for upstream control
   - name: pid_upstream
     type: PIDController
-    properties: {kp: -0.1, ki: -0.01, kd: -0.02, setpoint: 10.0}
     connections: {measured_value: upstream_channel.output}
 
-  # PID for downstream control
   - name: pid_downstream
     type: PIDController
-    properties: {kp: -0.05, ki: -0.005, kd: -0.01, setpoint: 8.0}
     connections: {measured_value: downstream_channel.output}
 
-  # Summing point to combine PID outputs
   - name: pid_combiner
     type: SummingPoint
     connections: [pid_upstream.output, pid_downstream.output]
-    gains: [0.5, 0.5] # Simple average of the two controller outputs
+    gains: [0.5, 0.5]
 
   - name: gate
     type: GateModel
@@ -46,8 +38,8 @@ components:
     gains: [1, -1]
 
   - name: downstream_channel
-    type: IntegralDelayModel
-    properties: {initial_outflow: 8.0, delay_steps: 8}
+    type: MuskingumChannelModel
+    properties: {K: 8.0, x: 0.06, dt: 1.0, initial_inflow: 8.0, initial_outflow: 8.0}
     connections: {inflow: net_inflow_calculator.output}
 
 logging:

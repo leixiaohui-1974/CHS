@@ -1,0 +1,88 @@
+# System topology for Case 6: Complex Tunnel & Pipeline System
+
+components:
+  # --- Disturbances ---
+  - name: reservoir_inflow
+    type: Disturbance
+  - name: downstream_user_demand
+    type: Disturbance
+
+  # --- Part 1: Reservoir and Tunnel ---
+  - name: main_reservoir
+    type: FirstOrderInertiaModel
+    properties: {initial_storage: 500, time_constant: 500} # Simplified level
+    connections: {inflow: reservoir_inflow.output}
+
+  - name: main_tunnel
+    type: MuskingumChannelModel
+    properties: {K: 2.0, x: 0.1, dt: 1.0, initial_inflow: 50, initial_outflow: 50}
+    connections: {inflow: main_reservoir.output}
+
+  # --- Part 2: Siphon Gates & Control ---
+  - name: siphon_pid
+    type: PIDController # Controls siphon gates to stabilize tunnel level
+    connections: {measured_value: main_tunnel.output}
+  - name: siphon_gates
+    type: GateStationModel
+    properties: {number_of_gates: 2, gate_configs: [{discharge_coefficient: 0.7, area: 5}, {discharge_coefficient: 0.7, area: 5}]}
+    connections:
+      upstream_level: main_tunnel.output
+      downstream_level: surge_tank.storage
+      areas: [siphon_pid.output, siphon_pid.output] # Both gates controlled by one PID
+
+  # --- Part 3: Surge Tank & Pressure Pipe 1 ---
+  - name: surge_tank
+    type: FirstOrderInertiaModel
+    properties: {initial_storage: 100, time_constant: 100}
+    connections: {inflow: siphon_gates.output}
+  - name: pressure_pipe_1
+    type: PipelineModel
+    properties: {length: 2000, diameter: 2, friction_factor: 0.015, initial_flow: 40}
+    connections: {inlet_pressure: surge_tank.storage, outlet_pressure: 20.0, dt: 1.0} # Placeholder outlet pressure
+
+  # --- Part 4: In-line Valve, Pressure Pipe 2 & Control ---
+  - name: pressure_pid
+    type: PIDController # Controls valve to stabilize pressure after it
+    connections: {measured_value: pressure_pipe_2.output} # Control flow instead of pressure
+  - name: pressure_valve
+    type: GateModel # Using a gate to model the valve
+    properties: {discharge_coefficient: 0.8, area: 2.0}
+    connections:
+      upstream_level: 20.0 # Placeholder
+      downstream_level: 15.0 # Placeholder
+      area: pressure_pid.output
+  - name: pressure_pipe_2
+    type: PipelineModel
+    properties: {length: 1500, diameter: 1.8, friction_factor: 0.015, initial_flow: 35}
+    connections: {inlet_pressure: 15.0, outlet_pressure: high_level_tank.storage, dt: 1.0}
+
+  # --- Part 5: High-level Tank and Pump Station ---
+  - name: high_level_tank
+    type: FirstOrderInertiaModel
+    properties: {initial_storage: 80, time_constant: 80}
+    connections: {inflow: pressure_pipe_2.output}
+  - name: pump_station
+    type: PumpStationModel
+    properties: {number_of_pumps: 1, pump_configs: [{max_flow: 10, max_head: 50}]}
+    connections:
+      head_diff: 20.0 # Assume constant head difference for pump
+      speeds: [1.0] # Assume constant speed for now
+  - name: final_channel
+    type: MuskingumChannelModel
+    properties: {K: 2.0, x: 0.1, dt: 1.0, initial_inflow: 10, initial_outflow: 10}
+    connections:
+      inflow: pump_station.output
+  - name: final_demand_calc
+    type: SummingPoint
+    connections: [final_channel.output, downstream_user_demand.output]
+    gains: [1, -1]
+
+logging:
+  - time
+  - main_reservoir.storage
+  - main_tunnel.output
+  - surge_tank.storage
+  - pressure_pipe_1.output
+  - pressure_pipe_2.output
+  - high_level_tank.storage
+  - final_channel.output

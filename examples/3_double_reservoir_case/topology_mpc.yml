@@ -1,0 +1,30 @@
+# System topology for Case 3: Two-Tank System (MPC version)
+# Controller properties are defined in control_parameters.yaml
+
+components:
+  - name: mpc_controller
+    type: MPCController
+    connections:
+      measured_value: [tank1.storage, tank2.storage]
+
+  - name: tank1
+    type: FirstOrderInertiaModel
+    properties:
+      initial_storage: 2.0
+      time_constant: 10.0
+    connections:
+      inflow: mpc_controller.output
+
+  - name: tank2
+    type: FirstOrderInertiaModel
+    properties:
+      initial_storage: 4.0
+      time_constant: 8.0
+    connections:
+      inflow: tank1.output
+
+logging:
+  - time
+  - tank1.storage
+  - tank2.storage
+  - mpc_controller.output
