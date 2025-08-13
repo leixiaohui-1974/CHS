@@ -38,28 +38,45 @@ class PIDController(BaseController):
     def step(self, dt, **kwargs):
         """
         Calculates the control output based on values in self.input.
+        Includes anti-windup logic (conditional integration).
 
         Args:
             dt (float): The time step.
         """
+        if dt <= 0:
+            return
+
         # The "error_source" is the measured process variable (e.g., water level)
         error = self.set_point - self.input.error_source
 
-        integral = self.state.integral + error * dt
-        derivative = (error - self.state.previous_error) / dt if dt > 0 else 0.0
+        # --- Calculate integral term with anti-windup ---
+        # This is a simple and effective method.
+        # We calculate the potential new integral first.
+        new_integral = self.state.integral + error * dt
 
-        output = self.Kp * error + self.Ki * integral + self.Kd * derivative
+        # --- Calculate derivative term ---
+        derivative = (error - self.state.previous_error) / dt
 
-        # Clamp the output if limits are set
-        if self.output_min is not None:
-            output = max(self.output_min, output)
-        if self.output_max is not None:
-            output = min(self.output_max, output)
+        # --- Calculate unbounded output ---
+        # Note: We use the *potential* new integral term for this calculation.
+        output = self.Kp * error + self.Ki * new_integral + self.Kd * derivative
 
-        # Update state for the next time step
-        self.state.integral = integral
+        # --- Clamp output and apply anti-windup ---
+        # If the output is saturated, we may need to prevent the integral from growing.
+        clamped_output = output
+        if self.output_max is not None and clamped_output > self.output_max:
+            clamped_output = self.output_max
+        if self.output_min is not None and clamped_output < self.output_min:
+            clamped_output = self.output_min
+
+        # If the output was NOT clamped, we can safely update the integral term.
+        # This prevents "windup" when the controller hits its limits.
+        if output == clamped_output:
+             self.state.integral = new_integral
+
+        # --- Update state for the next time step ---
         self.state.previous_error = error
-        self.state.output = output
+        self.state.output = clamped_output
 
     def get_state(self):
         return self.state.__dict__

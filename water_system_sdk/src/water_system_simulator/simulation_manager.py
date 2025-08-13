@@ -29,10 +29,13 @@ class ComponentRegistry:
     _CLASS_MAP = {
         # Controllers
         "PIDController": "water_system_simulator.control.pid_controller.PIDController",
+        # Disturbances
+        "Disturbance": "water_system_simulator.disturbances.predefined.Disturbance",
         # Models
         "ReservoirModel": "water_system_simulator.modeling.storage_models.ReservoirModel",
         "MuskingumChannelModel": "water_system_simulator.modeling.storage_models.MuskingumChannelModel",
         "FirstOrderInertiaModel": "water_system_simulator.modeling.storage_models.FirstOrderInertiaModel",
+        "IntegralDelayModel": "water_system_simulator.modeling.delay_models.IntegralDelayModel",
     }
 
     @classmethod
@@ -55,15 +58,13 @@ class ComponentRegistry:
 class SimulationManager:
     """
     Manages the setup and execution of a water system simulation based on a
-    configuration dictionary.
+    configuration dictionary. This manager is stateless and can be reused to
+    run multiple simulations.
     """
-    def __init__(self, config: Dict[str, Any]):
-        """
-        Initializes the simulation manager from a configuration dictionary.
-        """
-        self.config = config
+    def __init__(self):
+        """Initializes the simulation manager."""
         self.components: Dict[str, Any] = {}
-        self._build_system()
+        self.config: Dict[str, Any] = {}
 
     def _build_system(self):
         """Constructs the system of components from the configuration."""
@@ -78,10 +79,22 @@ class SimulationManager:
             component_class = ComponentRegistry.get_class(comp_type)
             self.components[name] = component_class(**params)
 
-    def run(self) -> pd.DataFrame:
+    def run(self, config: Dict[str, Any]) -> pd.DataFrame:
         """
-        Runs the simulation according to the configuration.
+        Runs the simulation according to the provided configuration.
+
+        Args:
+            config: A dictionary defining the components, connections, and
+                    simulation parameters.
+
+        Returns:
+            A pandas DataFrame containing the simulation log.
         """
+        # Reset state for the new run
+        self.config = config
+        self.components = {}
+        self._build_system()
+
         sim_params = self.config.get("simulation_params", {})
         total_time = sim_params.get("total_time", 100)
         dt = sim_params.get("dt", 1.0)
