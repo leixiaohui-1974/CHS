@@ -7,6 +7,9 @@ import {
   ProjectOutlined,
   UserOutlined,
   DownOutlined,
+  ReadOutlined, // Icon for Courses
+  CodeOutlined, // Icon for Code Assets
+  ApartmentOutlined, // Icon for Knowledge Graph
 } from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/useAuthStore';
@@ -44,6 +47,15 @@ const MainLayout = ({ children }) => {
           </Menu.Item>
           <Menu.Item key="2" icon={<ProjectOutlined />}>
             <Link to="/workbench">Modeling Workbench</Link>
+          </Menu.Item>
+          <Menu.Item key="3" icon={<ApartmentOutlined />}>
+            <Link to="/knowledge-graph">知识图谱</Link>
+          </Menu.Item>
+          <Menu.Item key="4" icon={<ReadOutlined />}>
+            <Link to="/courses">精品课程</Link>
+          </Menu.Item>
+          <Menu.Item key="5" icon={<CodeOutlined />}>
+            <Link to="/assets">代码库</Link>
           </Menu.Item>
         </Menu>
       </Sider>
