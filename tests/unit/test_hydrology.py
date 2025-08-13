@@ -9,7 +9,7 @@ class TestHydrology(unittest.TestCase):
         Tests the simple RunoffCoefficientModel.
         """
         params = {"C": 0.4}
-        model = RunoffCoefficientModel(parameters=params)
+        model = RunoffCoefficientModel(**params)
 
         precipitation = 10.0
         evaporation = 1.0 # This model doesn't use evaporation, but API requires it
@@ -42,9 +42,7 @@ class TestHydrology(unittest.TestCase):
         }
         initial_W = 50.0 # Initial soil moisture
 
-        model = XinanjiangModel(parameters=params)
-        model.states['initial_W'] = initial_W
-        model.W = initial_W
+        model = XinanjiangModel(**params, initial_states={"initial_W": initial_W})
 
         # --- Test Case 1: Evaporation only ---
         # Evaporation should reduce soil moisture when there's no rain.

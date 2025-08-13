@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: water-system-simulator-sdk
+Version: 0.1.0
+Summary: A Python SDK for simulating water systems.
+Author-email: Jules <jules@example.com>
+Project-URL: Homepage, https://github.com/example/water-system-simulator
+Project-URL: Bug Tracker, https://github.com/example/water-system-simulator/issues
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.8
+Requires-Dist: pyyaml
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: matplotlib
+Requires-Dist: scipy

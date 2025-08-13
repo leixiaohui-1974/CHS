@@ -31,3 +31,28 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Python ###
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.tox/
+.coverage
+*.log
+*.pot
+*.mo
+instance/
+.webassets-cache
+.flask_session
+*.swp
+*.swo
+*.swn
