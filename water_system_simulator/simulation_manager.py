@@ -3,6 +3,7 @@ import csv
 import importlib
 import numpy as np
 import os
+import pandas as pd
 
 from water_system_simulator.config_parser import parse_topology, parse_disturbances
 from water_system_simulator.basic_tools.loggers import CSVLogger
@@ -55,15 +56,28 @@ class ComponentRegistry:
 
 class SimulationManager:
     """
-    Manages the setup and execution of a water system simulation based on configuration files.
+    Manages the setup and execution of a water system simulation.
     """
-    def __init__(self, case_path: str):
+    def __init__(self, config: dict = None, case_path: str = None):
         """
-        Initializes the simulation manager from a case directory.
+        Initializes the simulation manager.
+
+        Args:
+            config (dict, optional): A dictionary containing the entire simulation configuration.
+                                     If provided, `case_path` is ignored.
+            case_path (str, optional): The path to a case directory containing configuration files.
+                                       Used if `config` is not provided.
         """
-        print(f"Initializing simulation for case: {case_path}...")
-        self.case_path = case_path
-        self._load_configs()
+        if config:
+            print("Initializing simulation from configuration dictionary...")
+            self._load_from_config_dict(config)
+            self.case_path = "dict_config" # for logging prefix
+        elif case_path:
+            print(f"Initializing simulation for case: {case_path}...")
+            self.case_path = case_path
+            self._load_from_case_path()
+        else:
+            raise ValueError("Must provide either a 'config' dictionary or a 'case_path'.")
 
         self.components = {}
         self.component_order = []
@@ -74,8 +88,14 @@ class SimulationManager:
         self._build_system()
         print("System built successfully.")
 
-    def _load_configs(self):
-        """Loads all necessary configuration files."""
+    def _load_from_config_dict(self, config: dict):
+        """Loads configuration from a dictionary."""
+        self.topology = config.get('topology', {})
+        self.disturbances = config.get('disturbances', [])
+        self.control_params = config.get('control_params', {})
+
+    def _load_from_case_path(self):
+        """Loads all necessary configuration files from a case path."""
         topology_path = os.path.join(self.case_path, 'topology.yml')
         disturbance_path = os.path.join(self.case_path, 'disturbances.csv')
         control_params_path = os.path.join(self.case_path, 'control_parameters.yaml')
@@ -144,16 +164,12 @@ class SimulationManager:
         component = self.components[comp_name]
         return getattr(component, attr_name)
 
-    def _initialize_run(self, log_file_prefix: str):
-        """Initializes logging and disturbance iterators for a simulation run."""
-        log_file = f"{log_file_prefix}_log.csv"
-        logger = CSVLogger(os.path.join('results', log_file), self.log_config)
-
+    def _initialize_run(self):
+        """Initializes disturbance iterators for a simulation run."""
         disturbance_iterator = iter(self.disturbances)
         current_disturbance = next(disturbance_iterator, None)
         next_disturbance = next(disturbance_iterator, None)
-
-        return logger, disturbance_iterator, current_disturbance, next_disturbance
+        return disturbance_iterator, current_disturbance, next_disturbance
 
     def _process_step(self, t, step_values, current_disturbance):
         """Processes a single time step for all components."""
@@ -163,7 +179,11 @@ class SimulationManager:
                     step_values[f"{key}.output"] = value
 
         for comp_name in self.component_order:
-            config = self.topology['components'][self.component_order.index(comp_name)]
+            # Find the component's configuration dictionary
+            config = next((c for c in self.topology['components'] if c['name'] == comp_name), None)
+            if not config:
+                raise ValueError(f"Configuration for component '{comp_name}' not found.")
+
             comp_type = config['type']
 
             if comp_type == 'SummingPoint':
@@ -181,13 +201,10 @@ class SimulationManager:
     def _process_component(self, config, comp_name, t, step_values):
         """Calculates the output of a regular component."""
         component = self.components[comp_name]
-        # All steppable components are now expected to have a 'step' method.
         if not hasattr(component, 'step'):
             return
 
         method = getattr(component, 'step')
-
-        # Prepare kwargs from connections in the config file.
         kwargs = {}
         connections = config.get('connections', {})
         for param_name, value_source in connections.items():
@@ -196,30 +213,43 @@ class SimulationManager:
             else:
                 kwargs[param_name] = self._get_connection_value(value_source, step_values)
 
-        # Always provide time context. The component's step method can ignore them if not needed.
         kwargs['t'] = t
         kwargs['dt'] = self.dt
-
-        # The component's step method should accept **kwargs to ignore unused parameters.
         method(**kwargs)
         step_values[f"{comp_name}.output"] = component.output
 
-    def _log_step(self, logger, t, step_values):
-        """Logs the required values for the current time step."""
-        log_row = []
+    def _log_step_data(self, t: float, step_values: dict) -> dict:
+        """Constructs a dictionary of the data to be logged for the current step."""
+        log_data = {}
         for log_key in self.log_config:
             if log_key == 'time':
-                log_row.append(t)
+                log_data['time'] = t
             else:
-                log_row.append(self._get_connection_value(log_key, step_values))
-        logger.log(log_row)
+                log_data[log_key] = self._get_connection_value(log_key, step_values)
+        return log_data
 
-    def run(self, duration: int, log_file_prefix: str):
-        """Runs the simulation for a given duration."""
-        print(f"Starting simulation for {self.case_path}, duration={duration}s, dt={self.dt}s...")
+    def run(self, duration: int, log_to_file: bool = False, log_file_prefix: str = None) -> pd.DataFrame:
+        """
+        Runs the simulation for a given duration.
+
+        Args:
+            duration (int): The total duration of the simulation in seconds.
+            log_to_file (bool, optional): If True, saves the results to a CSV file. Defaults to False.
+            log_file_prefix (str, optional): The prefix for the log file name.
+                                             If not provided, defaults to the case name.
+
+        Returns:
+            pd.DataFrame: A DataFrame containing the simulation results.
+        """
+        if not log_file_prefix:
+            log_file_prefix = os.path.basename(os.path.normpath(self.case_path))
+
+        print(f"Starting simulation for '{log_file_prefix}', duration={duration}s, dt={self.dt}s...")
         n_steps = int(duration / self.dt)
 
-        logger, dist_iter, curr_dist, next_dist = self._initialize_run(log_file_prefix)
+        dist_iter, curr_dist, next_dist = self._initialize_run()
+
+        results_history = []
 
         for i in range(n_steps):
             t = i * self.dt
@@ -230,6 +260,22 @@ class SimulationManager:
                 next_dist = next(dist_iter, None)
 
             self._process_step(t, step_values, curr_dist)
-            self._log_step(logger, t, step_values)
 
-        print(f"Simulation complete. Log saved to results/{log_file_prefix}_log.csv")
+            # Log data for this step
+            if self.log_config:
+                step_log_data = self._log_step_data(t, step_values)
+                results_history.append(step_log_data)
+
+        # Convert results to DataFrame
+        results_df = pd.DataFrame(results_history)
+
+        if log_to_file:
+            if not os.path.exists('results'):
+                os.makedirs('results')
+            log_file = os.path.join('results', f"{log_file_prefix}_log.csv")
+            results_df.to_csv(log_file, index=False)
+            print(f"Simulation complete. Log saved to {log_file}")
+        else:
+            print("Simulation complete.")
+
+        return results_df
