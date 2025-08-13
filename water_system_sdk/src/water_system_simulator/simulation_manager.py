@@ -133,8 +133,6 @@ class SimulationManager:
             comp_type = comp_info["type"]
             params = comp_info.get("params", {})
 
-            # Special handling for components that require strategy injection
-            if comp_type == "SemiDistributedHydrologyModel":
             # Check if this component is a physical entity with a model bank
             if "dynamic_model_bank" in comp_info:
                 entity_class = ComponentRegistry.get_class(comp_type)

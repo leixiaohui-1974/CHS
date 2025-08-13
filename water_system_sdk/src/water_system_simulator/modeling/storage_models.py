@@ -10,9 +10,9 @@ class ReservoirModel(BaseModel):
         super().__init__(**kwargs)
         self.area = area
         self.max_level = max_level
-        self.state = State(level=initial_level)
+        self._state = State(level=initial_level)
         self.input = Input(inflow=0.0, release_outflow=0.0, demand_outflow=0.0)
-        self.output = self.state.level # Set initial output
+        self.output = self._state.level # Set initial output
 
     def step(self, dt, **kwargs):
         """
@@ -20,18 +20,18 @@ class ReservoirModel(BaseModel):
         """
         total_outflow = self.input.release_outflow + self.input.demand_outflow
         dh = (self.input.inflow - total_outflow) / self.area * dt
-        level = self.state.level + dh
+        level = self._state.level + dh
 
         if level > self.max_level:
             level = self.max_level
         elif level < 0:
             level = 0
 
-        self.state.level = level
+        self._state.level = level
         self.output = level
 
     def get_state(self):
-        return self.state.__dict__
+        return self._state.__dict__
 
 class MuskingumChannelModel(BaseModel):
     """
@@ -43,9 +43,9 @@ class MuskingumChannelModel(BaseModel):
         self.K = K
         self.x = x
         self.dt = dt
-        self.state = State(inflow_prev=initial_inflow, outflow_prev=initial_outflow, output=initial_outflow)
+        self._state = State(inflow_prev=initial_inflow, outflow_prev=initial_outflow, output=initial_outflow)
         self.input = Input(inflow=initial_inflow)
-        self.output = self.state.output # Set initial output
+        self.output = self._state.output # Set initial output
 
         denominator = self.K - self.K * self.x + 0.5 * self.dt
         if denominator == 0:
@@ -60,17 +60,17 @@ class MuskingumChannelModel(BaseModel):
         Performs a single routing step using data from self.input.
         """
         outflow_current = (self.C1 * self.input.inflow +
-                           self.C2 * self.state.inflow_prev +
-                           self.C3 * self.state.outflow_prev)
+                           self.C2 * self._state.inflow_prev +
+                           self.C3 * self._state.outflow_prev)
 
-        self.state.inflow_prev = self.input.inflow
-        self.state.outflow_prev = outflow_current
-        self.state.output = outflow_current
+        self._state.inflow_prev = self.input.inflow
+        self._state.outflow_prev = outflow_current
+        self._state.output = outflow_current
         self.output = outflow_current
         return self.output
 
     def get_state(self):
-        return self.state.__dict__
+        return self._state.__dict__
 
 class FirstOrderInertiaModel(BaseModel):
     """
@@ -80,7 +80,7 @@ class FirstOrderInertiaModel(BaseModel):
     def __init__(self, initial_storage, time_constant, solver_class, dt, **kwargs):
         super().__init__(**kwargs)
         self.time_constant = time_constant
-        self.state = State(storage=initial_storage, output=0.0)
+        self._state = State(storage=initial_storage, output=0.0)
         self.input = Input(inflow=0.0)
 
         def ode_func(t, y):
@@ -88,18 +88,18 @@ class FirstOrderInertiaModel(BaseModel):
             return self.input.inflow - outflow
 
         self.solver = solver_class(f=ode_func, dt=dt)
-        self.state.output = initial_storage / time_constant if time_constant > 0 else 0
-        self.output = self.state.output # Set initial output
+        self._state.output = initial_storage / time_constant if time_constant > 0 else 0
+        self.output = self._state.output # Set initial output
 
     def step(self, t, **kwargs):
         """
         Performs a single simulation step using the selected solver.
         """
-        self.state.storage = self.solver.step(t, self.state.storage)
-        outflow = self.state.storage / self.time_constant if self.time_constant > 0 else 0
-        self.state.output = outflow
+        self._state.storage = self.solver.step(t, self._state.storage)
+        outflow = self._state.storage / self.time_constant if self.time_constant > 0 else 0
+        self._state.output = outflow
         self.output = outflow
         return self.output
 
     def get_state(self):
-        return self.state.__dict__
+        return self._state.__dict__
