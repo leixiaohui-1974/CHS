@@ -45,16 +45,20 @@ class ComponentRegistry:
         "PIDController": "water_system_simulator.control.pid_controller.PIDController",
         # Disturbances
         "Disturbance": "water_system_simulator.disturbances.predefined.Disturbance",
+        "TimeSeriesDisturbance": "water_system_simulator.disturbances.timeseries_disturbance.TimeSeriesDisturbance",
         "RainfallAgent": "water_system_simulator.disturbances.agents.RainfallAgent",
         "DemandAgent": "water_system_simulator.disturbances.agents.DemandAgent",
         "PriceAgent": "water_system_simulator.disturbances.agents.PriceAgent",
         "FaultAgent": "water_system_simulator.disturbances.agents.FaultAgent",
+        # Entities
+        "RiverEntity": "water_system_simulator.modeling.river_entity.RiverEntity",
         # Models
         "ReservoirModel": "water_system_simulator.modeling.storage_models.ReservoirModel",
         "MuskingumChannelModel": "water_system_simulator.modeling.storage_models.MuskingumChannelModel",
         "FirstOrderInertiaModel": "water_system_simulator.modeling.storage_models.FirstOrderInertiaModel",
         "IntegralDelayModel": "water_system_simulator.modeling.delay_models.IntegralDelayModel",
         "GateStationModel": "water_system_simulator.modeling.control_structure_models.GateStationModel",
+        "TwoDimensionalHydrodynamicModel": "water_system_simulator.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
         "SemiDistributedHydrologyModel": "water_system_simulator.modeling.hydrology.semi_distributed.SemiDistributedHydrologyModel",
         # Runoff Models
         "RunoffCoefficientModel": "water_system_simulator.modeling.hydrology.runoff_models.RunoffCoefficientModel",
@@ -105,6 +109,12 @@ class SimulationManager:
         self.components: Dict[str, Any] = {}
         self.config: Dict[str, Any] = {}
         self.datasets: Dict[str, Any] = {}
+        self._current_t: float = 0.0
+
+    @property
+    def t(self) -> float:
+        """Returns the current simulation time."""
+        return self._current_t
 
     def _create_strategy(self, strategy_info: dict):
         """Creates a strategy object from its configuration info."""
@@ -125,6 +135,34 @@ class SimulationManager:
 
             # Special handling for components that require strategy injection
             if comp_type == "SemiDistributedHydrologyModel":
+            # Check if this component is a physical entity with a model bank
+            if "dynamic_model_bank" in comp_info:
+                entity_class = ComponentRegistry.get_class(comp_type)
+                # Pass entity-level params, but exclude model bank config
+                entity_params = {k: v for k, v in comp_info.items() if k not in ["type", "dynamic_model_bank", "initial_active_model"]}
+                entity = entity_class(**entity_params)
+
+                # Build the model bank
+                for model_config in comp_info["dynamic_model_bank"]:
+                    model_id = model_config["id"]
+                    model_type = model_config["type"]
+                    model_params = model_config.get("params", {})
+                    model_class = ComponentRegistry.get_class(model_type)
+                    model_instance = model_class(**model_params)
+                    entity.dynamic_model_bank[model_id] = model_instance
+
+                # Set the initial active model
+                initial_model_id = comp_info.get("initial_active_model")
+                if not initial_model_id:
+                    raise ValueError(f"Component '{name}' has a model bank but no 'initial_active_model' set.")
+                if initial_model_id not in entity.dynamic_model_bank:
+                    raise ValueError(f"Initial model '{initial_model_id}' not found in the model bank for '{name}'.")
+                entity.active_dynamic_model_id = initial_model_id
+
+                self.components[name] = entity
+
+            elif comp_type == "SemiDistributedHydrologyModel":
+                # Special handling for the hydrology model to inject strategies
                 strategies_config = params.pop("strategies", None)
                 if not strategies_config:
                     raise ValueError("SemiDistributedHydrologyModel requires a 'strategies' config.")
@@ -173,8 +211,13 @@ class SimulationManager:
                 elif source_path == "simulation.t":
                     args[arg_name] = t
                 else:
-                    source_comp, source_attr = source_path.split('.', 1)
-                    args[arg_name] = getattr_by_path(self.components[source_comp], source_attr)
+                    # If the source path contains a dot, treat it as a reference to another component's attribute.
+                    # Otherwise, treat it as a literal value.
+                    if isinstance(source_path, str) and '.' in source_path:
+                        source_comp, source_attr = source_path.split('.', 1)
+                        args[arg_name] = getattr_by_path(self.components[source_comp], source_attr)
+                    else:
+                        args[arg_name] = source_path
 
             # Get the component and its method
             component = self.components[comp_name]
@@ -189,6 +232,92 @@ class SimulationManager:
                 setattr_by_path(self.components[target_comp], target_attr, result)
         else:
             raise TypeError(f"Unsupported instruction type in execution_order: {type(instruction)}")
+
+    def _check_and_execute_events(self, t: float):
+        """Checks and executes events based on triggers."""
+        events = self.config.get("events", [])
+        for event in events:
+            trigger = event["trigger"]
+            action = event["action"]
+
+            triggered = False
+            if trigger["type"] == "condition":
+                # Example: "upstream_inflow.state.value > 1000.0"
+                condition_str = trigger["value"]
+                # A simple, unsafe eval. For a real product, a safe expression parser is needed.
+                # We create a local context for the eval with component names and the simulation manager itself.
+                local_context = {name: comp for name, comp in self.components.items()}
+                local_context['simulation'] = self
+                self._current_t = t # Store t for access via simulation.t
+                try:
+                    if eval(condition_str, {"__builtins__": {}}, local_context):
+                        triggered = True
+                except Exception as e:
+                    print(f"Warning: Could not evaluate trigger condition '{condition_str}' at time {t}. Error: {e}")
+
+            elif trigger["type"] == "always":
+                triggered = True
+
+            if triggered:
+                action_type = action["type"]
+                if action_type == "switch_model":
+                    target_entity_name = action["target"]
+                    new_model_id = action["value"]
+
+                    if target_entity_name not in self.components:
+                        print(f"Warning: Could not switch model. Target entity '{target_entity_name}' not found.")
+                        continue
+
+                    target_entity = self.components[target_entity_name]
+
+                    if not hasattr(target_entity, 'dynamic_model_bank'):
+                        print(f"Warning: Could not switch model. Target '{target_entity_name}' is not a physical entity with a model bank.")
+                        continue
+
+                    if new_model_id not in target_entity.dynamic_model_bank:
+                        print(f"Warning: Could not switch model. Model ID '{new_model_id}' not found in bank for '{target_entity_name}'.")
+                        continue
+
+                    target_entity.active_dynamic_model_id = new_model_id
+
+                elif action_type == "set_param":
+                    target_path = action["target"]
+
+                    # Determine the value to be set
+                    if "value_from" in action:
+                        source_path = action["value_from"]
+                        try:
+                            value = getattr_by_path(self, f"components.{source_path}")
+                        except AttributeError as e:
+                            print(f"Warning: {e}")
+                            continue
+                    else:
+                        value = action["value"]
+
+                    # Set the parameter using the potentially new syntax
+                    try:
+                        # Check for model bank syntax: entity::model.param
+                        if "::" in target_path:
+                            entity_name, model_path = target_path.split("::", 1)
+                            model_id, param_path = model_path.split(".", 1)
+
+                            if entity_name not in self.components:
+                                raise AttributeError(f"Target entity '{entity_name}' not found.")
+
+                            entity = self.components[entity_name]
+                            if not hasattr(entity, 'dynamic_model_bank') or model_id not in entity.dynamic_model_bank:
+                                raise AttributeError(f"Model '{model_id}' not found in entity '{entity_name}'.")
+
+                            target_model = entity.dynamic_model_bank[model_id]
+                            setattr_by_path(target_model, param_path, value)
+
+                        else:
+                            # Standard component parameter
+                            setattr_by_path(self, f"components.{target_path}", value)
+
+                    except (AttributeError, ValueError) as e:
+                        print(f"Warning: Could not set parameter for target '{target_path}'. Error: {e}")
+                        continue
 
     def run(self, config: Dict[str, Any]) -> pd.DataFrame:
         """
@@ -232,18 +361,21 @@ class SimulationManager:
         history = []
 
         for t in np.arange(0, total_time, dt):
-            # 1. Process connections (for simple, state-copying links)
+            # 1. Check and execute events
+            self._check_and_execute_events(t)
+
+            # 2. Process connections (for simple, state-copying links)
             for conn in connections:
                 source_comp_name, source_attr_path = conn["source"].split('.', 1)
                 target_comp_name, target_attr_path = conn["target"].split('.', 1)
                 value = getattr_by_path(self.components[source_comp_name], source_attr_path)
                 setattr_by_path(self.components[target_comp_name], target_attr_path, value)
 
-            # 2. Execute components based on the new expressive execution order
+            # 3. Execute components based on the new expressive execution order
             for instruction in execution_order:
                 self._execute_step(instruction, t=t, dt=dt)
 
-            # 3. Log data for this time step
+            # 4. Log data for this time step
             step_log = {"time": t}
             for log_path in logger_config:
                 comp_name, attr_path = log_path.split('.', 1)
