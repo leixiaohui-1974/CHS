@@ -6,7 +6,7 @@ class RunoffCoefficientModel(BaseRunoffModel):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        # Parameters are passed in calculate_runoff.
+        self.params = kwargs
         self.output = 0.0
 
     def calculate_runoff(self, rainfall: float, sub_basin_params: dict, dt: float) -> float:
@@ -27,6 +27,7 @@ class XinanjiangModel(BaseRunoffModel):
     """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.params = kwargs
         # Initialize states. Parameters are passed in calculate_runoff.
         self.W = 0.0
         self.output = 0.0
@@ -35,7 +36,7 @@ class XinanjiangModel(BaseRunoffModel):
             # Note: initial_W depends on WM, which is a param.
             # This highlights a dependency that makes stateless calculation tricky.
             # A good compromise is to require WM as an init param if initial_W is not given.
-            WM = kwargs.get('params', {}).get('WM', 100)
+            WM = self.params.get('WM', 100)
             self.W = kwargs['states'].get("initial_W", WM * 0.5)
 
     def calculate_runoff(self, rainfall: float, sub_basin_params: dict, dt: float) -> float:

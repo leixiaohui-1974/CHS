@@ -101,7 +101,6 @@ const SceneManager = () => {
     );
 };
 
-const DraggableNode = ({ type, label }) => {
 const WorkbenchPage = () => {
   const reactFlowWrapper = useRef(null);
   const {

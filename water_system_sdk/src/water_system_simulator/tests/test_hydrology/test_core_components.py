@@ -2,10 +2,7 @@ import unittest
 import os
 import sys
 
-# Add project root to path to allow imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-
-from hydrology.core import SubBasin
+from water_system_simulator.hydrology.core import SubBasin
 
 class TestCoreComponents(unittest.TestCase):
 

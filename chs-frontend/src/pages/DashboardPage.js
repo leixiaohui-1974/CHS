@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, PageHeader, Popconfirm, message, Space, Modal, Form, Input } from 'antd';
+import { Table, Button, Popconfirm, message, Space, Modal, Form, Input, Typography } from 'antd';
 import projectService from '../services/projectService';
 
 const { TextArea } = Input;
+const { Title } = Typography;
 
 const ProjectForm = ({ visible, onCancel, onCreate, onUpdate, initialData }) => {
   const [form] = Form.useForm();
@@ -147,15 +148,12 @@ const DashboardPage = () => {
 
   return (
     <div>
-      <PageHeader
-        ghost={false}
-        title="Projects Dashboard"
-        extra={[
-          <Button key="1" type="primary" onClick={() => setModalVisible(true)}>
-            Create Project
-          </Button>,
-        ]}
-      />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <Title level={2}>Projects Dashboard</Title>
+        <Button type="primary" onClick={() => setModalVisible(true)}>
+          Create Project
+        </Button>
+      </div>
       <ProjectForm
         visible={modalVisible}
         onCancel={() => {
