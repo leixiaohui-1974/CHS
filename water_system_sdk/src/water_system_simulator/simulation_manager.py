@@ -31,6 +31,10 @@ class ComponentRegistry:
         "PIDController": "water_system_simulator.control.pid_controller.PIDController",
         # Disturbances
         "Disturbance": "water_system_simulator.disturbances.predefined.Disturbance",
+        "RainfallAgent": "water_system_simulator.disturbances.agents.RainfallAgent",
+        "DemandAgent": "water_system_simulator.disturbances.agents.DemandAgent",
+        "PriceAgent": "water_system_simulator.disturbances.agents.PriceAgent",
+        "FaultAgent": "water_system_simulator.disturbances.agents.FaultAgent",
         # Models
         "ReservoirModel": "water_system_simulator.modeling.storage_models.ReservoirModel",
         "MuskingumChannelModel": "water_system_simulator.modeling.storage_models.MuskingumChannelModel",

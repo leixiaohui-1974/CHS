@@ -11,14 +11,15 @@ class ReservoirModel(BaseModel):
         self.area = area
         self.max_level = max_level
         self.state = State(level=initial_level)
-        self.input = Input(inflow=0.0, outflow=0.0)
+        self.input = Input(inflow=0.0, release_outflow=0.0, demand_outflow=0.0)
         self.output = self.state.level # Set initial output
 
     def step(self, dt, **kwargs):
         """
         Updates the water level in the reservoir.
         """
-        dh = (self.input.inflow - self.input.outflow) / self.area * dt
+        total_outflow = self.input.release_outflow + self.input.demand_outflow
+        dh = (self.input.inflow - total_outflow) / self.area * dt
         level = self.state.level + dh
 
         if level > self.max_level:
