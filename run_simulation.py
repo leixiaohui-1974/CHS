@@ -1,6 +1,6 @@
 import argparse
 import os
-from water_system_simulator.engine import Simulator
+from water_system_simulator.simulation_manager import SimulationManager
 
 def main():
     """
@@ -22,12 +22,13 @@ def main():
         # The engine will find and load the correct files.
         # This generic runner can be expanded to select different topologies
         # or controller params from within the case directory.
-        sim = Simulator(args.case_path)
+        manager = SimulationManager(args.case_path)
 
-        duration = 200
+        # Get duration from topology config, with a default fallback
+        duration = manager.topology.get('duration', 200)
         log_prefix = os.path.basename(os.path.normpath(args.case_path))
 
-        sim.run(duration=duration, log_file_prefix=log_prefix)
+        manager.run(duration=duration, log_file_prefix=log_prefix)
 
     except Exception as e:
         print(f"\nAn error occurred during simulation: {e}")

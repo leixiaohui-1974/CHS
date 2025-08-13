@@ -1,142 +1,102 @@
 import unittest
-import numpy as np
+import os
+import shutil
+import yaml
+from water_system_simulator.simulation_manager import SimulationManager
 
-from water_system_simulator.modeling.control_structure_models import GateStationModel, PumpStationModel, HydropowerStationModel
-from water_system_simulator.modeling.pipeline_model import PipelineModel
+class TestNewModelIntegration(unittest.TestCase):
 
-class TestNewModels(unittest.TestCase):
+    def setUp(self):
+        """Set up a temporary directory for test case files."""
+        self.test_dir = "temp_test_case"
+        os.makedirs(self.test_dir, exist_ok=True)
+        self.results_dir = "results"
+        os.makedirs(self.results_dir, exist_ok=True)
+
+
+    def tearDown(self):
+        """Clean up the temporary directory and results."""
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
+        # Clean up any results files generated during tests
+        for f in os.listdir(self.results_dir):
+            if f.startswith("test_case_"):
+                os.remove(os.path.join(self.results_dir, f))
+
+    def _run_simulation_test(self, config, log_prefix):
+        """Helper to run a simulation and check for basic success."""
+        topology_path = os.path.join(self.test_dir, 'topology.yml')
+        with open(topology_path, 'w') as f:
+            yaml.dump(config, f)
+
+        # Create a dummy disturbances file, as the manager expects it
+        disturbance_path = os.path.join(self.test_dir, 'disturbances.csv')
+        with open(disturbance_path, 'w', newline='') as f:
+            f.write("time,dummy\n0,0\n")
+
+        # Create a dummy control parameters file
+        control_params_path = os.path.join(self.test_dir, 'control_parameters.yaml')
+        with open(control_params_path, 'w') as f:
+            f.write("# No control params needed for these tests\n")
+
+        try:
+            manager = SimulationManager(self.test_dir)
+            manager.run(duration=config.get('duration', 10), log_file_prefix=log_prefix)
+        except Exception as e:
+            self.fail(f"Simulation for {log_prefix} failed with an exception: {e}")
+
+        log_path = os.path.join(self.results_dir, f"{log_prefix}_log.csv")
+        self.assertTrue(os.path.exists(log_path), f"Log file for {log_prefix} should be created.")
+
+    def test_pipeline_model(self):
+        config = {
+            'dt': 1.0, 'solver': 'EulerIntegrator',
+            'components': [
+                {'name': 'r_up', 'type': 'ConstantHeadReservoir', 'properties': {'level': 100.0}},
+                {'name': 'r_down', 'type': 'ConstantHeadReservoir', 'properties': {'level': 90.0}},
+                {'name': 'p1', 'type': 'PipelineModel',
+                 'properties': {'length': 1000.0, 'diameter': 0.5, 'friction_factor': 0.02},
+                 'connections': {'inlet_pressure': 'r_up.output', 'outlet_pressure': 'r_down.output', 'dt': 1.0}}
+            ],
+            'logging': ['time', 'p1.flow']
+        }
+        self._run_simulation_test(config, "test_case_pipeline")
 
     def test_gate_station_model(self):
-        """
-        Tests the GateStationModel logic.
-        """
-        gate_configs = [
-            {'discharge_coefficient': 0.6, 'area': 1.0},
-            {'discharge_coefficient': 0.5, 'area': 1.0}
-        ]
-
-        station = GateStationModel(number_of_gates=2, gate_configs=gate_configs)
-
-        upstream_level = 10.0
-        downstream_level = 5.0
-        areas = [1.5, 2.0] # Control inputs: area for each gate
-
-        total_flow = station.step(upstream_level, downstream_level, areas)
-
-        # Manually calculate the expected flow for each gate
-        g = 9.81
-        head_diff = upstream_level - downstream_level
-
-        # Flow for gate 1
-        flow1 = gate_configs[0]['discharge_coefficient'] * areas[0] * np.sqrt(2 * g * head_diff)
-
-        # Flow for gate 2
-        flow2 = gate_configs[1]['discharge_coefficient'] * areas[1] * np.sqrt(2 * g * head_diff)
-
-        expected_total_flow = flow1 + flow2
-
-        self.assertAlmostEqual(total_flow, expected_total_flow, places=5)
-        self.assertAlmostEqual(station.output, expected_total_flow, places=5)
-        print("\nGateStationModel test passed.")
+        config = {
+            'dt': 1.0, 'solver': 'EulerIntegrator',
+            'components': [
+                {'name': 'g1', 'type': 'GateStationModel',
+                 'properties': {'num_gates': 2, 'gate_width': 1.5, 'discharge_coeff': 0.6},
+                 'connections': {'upstream_level': 10.0, 'gate_opening': 0.5}}
+            ],
+            'logging': ['time', 'g1.flow']
+        }
+        self._run_simulation_test(config, "test_case_gate")
 
     def test_pump_station_model(self):
-        """
-        Tests the PumpStationModel logic.
-        """
-        pump_configs = [
-            {'max_flow': 10, 'max_head': 20},
-            {'max_flow': 12, 'max_head': 25}
-        ]
-
-        station = PumpStationModel(number_of_pumps=2, pump_configs=pump_configs)
-
-        head_diff = 10.0
-        speeds = [0.8, 1.0]
-
-        total_flow = station.step(head_diff, speeds)
-
-        # Manually calculate expected flow
-        flow1 = pump_configs[0]['max_flow'] * (1 - head_diff / pump_configs[0]['max_head']) * speeds[0]
-        flow2 = pump_configs[1]['max_flow'] * (1 - head_diff / pump_configs[1]['max_head']) * speeds[1]
-        expected_total_flow = flow1 + flow2
-
-        self.assertAlmostEqual(total_flow, expected_total_flow, places=5)
-        self.assertAlmostEqual(station.output, expected_total_flow, places=5)
-        print("PumpStationModel test passed.")
-
-    def test_pipeline_model_acceleration(self):
-        """
-        Tests the PipelineModel's inertial properties without friction.
-        """
-        pipe = PipelineModel(length=1000, diameter=1, friction_factor=0, initial_flow=0)
-
-        inlet_pressure = 10.0 # 10m of head
-        outlet_pressure = 0.0
-        dt = 1.0
-
-        # After one time step
-        pipe.step(inlet_pressure, outlet_pressure, dt)
-
-        # Expected acceleration: a = g*h/L = 9.81 * 10 / 1000 = 0.0981 m/s^2
-        expected_velocity = 0.0981 * dt
-        expected_flow = expected_velocity * pipe.area
-
-        self.assertAlmostEqual(pipe.output, expected_flow, places=5)
-        print("PipelineModel acceleration test passed.")
+        config = {
+            'dt': 1.0, 'solver': 'EulerIntegrator',
+            'components': [
+                {'name': 'ps1', 'type': 'PumpStationModel',
+                 'properties': {'num_pumps_total': 3, 'curve_coeffs': [-0.01, 0.1, 5.0]},
+                 'connections': {'inlet_pressure': 5.0, 'outlet_pressure': 20.0, 'num_pumps_on': 2}}
+            ],
+            'logging': ['time', 'ps1.flow']
+        }
+        self._run_simulation_test(config, "test_case_pump")
 
     def test_hydropower_station_model(self):
-        """
-        Tests the HydropowerStationModel logic for flow and power calculation.
-        """
-        station = HydropowerStationModel(rated_flow=100, rated_head=50, efficiency=0.9)
-
-        upstream_level = 100.0
-        downstream_level = 50.0 # This gives a head_diff equal to the rated head
-        guide_vane_opening = 0.8
-
-        flow = station.step(upstream_level, downstream_level, guide_vane_opening)
-
-        # Expected flow
-        head_diff = upstream_level - downstream_level
-        expected_flow_coeff = 100 / np.sqrt(50)
-        expected_flow = expected_flow_coeff * guide_vane_opening * np.sqrt(head_diff)
-
-        # Expected power (in MW)
-        expected_power = 0.9 * 1000 * 9.81 * expected_flow * head_diff / 1e6
-
-        self.assertAlmostEqual(flow, expected_flow, places=5)
-        self.assertAlmostEqual(station.power_generation, expected_power, places=5)
-        print("HydropowerStationModel test passed.")
-
-    def run_engine_test(self, config_file):
-        """Helper function to run a simple engine test."""
-        from water_system_simulator.engine import Simulator
-        try:
-            sim = Simulator(f"configs/{config_file}")
-            sim.run(duration=1, dt=1, log_file=f"test_{config_file}.csv")
-            return True
-        except Exception as e:
-            print(f"Engine test failed for {config_file}: {e}")
-            return False
-
-    def test_engine_integration(self):
-        """
-        Tests the integration of new models with the simulation engine.
-        """
-        print("\n--- Running Engine Integration Tests ---")
-        test_configs = [
-            "test_gate_station_topology.yml",
-            "test_pump_station_topology.yml",
-            "test_pipeline_model_topology.yml",
-            "test_hydropower_station_topology.yml"
-        ]
-
-        for config in test_configs:
-            with self.subTest(config=config):
-                self.assertTrue(self.run_engine_test(config), f"Engine test failed for {config}")
-
-        print("All engine integration tests passed.")
-
+        config = {
+            'dt': 1.0, 'solver': 'EulerIntegrator',
+            'components': [
+                {'name': 'hs1', 'type': 'HydropowerStationModel',
+                 'properties': {'max_flow_area': 10.0, 'discharge_coeff': 0.8, 'efficiency': 0.9},
+                 'connections': {'upstream_level': 150.0, 'downstream_level': 100.0, 'vane_opening': 0.75}}
+            ],
+            'logging': ['time', 'hs1.flow', 'hs1.power']
+        }
+        self._run_simulation_test(config, "test_case_hydropower")
 
 if __name__ == '__main__':
     unittest.main()

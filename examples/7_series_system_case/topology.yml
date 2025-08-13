@@ -1,0 +1,82 @@
+# New Test Case: Complex Series System
+# 5 gate stations, 1 pump station, 1 hydropower station, 1 valve, connected in series.
+
+dt: 1.0
+duration: 500
+solver: EulerIntegrator
+
+components:
+  - name: source_reservoir
+    type: ConstantHeadReservoir
+    properties: {level: 200.0}
+
+  - name: pipe1
+    type: PipelineModel
+    properties: {length: 500, diameter: 1.0, friction_factor: 0.02}
+    connections: {inlet_pressure: source_reservoir.output, outlet_pressure: 195.0} # Assume some head loss
+
+  - name: gate1
+    type: GateStationModel
+    properties: {num_gates: 1, gate_width: 2.0, discharge_coeff: 0.6}
+    connections: {upstream_level: 195.0, gate_opening: 1.0} # Fully open
+
+  - name: pipe2
+    type: PipelineModel
+    properties: {length: 500, diameter: 1.0, friction_factor: 0.02}
+    connections: {inlet_pressure: 190.0, outlet_pressure: 185.0} # More head loss
+
+  - name: gate2
+    type: GateStationModel
+    properties: {num_gates: 1, gate_width: 2.0, discharge_coeff: 0.6}
+    connections: {upstream_level: 185.0, gate_opening: 1.0}
+
+  - name: pump1
+    type: PumpStationModel
+    properties: {num_pumps_total: 1, curve_coeffs: [-0.005, 0.1, 10]}
+    connections: {inlet_pressure: 180.0, outlet_pressure: 220.0, num_pumps_on: 1} # Pumping up
+
+  - name: pipe3
+    type: PipelineModel
+    properties: {length: 1000, diameter: 0.8, friction_factor: 0.02}
+    connections: {inlet_pressure: 220.0, outlet_pressure: 210.0}
+
+  - name: gate3
+    type: GateStationModel
+    properties: {num_gates: 1, gate_width: 1.5, discharge_coeff: 0.6}
+    connections: {upstream_level: 210.0, gate_opening: 1.0}
+
+  - name: hydropower1
+    type: HydropowerStationModel
+    properties: {max_flow_area: 8.0, discharge_coeff: 0.8, efficiency: 0.9}
+    connections: {upstream_level: 205.0, downstream_level: 150.0, vane_opening: 0.8}
+
+  - name: pipe4
+    type: PipelineModel
+    properties: {length: 800, diameter: 1.2, friction_factor: 0.02}
+    connections: {inlet_pressure: 150.0, outlet_pressure: 140.0}
+
+  - name: gate4
+    type: GateStationModel
+    properties: {num_gates: 1, gate_width: 2.0, discharge_coeff: 0.6}
+    connections: {upstream_level: 140.0, gate_opening: 1.0}
+
+  - name: gate5
+    type: GateStationModel
+    properties: {num_gates: 1, gate_width: 2.0, discharge_coeff: 0.6}
+    connections: {upstream_level: 135.0, gate_opening: 1.0}
+
+  - name: valve1
+    type: GateStationModel # Modeling valve as a gate
+    properties: {num_gates: 1, gate_width: 0.5, discharge_coeff: 0.7}
+    connections: {upstream_level: 130.0, gate_opening: 0.5} # Partially open
+
+  - name: final_reservoir
+    type: ConstantHeadReservoir
+    properties: {level: 125.0}
+
+logging:
+  - time
+  - pipe1.flow
+  - pump1.flow
+  - hydropower1.flow
+  - valve1.flow
