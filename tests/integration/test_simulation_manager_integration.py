@@ -11,11 +11,11 @@ def simple_pid_config():
         "components": {
             "reservoir_A": {
                 "type": "ReservoirModel",
-                "params": {"area": 1.0, "initial_level": 5.0}
+                "properties": {"area": 1.0, "initial_level": 5.0}
             },
             "pid_controller": {
                 "type": "PIDController",
-                "params": {"Kp": 1, "Ki": 1, "Kd": 1, "set_point": 10.0}
+                "properties": {"Kp": 1, "Ki": 1, "Kd": 1, "set_point": 10.0}
             }
         },
         "connections": [
@@ -45,8 +45,8 @@ def test_component_creation(simple_pid_config):
     Tests if the SimulationManager correctly creates component instances
     based on the configuration dictionary.
     """
-    manager = SimulationManager()
-    manager.run(simple_pid_config) # The run method internally calls _build_system
+    manager = SimulationManager(config=simple_pid_config)
+    manager.run() # The run method internally calls _build_system
 
     # Assert that the components dictionary is not empty
     assert manager.components

@@ -129,8 +129,17 @@ class ComponentRegistry:
         "CentralDataFusionAgent": "water_system_simulator.modeling.central_data_fusion_agent.CentralDataFusionAgent",
 
         # --- Body Agents ---
-        "BaseBodyAgent": "water_system_simulator.modeling.body_agent.BaseBodyAgent",
-        "ReservoirBodyAgent": "water_system_simulator.modeling.body_agent.ReservoirBodyAgent",
+        # "BaseBodyAgent": "water_system_simulator.modeling.body_agent.BaseBodyAgent",
+        # "ReservoirBodyAgent": "water_system_simulator.modeling.body_agent.ReservoirBodyAgent",
+
+        # --- New Agent Architecture ---
+        "BaseAgent": "water_system_simulator.agent.base_agent.BaseAgent",
+        "BaseEmbodiedAgent": "water_system_simulator.agent.base_agent.BaseEmbodiedAgent",
+        "BaseDisturbanceAgent": "water_system_simulator.agent.base_agent.BaseDisturbanceAgent",
+        "BodySimulationAgent": "water_system_simulator.agent.body_simulation_agent.BodySimulationAgent",
+        "ControlEmbodiedAgent": "water_system_simulator.agent.control_agent.ControlEmbodiedAgent",
+        "SensingEmbodiedAgent": "water_system_simulator.agent.sensing_agent.SensingEmbodiedAgent",
+        "CentralManagementAgent": "water_system_simulator.agent.central_management_agent.CentralManagementAgent",
     }
 
     @classmethod
@@ -223,12 +232,17 @@ class SimulationManager:
             comp_type = comp_info["type"]
             params = comp_info.get("properties", {}) # Use 'properties' to match YAML
 
-            # New check for multi-fidelity physical entities
+            # --- Determine Component Type ---
+            component_class = ComponentRegistry.get_class(comp_type)
             is_physical_entity = any(k in comp_info for k in ["steady_model", "dynamic_model", "precision_model"])
+            try:
+                base_embodied_agent_class = ComponentRegistry.get_class("BaseEmbodiedAgent")
+                is_embodied_agent = issubclass(component_class, base_embodied_agent_class)
+            except (ImportError, TypeError):
+                is_embodied_agent = False
 
+            # --- Build Component Based on Type ---
             if is_physical_entity:
-                entity_class = ComponentRegistry.get_class(comp_type)
-
                 # Instantiate the three models
                 steady_model = self._create_model_instance(comp_info.get("steady_model"))
                 dynamic_model = self._create_model_instance(comp_info.get("dynamic_model"))
@@ -238,27 +252,24 @@ class SimulationManager:
                 entity_params = params.copy()
                 entity_params['name'] = name
 
-                self.components[name] = entity_class(
+                self.components[name] = component_class(
                     steady_model=steady_model,
                     dynamic_model=dynamic_model,
                     precision_model=precision_model,
                     **entity_params
                 )
 
-            # Check for legacy physical entity with a model bank
             elif "dynamic_model_bank" in comp_info:
-                entity_class = ComponentRegistry.get_class(comp_type)
                 # Pass entity-level params, but exclude model bank config
                 entity_params = {k: v for k, v in comp_info.items() if k not in ["type", "dynamic_model_bank", "initial_active_model"]}
-                entity = entity_class(**entity_params)
+                entity = component_class(**entity_params)
 
                 # Build the model bank
                 for model_config in comp_info["dynamic_model_bank"]:
                     model_id = model_config["id"]
                     model_type = model_config["type"]
                     model_params = model_config.get("params", {})
-                    model_class = ComponentRegistry.get_class(model_type)
-                    model_instance = model_class(**model_params)
+                    model_instance = ComponentRegistry.get_class(model_type)(**model_params)
                     entity.dynamic_model_bank[model_id] = model_instance
 
                 # Set the initial active model
@@ -268,51 +279,12 @@ class SimulationManager:
                 if initial_model_id not in entity.dynamic_model_bank:
                     raise ValueError(f"Initial model '{initial_model_id}' not found in the model bank for '{name}'.")
                 entity.active_dynamic_model_id = initial_model_id
-
                 self.components[name] = entity
 
-            elif comp_type == "SemiDistributedHydrologyModel":
-                # Special handling for the hydrology model to inject strategies
-                strategies_config = params.pop("strategies", None)
-                if not strategies_config:
-                    raise ValueError("SemiDistributedHydrologyModel requires a 'strategies' config.")
-
-                runoff_strategy = self._create_strategy(strategies_config["runoff"])
-                routing_strategy = self._create_strategy(strategies_config["routing"])
-
-                component_class = ComponentRegistry.get_class(comp_type)
-                self.components[name] = component_class(
-                    runoff_strategy=runoff_strategy,
-                    routing_strategy=routing_strategy,
-                    **params
-                )
-            elif comp_type == "RainfallProcessor":
-                strategy_config = params.pop("strategy", None)
-                if not strategy_config:
-                    raise ValueError("RainfallProcessor requires a 'strategy' config.")
-
-                interpolation_strategy = self._create_strategy(strategy_config)
-
-                component_class = ComponentRegistry.get_class(comp_type)
-                self.components[name] = component_class(
-                    strategy=interpolation_strategy,
-                    **params
-                )
-            # New block for Body Agents
-            # First, we need to get the class to check its inheritance
-            component_class = ComponentRegistry.get_class(comp_type)
-            try:
-                base_body_agent_class = ComponentRegistry.get_class("BaseBodyAgent")
-                is_body_agent = issubclass(component_class, base_body_agent_class)
-            except ImportError:
-                is_body_agent = False
-
-            if is_body_agent:
+            elif is_embodied_agent:
                 # Build core_physics_model
                 core_physics_model_config = params.pop("core_physics_model")
-                core_physics_model_class = ComponentRegistry.get_class(core_physics_model_config["type"])
-                core_physics_model_params = core_physics_model_config.get("params", {})
-                core_physics_model = core_physics_model_class(**core_physics_model_params)
+                core_physics_model = self._create_model_instance(core_physics_model_config)
 
                 # Build sensors
                 sensors = {}
@@ -320,11 +292,9 @@ class SimulationManager:
                 for sensor_name, sensor_config in sensors_config.items():
                     sensor_class = ComponentRegistry.get_class(sensor_config["type"])
                     sensor_params = sensor_config.get("params", {})
-                    # Check for a pipeline inside the sensor's params
                     if "pipeline" in sensor_params:
                         pipeline_config = sensor_params.pop("pipeline")
-                        pipeline_instance = self._create_pipeline(pipeline_config)
-                        sensor_params["pipeline"] = pipeline_instance
+                        sensor_params["pipeline"] = self._create_pipeline(pipeline_config)
                     sensors[sensor_name] = sensor_class(**sensor_params)
 
                 # Build actuators
@@ -342,16 +312,34 @@ class SimulationManager:
                     actuators=actuators,
                     **params # remaining params
                 )
+
+            elif comp_type == "SemiDistributedHydrologyModel":
+                strategies_config = params.pop("strategies", None)
+                if not strategies_config:
+                    raise ValueError("SemiDistributedHydrologyModel requires a 'strategies' config.")
+                runoff_strategy = self._create_strategy(strategies_config["runoff"])
+                routing_strategy = self._create_strategy(strategies_config["routing"])
+                self.components[name] = component_class(
+                    runoff_strategy=runoff_strategy,
+                    routing_strategy=routing_strategy,
+                    **params
+                )
+
+            elif comp_type == "RainfallProcessor":
+                strategy_config = params.pop("strategy", None)
+                if not strategy_config:
+                    raise ValueError("RainfallProcessor requires a 'strategy' config.")
+                interpolation_strategy = self._create_strategy(strategy_config)
+                self.components[name] = component_class(
+                    strategy=interpolation_strategy,
+                    **params
+                )
+
             else:
                 # Default behavior for all other components
-
-                # Check if there is a pipeline to build and inject
                 if "pipeline" in params:
                     pipeline_config = params.pop("pipeline")
-                    pipeline_instance = self._create_pipeline(pipeline_config)
-                    # Add the created pipeline instance to the component's constructor args
-                    params["pipeline"] = pipeline_instance
-
+                    params["pipeline"] = self._create_pipeline(pipeline_config)
                 self.components[name] = component_class(**params)
 
     def _execute_step(self, instruction: Any, t: float, dt: float, simulation_mode: SimulationMode):
