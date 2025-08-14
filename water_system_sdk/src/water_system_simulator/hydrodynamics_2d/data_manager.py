@@ -1,7 +1,10 @@
 import numpy as np
+import logging
 from typing import Optional
 # Use a relative import to access the mesh module within the same package
 from .mesh import UnstructuredMesh
+
+logger = logging.getLogger(__name__)
 
 class GPUDataManager: # Note: Class name is now a misnomer, but we keep it for consistency with the plan.
     """
@@ -21,7 +24,7 @@ class GPUDataManager: # Note: Class name is now a misnomer, but we keep it for c
             initial_h (float): The initial water depth across the domain.
             bed_elevation (np.ndarray, optional): Array of bed elevations for each cell.
         """
-        print("Initializing DataManager for CPU...")
+        logger.info("Initializing DataManager for CPU...")
         self.mesh = mesh
         num_cells = self.mesh.num_cells
 
@@ -55,7 +58,7 @@ class GPUDataManager: # Note: Class name is now a misnomer, but we keep it for c
         # --- Source Term variables ---
         self.source_terms = np.zeros((num_cells, 3), dtype=np.float64)
 
-        print("DataManager initialized successfully.")
+        logger.info("DataManager initialized successfully.")
 
     def update_wse(self):
         """Updates the water surface elevation based on the current water depth."""

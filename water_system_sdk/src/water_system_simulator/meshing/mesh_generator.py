@@ -1,5 +1,8 @@
 import numpy as np
 import triangle as tr  # type: ignore
+import logging
+
+logger = logging.getLogger(__name__)
 
 class MeshGenerator:
     """
@@ -90,4 +93,4 @@ class MeshGenerator:
                 f.write(f"{i + 1} 2 {num_tags} {physical_entity} {geometrical_entity} {t[0] + 1} {t[1] + 1} {t[2] + 1}\n")
             f.write("$EndElements\n")
 
-        print(f"Mesh successfully written to {filename}")
+        logger.info(f"Mesh successfully written to {filename}")
