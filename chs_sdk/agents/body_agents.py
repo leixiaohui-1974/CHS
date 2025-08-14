@@ -1,4 +1,5 @@
-from .base import BaseAgent, Message
+from .base_agent import BaseAgent
+from .message import Message
 from water_system_sdk.src.water_system_simulator.modeling.storage_models import ReservoirModel
 from water_system_sdk.src.water_system_simulator.modeling.control_structure_models import GateModel, PumpStationModel
 
@@ -7,19 +8,25 @@ class TankAgent(BaseAgent):
     """
     An agent that encapsulates a water tank (reservoir) model.
     """
-    def __init__(self, agent_id, message_bus, area, initial_level, max_level=20.0):
-        super().__init__(agent_id, message_bus)
+    def __init__(self, agent_id, kernel, area, initial_level, max_level=20.0, **kwargs):
+        super().__init__(agent_id, kernel, **kwargs)
         self.model = ReservoirModel(area=area, initial_level=initial_level, max_level=max_level)
-        self.subscribe(f"tank/{self.agent_id}/inflow")
-        self.subscribe(f"tank/{self.agent_id}/release_outflow")
-        self.subscribe(f"tank/{self.agent_id}/demand_outflow")
 
-    def execute(self, dt=1.0):
+    def setup(self):
+        """
+        Subscribe to the necessary topics.
+        """
+        self.kernel.message_bus.subscribe(f"tank/{self.agent_id}/inflow", self)
+        self.kernel.message_bus.subscribe(f"tank/{self.agent_id}/release_outflow", self)
+        self.kernel.message_bus.subscribe(f"tank/{self.agent_id}/demand_outflow", self)
+
+    def execute(self, current_time: float):
         """
         Runs one step of the reservoir simulation.
         """
-        self.model.step(dt)
-        self.publish(f"tank/{self.agent_id}/state", self.model.get_state())
+        time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
+        self.model.step(time_step)
+        self._publish(f"tank/{self.agent_id}/state", self.model.get_state())
 
     def on_message(self, message: Message):
         """

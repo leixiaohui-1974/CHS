@@ -1,0 +1,29 @@
+simulation_settings:
+  duration: 200
+  time_step: 1.0
+
+agent_society:
+  - id: inflow_1
+    class: chs_sdk.agents.disturbance_agents.InflowAgent
+    params:
+      rainfall_pattern: [10, 10, 10, 10, 10, 15, 15, 15, 10, 10]
+      topic: "tank/tank_1/inflow"
+
+  - id: tank_1
+    class: chs_sdk.agents.body_agents.TankAgent
+    params:
+      area: 100
+      initial_level: 5.0
+      max_level: 20.0
+
+  - id: pid_controller_1
+    class: chs_sdk.agents.control_agents.PIDAgent
+    params:
+      Kp: 0.5
+      Ki: 0.1
+      Kd: 0.01
+      set_point: 10.0
+      input_topic: "tank/tank_1/state"
+      output_topic: "tank/tank_1/release_outflow"
+      output_min: 0
+      output_max: 20
