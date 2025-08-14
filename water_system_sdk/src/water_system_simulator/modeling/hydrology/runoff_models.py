@@ -1,4 +1,5 @@
 import math
+from typing import Dict, Any
 from .strategies import BaseRunoffModel
 
 class RunoffCoefficientModel(BaseRunoffModel):
@@ -9,10 +10,10 @@ class RunoffCoefficientModel(BaseRunoffModel):
         self.params = kwargs
         self.output = 0.0
 
-    def calculate_runoff(self, rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def calculate_runoff(self, rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         """Runoff is a direct fraction of precipitation."""
         # Update coefficient if it's in the dynamic params
-        current_coeff = sub_basin_params.get("C", 0.5)
+        current_coeff = float(sub_basin_params.get("C", 0.5))
         runoff = rainfall * current_coeff
         self.output = max(0, runoff)
         return self.output
@@ -38,19 +39,19 @@ class XinanjiangModel(BaseRunoffModel):
             WM = self.params.get('WM', 100)
             self.W = kwargs['states'].get("initial_W", WM * 0.5)
 
-    def calculate_runoff(self, rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def calculate_runoff(self, rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         """
         Calculates runoff based on Xinanjiang model logic.
         Assumes 'evaporation' is provided in sub_basin_params if needed.
         """
         # Update parameters dynamically if they are provided
-        WM = sub_basin_params.get("WM", 100)
-        B = sub_basin_params.get("B", 0.3)
-        IM = sub_basin_params.get("IM", 0.05)
+        WM = float(sub_basin_params.get("WM", 100))
+        B = float(sub_basin_params.get("B", 0.3))
+        IM = float(sub_basin_params.get("IM", 0.05))
 
         # Evaporation is not part of the new interface, so we need to handle it.
         # Let's assume evaporation is zero if not provided.
-        evaporation = sub_basin_params.get("evaporation", 0.0) * dt
+        evaporation = float(sub_basin_params.get("evaporation", 0.0)) * dt
 
         # Evaporation is subtracted from soil moisture first.
         actual_evaporation = evaporation * (self.W / WM)
@@ -83,8 +84,8 @@ class XinanjiangModel(BaseRunoffModel):
 
 # Placeholder for SCSRunoffModel
 class SCSRunoffModel(BaseRunoffModel):
-    def calculate_runoff(self, rainfall: float, sub_basin_params: dict, dt: float) -> float:
-        cn = sub_basin_params.get("CN", 75)
+    def calculate_runoff(self, rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
+        cn = float(sub_basin_params.get("CN", 75))
         s = (1000 / cn) - 10
         ia = 0.2 * s
         if rainfall > ia:
@@ -95,39 +96,39 @@ class SCSRunoffModel(BaseRunoffModel):
 
 # Placeholder for TankModel
 class TankModel(BaseRunoffModel):
-    def calculate_runoff(self, rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def calculate_runoff(self, rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         # Simplified single-tank logic
         return rainfall * 0.6
 
 # Placeholder for HYMODModel
 class HYMODModel(BaseRunoffModel):
-    def calculate_runoff(self, rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def calculate_runoff(self, rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         return rainfall * 0.7
 
 # Placeholder for GreenAmptRunoffModel
 class GreenAmptRunoffModel(BaseRunoffModel):
-    def calculate_runoff(self, rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def calculate_runoff(self, rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         # Simplified logic
-        infiltration_rate = sub_basin_params.get("ksat", 5.0) # mm/hr
+        infiltration_rate = float(sub_basin_params.get("ksat", 5.0)) # mm/hr
         runoff = max(0, rainfall - infiltration_rate * dt)
         return runoff
 
 # Placeholder for TOPMODEL
 class TOPMODEL(BaseRunoffModel):
-    def calculate_runoff(self, rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def calculate_runoff(self, rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         return rainfall * 0.65
 
 # Placeholder for WETSPAModel
 class WETSPAModel(BaseRunoffModel):
-    def calculate_runoff(self, rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def calculate_runoff(self, rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         return rainfall * 0.75
 
 # Placeholder for ShanbeiModel
 class ShanbeiModel(BaseRunoffModel):
-    def calculate_runoff(self, rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def calculate_runoff(self, rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         return rainfall * 0.55
 
 # Placeholder for HebeiModel
 class HebeiModel(BaseRunoffModel):
-    def calculate_runoff(self, rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def calculate_runoff(self, rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         return rainfall * 0.6

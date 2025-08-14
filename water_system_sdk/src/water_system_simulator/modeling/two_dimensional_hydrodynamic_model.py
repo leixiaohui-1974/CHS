@@ -1,5 +1,5 @@
 import numpy as np
-
+from typing import Optional, Dict, Any
 from .base_model import BaseModel
 from ..hydrodynamics_2d.mesh import load_mesh, UnstructuredMesh
 from ..hydrodynamics_2d.data_manager import GPUDataManager
@@ -11,7 +11,8 @@ class TwoDimensionalHydrodynamicModel(BaseModel):
     This model can be integrated into the CHS SDK SimulationManager.
     """
     def __init__(self, mesh_file: str, manning_n: float = 0.03, initial_h: float = 0.01,
-                 cfl: float = 0.5, coupling_boundaries: dict = None, bed_elevation: np.ndarray = None, **kwargs):
+                 cfl: float = 0.5, coupling_boundaries: Optional[Dict[str, Any]] = None,
+                 bed_elevation: Optional[np.ndarray] = None, **kwargs: Any):
         """
         Initializes the 2D hydrodynamic model.
         """
@@ -28,7 +29,7 @@ class TwoDimensionalHydrodynamicModel(BaseModel):
         self.cfl_number = cfl
         self.dry_tolerance = 1e-6
 
-        self.boundary_name_to_cell_indices = {}
+        self.boundary_name_to_cell_indices: Dict[str, np.ndarray] = {}
         if coupling_boundaries:
             self._setup_coupling_boundaries(coupling_boundaries)
 
@@ -103,7 +104,7 @@ class TwoDimensionalHydrodynamicModel(BaseModel):
         cell_indices = self.boundary_name_to_cell_indices[boundary_name]
         wse = self.data_manager.wse[cell_indices]
         areas = self.mesh.cell_areas[cell_indices]
-        total_area = np.sum(areas)
+        total_area: float = np.sum(areas)
         if total_area < 1e-9: return 0.0
         weighted_wse = np.sum(wse * areas) / total_area
         return float(weighted_wse)
@@ -114,7 +115,7 @@ class TwoDimensionalHydrodynamicModel(BaseModel):
         cell_indices = self.boundary_name_to_cell_indices[boundary_name]
         if len(cell_indices) == 0: return
         areas = self.mesh.cell_areas[cell_indices]
-        total_area = np.sum(areas)
+        total_area: float = np.sum(areas)
         if total_area > 1e-9:
             distributed_flow = flow * (areas / total_area)
             np.add.at(self.data_manager.source_terms, (cell_indices, 0), distributed_flow)

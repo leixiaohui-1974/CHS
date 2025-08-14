@@ -1,6 +1,15 @@
 import collections
+from dataclasses import dataclass
 from ..modeling.base_model import BaseModel
 from ..core.datastructures import State, Input
+
+@dataclass
+class IntegralDelayState(State):
+    output: float
+
+@dataclass
+class IntegralDelayInput(Input):
+    inflow: float
 
 class IntegralDelayModel(BaseModel):
     """
@@ -26,10 +35,10 @@ class IntegralDelayModel(BaseModel):
         self.delay_steps = int(round(delay / dt))
 
         # Use a deque as a simple and efficient FIFO buffer
-        self.buffer = collections.deque([initial_value] * self.delay_steps, maxlen=self.delay_steps)
+        self.buffer: collections.deque = collections.deque([initial_value] * self.delay_steps, maxlen=self.delay_steps)
 
-        self.input = Input(inflow=initial_value)
-        self.state = State(output=initial_value)
+        self.input: IntegralDelayInput = IntegralDelayInput(inflow=initial_value)
+        self.state: IntegralDelayState = IntegralDelayState(output=initial_value)
         self.output = self.state.output
 
     def step(self, **kwargs):

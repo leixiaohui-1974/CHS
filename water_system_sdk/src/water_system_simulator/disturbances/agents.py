@@ -1,8 +1,12 @@
 # This file will contain the new generation of disturbance agents.
 # These agents are active models that can evolve their own state over time.
 
+# This file will contain the new generation of disturbance agents.
+# These agents are active models that can evolve their own state over time.
+
 from ..modeling.base_model import BaseModel
 from abc import abstractmethod
+from typing import List, Dict
 
 class BaseDisturbanceAgent(BaseModel):
     """
@@ -95,7 +99,7 @@ class FaultAgent(BaseDisturbanceAgent):
         """
         super().__init__(**kwargs)
         self.fault_sequence = sorted(fault_sequence, key=lambda x: x['start_time'])
-        self.active_faults = []
+        self.active_faults: List[Dict] = []
         self.output = 0.0 # Default output, can represent different things
 
     def step(self, t, dt):

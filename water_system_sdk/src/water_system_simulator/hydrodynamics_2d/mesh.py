@@ -1,7 +1,11 @@
-import meshio
+import meshio  # type: ignore
 import numpy as np
+import logging
+from typing import Tuple
 
-def load_mesh(mesh_file_path: str):
+logger = logging.getLogger(__name__)
+
+def load_mesh(mesh_file_path: str) -> Tuple[np.ndarray, np.ndarray]:
     """
     Loads an unstructured mesh from a file using meshio.
     Currently supports .msh files with triangular elements.
@@ -81,11 +85,12 @@ class UnstructuredMesh:
         p2 = self.nodes[self.cells[:, 1]]
         p3 = self.nodes[self.cells[:, 2]]
 
-        return 0.5 * np.abs(p1[:, 0]*(p2[:, 1] - p3[:, 1]) +
-                               p2[:, 0]*(p3[:, 1] - p1[:, 1]) +
-                               p3[:, 0]*(p1[:, 1] - p2[:, 1]))
+        areas = 0.5 * np.abs(p1[:, 0]*(p2[:, 1] - p3[:, 1]) +
+                                p2[:, 0]*(p3[:, 1] - p1[:, 1]) +
+                                p3[:, 0]*(p1[:, 1] - p2[:, 1]))
+        return np.asarray(areas, dtype=np.float64)
 
-    def _compute_edge_connectivity(self):
+    def _compute_edge_connectivity(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Builds edge connectivity information from the cell connectivity array.
         """
@@ -137,4 +142,4 @@ class UnstructuredMesh:
         mask = dot_product > 1e-9
         normals[mask] *= -1
 
-        return normals
+        return np.asarray(normals, dtype=np.float64)

@@ -1,3 +1,4 @@
+from typing import Dict, Any
 from .strategies import BaseRoutingModel
 
 class MuskingumModel(BaseRoutingModel):
@@ -14,13 +15,13 @@ class MuskingumModel(BaseRoutingModel):
             self.I_prev = kwargs['states'].get("initial_inflow", 0.0)
             self.O_prev = kwargs['states'].get("initial_outflow", 0.0)
 
-    def route_flow(self, effective_rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def route_flow(self, effective_rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         """
         Routes the inflow for one time step using Muskingum method.
         """
         # Get parameters from sub_basin_params, with defaults
-        K = sub_basin_params.get("K", 24)
-        x = sub_basin_params.get("x", 0.2)
+        K = float(sub_basin_params.get("K", 24))
+        x = float(sub_basin_params.get("x", 0.2))
         area_km2 = sub_basin_params.get("area")
 
         if area_km2 is None:
@@ -63,27 +64,33 @@ class MuskingumModel(BaseRoutingModel):
 
 # Placeholder for UnitHydrographRoutingModel
 class UnitHydrographRoutingModel(BaseRoutingModel):
-    def route_flow(self, effective_rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def route_flow(self, effective_rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         # This requires convolution, which is complex for a simple placeholder.
         # For now, we'll just pass through the inflow.
         area_km2 = sub_basin_params.get("area")
+        if area_km2 is None:
+            raise ValueError("UnitHydrographRoutingModel requires 'area' in sub_basin_params.")
         inflow_m3_per_s = (effective_rainfall * area_km2 * 1000) / (dt * 3600)
-        return inflow_m3_per_s
+        return float(inflow_m3_per_s)
 
 # Placeholder for LinearReservoirRoutingModel
 class LinearReservoirRoutingModel(BaseRoutingModel):
-    def route_flow(self, effective_rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def route_flow(self, effective_rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         # Simplified logic
         area_km2 = sub_basin_params.get("area")
+        if area_km2 is None:
+            raise ValueError("LinearReservoirRoutingModel requires 'area' in sub_basin_params.")
         inflow_m3_per_s = (effective_rainfall * area_km2 * 1000) / (dt * 3600)
-        k = sub_basin_params.get("k_res", 12) # storage constant
+        k = float(sub_basin_params.get("k_res", 12)) # storage constant
         # O_t = O_{t-1} + (dt/k)*(I_avg - O_{t-1}) -> Simplified, assumes O_prev is stored
         return inflow_m3_per_s * 0.8 # Pass-through with damping
 
 # Placeholder for VariableVolumeRoutingModel
 class VariableVolumeRoutingModel(BaseRoutingModel):
-    def route_flow(self, effective_rainfall: float, sub_basin_params: dict, dt: float) -> float:
+    def route_flow(self, effective_rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         # This is a complex method, placeholder will just pass through inflow.
         area_km2 = sub_basin_params.get("area")
+        if area_km2 is None:
+            raise ValueError("VariableVolumeRoutingModel requires 'area' in sub_basin_params.")
         inflow_m3_per_s = (effective_rainfall * area_km2 * 1000) / (dt * 3600)
-        return inflow_m3_per_s
+        return float(inflow_m3_per_s)

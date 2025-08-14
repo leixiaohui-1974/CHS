@@ -1,5 +1,10 @@
+from dataclasses import dataclass
 from ..modeling.base_model import BaseModel
 from ..core.datastructures import State, Input
+
+@dataclass
+class DisturbanceState(State):
+    output: float
 
 class Disturbance(BaseModel):
     """
@@ -22,7 +27,7 @@ class Disturbance(BaseModel):
         super().__init__()
         self.signal_type = signal_type
         self.params = kwargs
-        self.state = State(output=0.0)
+        self.state: DisturbanceState = DisturbanceState(output=0.0)
         self.input = Input() # This component has no inputs
 
         if self.signal_type == 'constant':
