@@ -54,4 +54,4 @@ def identify_time_constant(storage_data: np.ndarray, inflow_data: np.ndarray, dt
 
     time_constant = 1 / one_over_T
 
-    return time_constant
+    return float(time_constant)

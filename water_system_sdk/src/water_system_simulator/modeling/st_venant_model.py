@@ -3,8 +3,13 @@ from ..hydrodynamics.network import HydrodynamicNetwork
 from ..hydrodynamics.node import Node, JunctionNode, InflowBoundary, LevelBoundary
 from ..hydrodynamics.reach import Reach
 from ..hydrodynamics.structures import BaseStructure, WeirStructure
+from .base_model import BaseModel
+from ..hydrodynamics.network import HydrodynamicNetwork
+from ..hydrodynamics.node import Node, JunctionNode, InflowBoundary, LevelBoundary
+from ..hydrodynamics.reach import Reach
+from ..hydrodynamics.structures import BaseStructure, WeirStructure
 from ..hydrodynamics.solver import Solver
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 class StVenantModel(BaseModel):
     """
@@ -12,7 +17,8 @@ class StVenantModel(BaseModel):
     This model can be integrated into the CHS SDK SimulationManager.
     """
     def __init__(self, nodes_data: List[Dict[str, Any]], reaches_data: List[Dict[str, Any]],
-                 structures_data: List[Dict[str, Any]] = None, solver_params: Dict[str, Any] = None):
+                 structures_data: Optional[List[Dict[str, Any]]] = None,
+                 solver_params: Optional[Dict[str, Any]] = None) -> None:
         """
         Initializes the St. Venant model from configuration dictionaries.
 
@@ -45,6 +51,7 @@ class StVenantModel(BaseModel):
         for n_data in nodes_data:
             node_type = n_data.pop('type', 'junction').lower()
             name = n_data['name']
+            node: Node
 
             if node_type == 'junction':
                 node = JunctionNode(**n_data)

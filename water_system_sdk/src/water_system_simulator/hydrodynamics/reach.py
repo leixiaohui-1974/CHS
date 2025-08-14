@@ -27,25 +27,25 @@ class Reach:
 
     def get_area(self, water_depth: float) -> float:
         """Calculates the cross-sectional area for a given water depth."""
-        if water_depth < 0: return 0
-        return (self.bottom_width + self.side_slope * water_depth) * water_depth
+        if water_depth < 0: return 0.0
+        return float((self.bottom_width + self.side_slope * water_depth) * water_depth)
 
     def get_wetted_perimeter(self, water_depth: float) -> float:
         """Calculates the wetted perimeter for a given water depth."""
-        if water_depth < 0: return 0
-        return self.bottom_width + 2 * water_depth * np.sqrt(1 + self.side_slope**2)
+        if water_depth < 0: return 0.0
+        return float(self.bottom_width + 2 * water_depth * np.sqrt(1 + self.side_slope**2))
 
     def get_hydraulic_radius(self, water_depth: float) -> float:
         """Calculates the hydraulic radius for a given water depth."""
-        if water_depth < 0: return 0
+        if water_depth < 0: return 0.0
         area = self.get_area(water_depth)
         perimeter = self.get_wetted_perimeter(water_depth)
-        return area / perimeter if perimeter > 0 else 0.0
+        return float(area / perimeter) if perimeter > 0 else 0.0
 
     def get_top_width(self, water_depth: float) -> float:
         """Calculates the top width for a given water depth."""
-        if water_depth < 0: return 0
-        return self.bottom_width + 2 * self.side_slope * water_depth
+        if water_depth < 0: return 0.0
+        return float(self.bottom_width + 2 * self.side_slope * water_depth)
 
     def get_critical_depth(self, discharge: float, g: float = 9.81, tolerance=1e-6, max_iter=20) -> float:
         """
@@ -63,7 +63,7 @@ class Reach:
             T = self.get_top_width(y_crit)
 
             if A < 1e-6 or T < 1e-6: # Avoid division by zero
-                return y_crit
+                return float(y_crit)
 
             f = A**3 / T - discharge**2 / g
 
@@ -78,10 +78,10 @@ class Reach:
             y_new = y_crit - f / df_dy
 
             if abs(y_new - y_crit) < tolerance:
-                return y_new
+                return float(y_new)
             y_crit = y_new
 
-        return y_crit # Return best guess if not converged
+        return float(y_crit) # Return best guess if not converged
 
     def get_froude_number(self, water_depth: float, discharge: float, g: float = 9.81) -> float:
         """Calculates the Froude number for a given water depth and discharge."""
@@ -97,4 +97,4 @@ class Reach:
         velocity = discharge / area
 
         froude = velocity / np.sqrt(g * hydraulic_depth)
-        return froude
+        return float(froude)

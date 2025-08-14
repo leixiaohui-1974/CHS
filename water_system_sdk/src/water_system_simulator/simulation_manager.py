@@ -118,12 +118,24 @@ class ComponentRegistry:
 # --- Simulation Manager ---
 
 class SimulationManager:
+    """Manages the setup and execution of water system simulations.
+
+    This class is the main entry point for running simulations. It is responsible
+    for parsing a configuration dictionary, building a system of interconnected
+    components, executing the simulation loop, and returning the results.
+
+    The manager itself is stateless between runs, meaning a single instance can be
+    used to run multiple different simulations, each with its own configuration.
+
+    Attributes:
+        components (Dict[str, Any]): A dictionary of all component instances
+            in the current simulation, keyed by their names.
+        config (Dict[str, Any]): The configuration dictionary for the current
+            simulation.
+        datasets (Dict[str, Any]): A dictionary to hold any datasets loaded
+            during preprocessing, for access by components during the simulation.
     """
-    Manages the setup and execution of a water system simulation based on a
-    configuration dictionary. This manager is stateless and can be reused to
-    run multiple simulations.
-    """
-    def __init__(self):
+    def __init__(self) -> None:
         """Initializes the simulation manager."""
         self.components: Dict[str, Any] = {}
         self.config: Dict[str, Any] = {}
@@ -248,7 +260,7 @@ class SimulationManager:
             # Store the result if a destination is specified
             if "result_to" in instruction and result is not None:
                 target_comp, target_attr = instruction["result_to"].split('.', 1)
-                setattr_by_path(self.components[target_comp], target_attr, result)
+                setattr_by_path(self.components[target_comp], target_attr, result)  # type: ignore
         else:
             raise TypeError(f"Unsupported instruction type in execution_order: {type(instruction)}")
 
@@ -339,15 +351,22 @@ class SimulationManager:
                         continue
 
     def run(self, config: Dict[str, Any]) -> pd.DataFrame:
-        """
-        Runs the simulation according to the provided configuration.
+        """Runs a complete simulation based on a configuration dictionary.
+
+        This is the main public method of the SimulationManager. It takes a
+        detailed configuration dictionary, builds the system, runs the
+        simulation loop for the specified duration, and logs the requested
+        variables at each time step.
 
         Args:
-            config: A dictionary defining the components, connections, and
-                    simulation parameters.
+            config: A dictionary defining the entire simulation setup.
+                It should contain keys such as 'components', 'connections',
+                'simulation_params', 'execution_order', and 'logger_config'.
 
         Returns:
-            A pandas DataFrame containing the simulation log.
+            A pandas DataFrame where each row represents a time step and
+            each column represents a logged variable. The DataFrame includes
+            a 'time' column indicating the simulation time for each row.
         """
         # Reset state for the new run
         self.config = config

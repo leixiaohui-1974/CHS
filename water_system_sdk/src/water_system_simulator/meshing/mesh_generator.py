@@ -1,5 +1,5 @@
 import numpy as np
-import triangle as tr
+import triangle as tr  # type: ignore
 
 class MeshGenerator:
     """

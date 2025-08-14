@@ -1,6 +1,6 @@
 import yaml
 import csv
-from typing import Dict, List, Any
+from typing import Dict, List, Any, cast
 
 def parse_topology(file_path: str) -> Dict[str, List[Dict[str, Any]]]:
     """
@@ -14,7 +14,7 @@ def parse_topology(file_path: str) -> Dict[str, List[Dict[str, Any]]]:
     """
     try:
         with open(file_path, 'r') as f:
-            config = yaml.safe_load(f)
+            config = cast(Dict[str, Any], yaml.safe_load(f))
         # Basic validation
         if 'components' not in config or not isinstance(config['components'], list):
             raise ValueError("Topology file must contain a 'components' list.")

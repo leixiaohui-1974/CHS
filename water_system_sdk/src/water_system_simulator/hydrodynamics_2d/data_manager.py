@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Optional
 # Use a relative import to access the mesh module within the same package
 from .mesh import UnstructuredMesh
 
@@ -10,7 +11,7 @@ class GPUDataManager: # Note: Class name is now a misnomer, but we keep it for c
     bed elevation) variables required for the solver, stored as NumPy arrays.
     """
 
-    def __init__(self, mesh: UnstructuredMesh, manning_n: float = 0.03, initial_h: float = 0.01, bed_elevation: np.ndarray = None):
+    def __init__(self, mesh: UnstructuredMesh, manning_n: float = 0.03, initial_h: float = 0.01, bed_elevation: Optional[np.ndarray] = None):
         """
         Initializes the data manager and allocates memory for state variables.
 
@@ -25,7 +26,7 @@ class GPUDataManager: # Note: Class name is now a misnomer, but we keep it for c
         num_cells = self.mesh.num_cells
 
         # --- Static variables (mesh properties) ---
-
+        self.z: np.ndarray
         if bed_elevation is None:
             self.z = np.zeros(num_cells, dtype=np.float64)
         else:

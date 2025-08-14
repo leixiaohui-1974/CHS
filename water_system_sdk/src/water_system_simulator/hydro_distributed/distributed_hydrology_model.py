@@ -1,5 +1,6 @@
 import numpy as np
 from collections import deque
+from typing import Optional, Dict, Any, Tuple
 from .gistools import GISTools
 from .hydrological_unit import HydrologicalUnit
 from .routing import identify_river_network, HillslopeRouting, ChannelRouting
@@ -9,7 +10,8 @@ class DistributedHydrologyModel(BaseModel):
     """
     A fully distributed, grid-based hydrological model.
     """
-    def __init__(self, dem: np.ndarray, curve_number_grid: np.ndarray, cell_size: float = 30.0, channel_threshold: int = 100, routing_params: dict = None):
+    def __init__(self, dem: np.ndarray, curve_number_grid: np.ndarray, cell_size: float = 30.0,
+                 channel_threshold: int = 100, routing_params: Optional[Dict[str, float]] = None) -> None:
         """
         Initializes the distributed hydrological model.
 
@@ -23,34 +25,34 @@ class DistributedHydrologyModel(BaseModel):
         super().__init__()
 
         # --- 1. GIS Preprocessing ---
-        self.dem = GISTools.fill_sinks(dem)
-        self.fdr = GISTools.flow_direction(self.dem)
-        self.fac = GISTools.flow_accumulation(self.fdr)
+        self.dem: np.ndarray = GISTools.fill_sinks(dem)
+        self.fdr: np.ndarray = GISTools.flow_direction(self.dem)
+        self.fac: np.ndarray = GISTools.flow_accumulation(self.fdr)
 
         # --- 2. Initialize Hydrological Units (Cells) ---
         rows, cols = dem.shape
-        self.hydro_units = np.empty((rows, cols), dtype=object)
+        self.hydro_units: np.ndarray = np.empty((rows, cols), dtype=object)
         for r in range(rows):
             for c in range(cols):
                 if dem[r,c] > 0: # Assuming negative values are no-data
-                    self.hydro_units[r,c] = HydrologicalUnit(curve_number=curve_number_grid[r,c])
+                    self.hydro_units[r,c] = HydrologicalUnit(curve_number=int(curve_number_grid[r,c]))
 
         # --- 3. Initialize Routing Components ---
-        self.channel_network = identify_river_network(self.fac, channel_threshold)
+        self.channel_network: np.ndarray = identify_river_network(self.fac, channel_threshold)
 
-        self.hillslope_router = HillslopeRouting(self.dem, self.fdr, cell_size)
-        self.travel_times = self.hillslope_router.calculate_travel_times(self.channel_network)
+        self.hillslope_router: HillslopeRouting = HillslopeRouting(self.dem, self.fdr, cell_size)
+        self.travel_times: np.ndarray = self.hillslope_router.calculate_travel_times(self.channel_network)
         # Convert travel times from seconds to integer timesteps (assuming dt=1hr)
         # Handle inf values properly before casting
-        valid_times = self.travel_times[np.isfinite(self.travel_times)]
-        self.travel_times_steps = np.full_like(self.travel_times, -1, dtype=int)
+        valid_times: np.ndarray = self.travel_times[np.isfinite(self.travel_times)]
+        self.travel_times_steps: np.ndarray = np.full_like(self.travel_times, -1, dtype=int)
         self.travel_times_steps[np.isfinite(self.travel_times)] = (valid_times / 3600.0).astype(int)
 
-        default_routing_params = {'k': 3.0, 'x': 0.2, 'dt': 1.0}
+        default_routing_params: Dict[str, float] = {'k': 3.0, 'x': 0.2, 'dt': 1.0}
         if routing_params:
             default_routing_params.update(routing_params)
 
-        self.channel_router = ChannelRouting(
+        self.channel_router: ChannelRouting = ChannelRouting(
             self.fdr, self.channel_network,
             k=default_routing_params['k'],
             x=default_routing_params['x'],
@@ -58,16 +60,19 @@ class DistributedHydrologyModel(BaseModel):
         )
 
         # --- 4. State Variables ---
-        self.outlet_r, self.outlet_c = np.unravel_index(np.argmax(self.fac), self.fac.shape)
-        self.surface_runoff_grid = np.zeros_like(self.dem, dtype=float)
+        r_idx, c_idx = np.unravel_index(np.argmax(self.fac), self.fac.shape)
+        self.outlet_r: int = int(r_idx)
+        self.outlet_c: int = int(c_idx)
+        self.surface_runoff_grid: np.ndarray = np.zeros_like(self.dem, dtype=float)
 
         # Initialize runoff history buffer
         valid_travel_times = self.travel_times_steps[self.travel_times_steps >= 0]
+        max_travel_time: int
         if valid_travel_times.size > 0:
-            max_travel_time = np.max(valid_travel_times)
+            max_travel_time = int(np.max(valid_travel_times))
         else:
             max_travel_time = 0
-        self.runoff_history = deque(maxlen=int(max_travel_time) + 1)
+        self.runoff_history: deque = deque(maxlen=int(max_travel_time) + 1)
 
         # Pre-calculate D8 offsets for faster lookups
         self.d8_to_offset = {
@@ -75,14 +80,14 @@ class DistributedHydrologyModel(BaseModel):
             16: (0, -1), 32: (-1, -1), 64: (-1, 0), 128: (-1, 1)
         }
 
-    def _find_channel_destination(self, r_start: int, c_start: int):
+    def _find_channel_destination(self, r_start: int, c_start: int) -> Tuple[Optional[int], Optional[int]]:
         """Traces a flow path from a starting cell to the first channel cell."""
         r, c = r_start, c_start
         for _ in range(self.dem.size): # Max path length is the total number of cells
             if self.channel_network[r, c]:
                 return r, c
 
-            direction = self.fdr[r,c]
+            direction = int(self.fdr[r,c])
             if direction in self.d8_to_offset:
                 dr, dc = self.d8_to_offset[direction]
                 r, c = r + dr, c + dc
@@ -93,16 +98,13 @@ class DistributedHydrologyModel(BaseModel):
                 return None, None # Reached a sink or flat area not in channel
         return None, None # Path is too long (cycle)
 
-    def step(self, rainfall_grid: np.ndarray, et_grid: np.ndarray = None):
+    def step(self, rainfall_grid: np.ndarray, et_grid: Optional[np.ndarray] = None, **kwargs: Any) -> None:
         """
         Represents a single time step of the model's execution.
 
         Args:
-            rainfall_grid (np.ndarray): A 2D grid of rainfall (mm) for the current time step.
-            et_grid (np.ndarray): A 2D grid of potential ET (mm) for the current time step.
-
-        Returns:
-            float: The discharge at the watershed outlet.
+            rainfall_grid: A 2D grid of rainfall (mm) for the current time step.
+            et_grid: A 2D grid of potential ET (mm) for the current time step.
         """
         if et_grid is None:
             et_grid = np.zeros_like(rainfall_grid)
@@ -112,35 +114,26 @@ class DistributedHydrologyModel(BaseModel):
         rows, cols = self.dem.shape
         for r in range(rows):
             for c in range(cols):
-                if self.hydro_units[r, c] is not None:
-                    runoff = self.hydro_units[r, c].update_state(
-                        rainfall_mm=rainfall_grid[r, c],
-                        pot_et_mm=et_grid[r, c]
+                hydro_unit = self.hydro_units[r, c]
+                if hydro_unit is not None:
+                    runoff = hydro_unit.update_state(
+                        rainfall_mm=float(rainfall_grid[r, c]),
+                        pot_et_mm=float(et_grid[r, c])
                     )
                     self.surface_runoff_grid[r, c] = runoff
 
-        # --- 2. Hillslope Routing (Time-Area Method) ---
-        # For this step, we need to handle runoff generated in previous steps
-        # that is scheduled to arrive at the channel now.
-        # This requires a queue or history buffer. For this implementation,
-        # we'll use a simplified approach where runoff is routed based on a
-        # pre-calculated time-area unit hydrograph from the travel times.
-        # A full implementation would need a stateful runoff history buffer.
-
         # --- 2. Hillslope Routing (Time-Area Method with Runoff History) ---
-        # Add current runoff to history and manage buffer size
         self.runoff_history.append(self.surface_runoff_grid)
 
         # Calculate lateral inflows arriving at the channel in this timestep
-        lateral_inflows = np.zeros_like(self.dem, dtype=float)
+        lateral_inflows: np.ndarray = np.zeros_like(self.dem, dtype=float)
 
         # Iterate over each cell to see if its past runoff arrives now
-        rows, cols = self.dem.shape
         for r in range(rows):
             for c in range(cols):
                 # If it's a hillslope cell with valid travel time
                 if not self.channel_network[r,c] and self.travel_times_steps[r,c] > 0:
-                    travel_time = self.travel_times_steps[r,c]
+                    travel_time = int(self.travel_times_steps[r,c])
 
                     # Check if we have enough history
                     if travel_time < len(self.runoff_history):
@@ -149,27 +142,26 @@ class DistributedHydrologyModel(BaseModel):
 
                         # Find the destination channel cell and add the inflow
                         dest_r, dest_c = self._find_channel_destination(r, c)
-                        if dest_r is not None:
+                        if dest_r is not None and dest_c is not None:
                             lateral_inflows[dest_r, dest_c] += past_runoff
 
         # --- 3. Channel Routing ---
-        channel_outflows = self.channel_router.route_flows(lateral_inflows)
+        channel_outflows: np.ndarray = self.channel_router.route_flows(lateral_inflows)
 
         # The main output required by the SDK's BaseModel
         self.output = channel_outflows[self.outlet_r, self.outlet_c]
 
-        return self.output
-
-    def get_state(self):
+    def get_state(self) -> Dict[str, Any]:
         """
         Returns a dictionary of the model's current state.
         """
         rows, cols = self.dem.shape
-        soil_moisture_grid = np.zeros((rows, cols), dtype=float)
+        soil_moisture_grid: np.ndarray = np.zeros((rows, cols), dtype=float)
         for r in range(rows):
             for c in range(cols):
-                if self.hydro_units[r, c] is not None:
-                    soil_moisture_grid[r, c] = self.hydro_units[r, c].soil_moisture
+                hydro_unit = self.hydro_units[r, c]
+                if hydro_unit is not None:
+                    soil_moisture_grid[r, c] = hydro_unit.soil_moisture
 
         return {
             "soil_moisture": soil_moisture_grid,

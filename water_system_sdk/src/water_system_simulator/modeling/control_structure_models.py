@@ -1,4 +1,5 @@
 import numpy as np
+from typing import Optional
 from .base_model import BaseModel
 
 class GateModel(BaseModel):
@@ -71,9 +72,9 @@ class PumpStationModel(BaseModel):
         a, b, c = self.curve_coeffs
         if head_diff < 0: head_diff = 0
         flow = a * head_diff**2 + b * head_diff + c
-        return max(0, flow)
+        return float(max(0, flow))
 
-    def step(self, inlet_pressure: float, outlet_pressure: float, num_pumps_on: int = None, **kwargs):
+    def step(self, inlet_pressure: float, outlet_pressure: float, num_pumps_on: Optional[int] = None, **kwargs):
         """
         Calculates the total flow for the next time step.
         """
