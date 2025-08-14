@@ -21,6 +21,7 @@ class AgentKernel:
         self._agents: Dict[str, BaseAgent] = {}
         self._is_running = False
         self.current_time = 0.0
+        self.time_step = 1.0 # Default time step
 
     def add_agent(self, agent: BaseAgent):
         """
@@ -56,6 +57,7 @@ class AgentKernel:
         self._is_running = True
         self._setup_agents()
 
+        self.time_step = time_step
         end_time = self.current_time + duration
 
         while self._is_running and self.current_time < end_time:
