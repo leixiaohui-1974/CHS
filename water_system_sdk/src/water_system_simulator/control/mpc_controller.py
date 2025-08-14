@@ -4,7 +4,8 @@ from .base_controller import BaseController
 
 class MPCController(BaseController):
     """
-    A Model Predictive Control (MPC) controller for linear time-invariant (LTI) systems.
+    A Model Predictive Control (MPC) controller for linear time-invariant (LTI) systems,
+    with feedforward disturbance rejection.
     """
     def __init__(self, A, B, Q, R, N, setpoint, u_min=None, u_max=None, x_min=None, x_max=None, **kwargs):
         """
@@ -12,111 +13,102 @@ class MPCController(BaseController):
 
         Args:
             A (np.ndarray): The state transition matrix.
-            B (np.ndarray): The input matrix.
-            Q (np.ndarray): The state weighting matrix.
-            R (np.ndarray): The input weighting matrix.
+            B (np.ndarray): The input matrix for the control variable u.
+            Q (list or np.ndarray): State weighting cost.
+            R (list or np.ndarray): Input weighting cost.
             N (int): The prediction horizon.
-            setpoint (np.ndarray): The desired state setpoint (reference).
-            u_min (float, optional): Minimum control input. Defaults to None.
-            u_max (float, optional): Maximum control input. Defaults to None.
-            x_min (float, optional): Minimum state value. Defaults to None.
-            x_max (float, optional): Maximum state value. Defaults to None.
+            setpoint (float): The desired state setpoint.
+            ...
         """
         super().__init__(**kwargs)
-        # Ensure matrices are numpy arrays right away
         A = np.array(A)
         B = np.array(B)
-        Q = np.array(Q)
-        R = np.array(R)
+
+        n_x = A.shape[0]
+        n_u = B.shape[1]
+
+        q_val = np.array(Q).flatten()[0]
+        Q_matrix = np.zeros((n_x, n_x))
+        Q_matrix[0, 0] = q_val
+
+        r_val = np.array(R).flatten()[0]
+        R_matrix = np.diag([r_val] * n_u)
+
+        sp_val = np.array(setpoint).flatten()[0]
+        setpoint_vec = np.zeros(n_x)
+        setpoint_vec[0] = sp_val
 
         self.A = A
         self.B = B
-        self.Q = Q
-        self.R = R
+        self.Q = Q_matrix
+        self.R = R_matrix
         self.N = N
-        self.setpoint = np.array(setpoint).flatten() # Ensure it's a 1D array
+        self.setpoint = setpoint_vec
         self.output = 0.0
 
-        # Constraints
         self.u_min = u_min
         self.u_max = u_max
         self.x_min = x_min
         self.x_max = x_max
 
         # CVXPY problem setup
-        self.x = cp.Variable((self.A.shape[0], N + 1))
-        self.u = cp.Variable((self.B.shape[1], N))
+        self.x = cp.Variable((n_x, N + 1))
+        self.u = cp.Variable((n_u, N))
+        self.d = cp.Parameter((n_u, N), value=np.zeros((n_u, N))) # Disturbance forecast
 
         self.objective = 0
         self.constraints = []
 
-        # Build the objective function and constraints over the horizon
         for k in range(N):
-            # Cost function: sum of state error and control effort
+            # The disturbance is assumed to affect the system via the same input matrix B
+            self.constraints += [self.x[:, k+1] == self.A @ self.x[:, k] + self.B @ (self.u[:, k] + self.d[:, k])]
             self.objective += cp.quad_form(self.x[:, k] - self.setpoint, self.Q) + cp.quad_form(self.u[:, k], self.R)
-
-            # System dynamics constraint
-            self.constraints += [self.x[:, k+1] == self.A @ self.x[:, k] + self.B @ self.u[:, k]]
-
-            # Input constraints
             if self.u_min is not None:
                 self.constraints += [self.u[:, k] >= self.u_min]
             if self.u_max is not None:
                 self.constraints += [self.u[:, k] <= self.u_max]
-
-            # State constraints
             if self.x_min is not None:
-                self.constraints += [self.x[:, k] >= self.x_min]
+                self.constraints += [self.x[0, k] >= self.x_min]
             if self.x_max is not None:
-                self.constraints += [self.x[:, k] <= self.x_max]
+                self.constraints += [self.x[0, k] <= self.x_max]
 
-        # Add terminal cost
         self.objective += cp.quad_form(self.x[:, self.N] - self.setpoint, self.Q)
 
-        # Initial state constraint will be set in the calculate method
-        self.x0 = cp.Parameter(A.shape[0])
+        self.x0 = cp.Parameter(n_x)
         self.constraints += [self.x[:, 0] == self.x0]
 
-        # Define the optimization problem
         self.problem = cp.Problem(cp.Minimize(self.objective), self.constraints)
+        print("MPC Controller with disturbance rejection initialized successfully.")
 
-        print("MPC Controller initialized successfully.")
-
-    def step(self, measured_value, dt=None, **kwargs):
+    def step(self, measured_value, disturbance=0.0, dt=None, **kwargs):
         """
         Calculates the optimal control output.
-
         Args:
-            measured_value (float): The current measured state value.
-            dt (float, optional): The time step (not used in this MPC version but kept for API consistency).
-
-        Returns:
-            float: The first optimal control input.
+            measured_value (float): The current state.
+            disturbance (float): The current measured disturbance.
         """
-        # Set the initial state parameter
-        self.x0.value = np.array([measured_value]).flatten()
+        current_state = np.zeros(self.A.shape[0])
+        current_state[0] = measured_value
+        for i in range(1, len(current_state)):
+            current_state[i] = self.output
+        self.x0.value = current_state
 
-        # Solve the optimization problem
+        # Assume disturbance is constant over the horizon
+        disturbance_forecast = np.tile(disturbance, (self.N, 1)).T
+        self.d.value = disturbance_forecast
+
         try:
             self.problem.solve(solver=cp.OSQP, warm_start=True)
-
             if self.problem.status in ["infeasible", "unbounded"]:
                 print(f"Warning: MPC problem is {self.problem.status}. Returning zero control.")
                 self.output = 0.0
-                return 0.0
-
-            # Return the first control action in the optimal sequence
-            self.output = self.u.value[0, 0]
-            return self.output
+            else:
+                self.output = self.u.value[0, 0]
         except Exception as e:
             print(f"Error during MPC solve: {e}. Returning zero control.")
             self.output = 0.0
-            return 0.0
+
+        return self.output
 
     def get_state(self):
-        return {
-            "output": self.output
-            # The internal states of the MPC (like the optimal sequence x, u)
-            # are complex and not easily summarized as a simple state.
-            # We return the primary output for logging and connection purposes.
-        }
+        return {"output": self.output}

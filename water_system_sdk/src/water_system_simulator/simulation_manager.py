@@ -64,6 +64,8 @@ class ComponentRegistry:
         "KrigingInterpolator": "water_system_simulator.preprocessing.interpolators.KrigingInterpolator",
         # Controllers
         "PIDController": "water_system_simulator.control.pid_controller.PIDController",
+        "MPCController": "water_system_simulator.control.mpc_controller.MPCController",
+        "GainScheduledMPCController": "water_system_simulator.control.gs_mpc_controller.GainScheduledMPCController",
         "RuleBasedOperationalController": "water_system_simulator.control.rule_based_controller.RuleBasedOperationalController",
         # Disturbances
         "Disturbance": "water_system_simulator.disturbances.predefined.Disturbance",
@@ -87,6 +89,7 @@ class ComponentRegistry:
         "FirstOrderInertiaModel": "water_system_simulator.modeling.storage_models.FirstOrderInertiaModel",
         "IntegralDelayModel": "water_system_simulator.modeling.delay_models.IntegralDelayModel",
         "IntegralPlusDelayModel": "water_system_simulator.modeling.integral_plus_delay_model.IntegralPlusDelayModel",
+        "PiecewiseIntegralDelayModel": "water_system_simulator.modeling.adaptive_models.PiecewiseIntegralDelayModel",
         "GateModel": "water_system_simulator.modeling.control_structure_models.GateModel",
         "PumpStationModel": "water_system_simulator.modeling.control_structure_models.PumpStationModel",
         "TwoDimensionalHydrodynamicModel": "water_system_simulator.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
