@@ -3,3 +3,5 @@ matplotlib
 scipy
 pykrige
 numpy
+cvxpy
+osqp
