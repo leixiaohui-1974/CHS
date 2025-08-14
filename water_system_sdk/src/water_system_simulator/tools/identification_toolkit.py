@@ -1,209 +1,290 @@
-import copy
 import numpy as np
 import pandas as pd
-from scipy.optimize import curve_fit
-from typing import Dict, Any, List, Tuple, Callable
+from scipy.optimize import curve_fit, minimize
+from typing import Dict, List, Any, Callable
 
-from water_system_simulator.simulation_manager import SimulationManager, getattr_by_path, setattr_by_path
-from water_system_simulator.modeling.hydrology.routing_models import MuskingumModel
 from water_system_simulator.modeling.integral_plus_delay_model import IntegralPlusDelayModel
-from water_system_simulator.utils.metrics import calculate_nse
-from water_system_simulator.tools.simulation_helpers import run_piecewise_model, run_single_model
+from water_system_simulator.control.kalman_filter import KalmanFilter
+from water_system_simulator.utils.metrics import calculate_nse, calculate_rmse
 
 
-def identify_at_point(base_config: dict, operating_point: dict, identification_tasks: list, dt:float = 60.0, sim_duration:float = 7200.0, step_increase_factor:float=0.1) -> dict:
+class IdentificationToolkit:
     """
-    Identifies the parameters of simplified models at a single steady-state operating point.
+    A comprehensive toolkit for system identification and data assimilation.
     """
-    results = {}
 
-    # This is a simplified setup. A robust version needs a better way to map
-    # operating points and IO to the StVenantModel config.
-    # For now, we assume the first inflow node is the upstream input.
-    inflow_node_name = next((n['name'] for n in base_config['components']['StVenantModel']['properties']['nodes_data'] if n['type'] == 'inflow'), None)
-    if not inflow_node_name:
-        raise ValueError("Could not find an inflow node in the base_config.")
+    def __init__(self):
+        # This toolkit is stateless for now, but can hold configuration state in the future.
+        pass
 
-    op_point_path = f"StVenantModel.properties.nodes_data.0.inflow" # HACK
+    def identify_offline(self, model_type: str, inflow: np.ndarray, outflow: np.ndarray, dt: float,
+                         initial_guess: List[float], bounds: List[tuple]) -> Dict[str, Any]:
+        """
+        Performs offline parameter identification for a given model.
+        """
+        if model_type not in ['Muskingum', 'IntegralDelay']:
+            raise ValueError(f"Unsupported model type: {model_type}")
 
-    # 1. Establish steady state
-    steady_config = copy.deepcopy(base_config)
-    # setattr_by_path is complex with lists, so we do it manually for now
-    steady_config['components']['StVenantModel']['properties']['nodes_data'][0]['inflow'] = operating_point['upstream_flow']
+        # Define the objective function for curve_fit
+        def model_response(t, *params):
+            inflow_series = inflow
 
-    sim_manager = SimulationManager(config=steady_config)
-    # The StVenantModel is not yet integrated with the SimManager, so we call it directly.
-    # This part needs to be updated once the integration is done.
-    # For now, we create a dummy steady state.
-    steady_state_df = pd.DataFrame([{'time': 0, 'StVenantModel.reaches.r1.discharge': operating_point['upstream_flow']*0.98}])
+            if model_type == 'Muskingum':
+                K, X = params[0], params[1]
+                if K <= 0 or not (0 <= X <= 0.5):
+                    return np.full_like(inflow_series, 1e10)
 
+                denominator = 2 * K * (1 - X) + dt
+                if abs(denominator) < 1e-9:
+                    return np.full_like(inflow_series, 1e10)
 
-    # 2. Perform step response
-    for task in identification_tasks:
-        task_key = f"{task['model_type']}_{task['input']}_{task['output']}"
+                C1 = (dt - 2 * K * X) / denominator
+                C2 = (dt + 2 * K * X) / denominator
+                C3 = (2 * K * (1 - X) - dt) / denominator
 
-        initial_input_val = operating_point['upstream_flow']
-        initial_output_val = initial_input_val # Assume steady state
+                sim_outflow = np.zeros_like(inflow_series)
+                if len(inflow_series) > 0:
+                    sim_outflow[0] = outflow[0]
+                for i in range(1, len(inflow_series)):
+                    sim_outflow[i] = C1 * inflow_series[i] + C2 * inflow_series[i-1] + sim_outflow[i-1] * C3
+                return sim_outflow
 
-        step_input_val = initial_input_val * (1 + step_increase_factor)
+            elif model_type == 'IntegralDelay':
+                initial_inflow = inflow[0] if len(inflow) > 0 else 0
+                initial_outflow = outflow[0] if len(outflow) > 0 else 0
+                model = IntegralPlusDelayModel(K=params[0], T=params[1], dt=dt, initial_value=initial_inflow)
+                model.state.output = initial_outflow
+                sim_outflow = np.zeros_like(inflow_series)
+                if len(inflow_series) > 0:
+                    sim_outflow[0] = initial_outflow
+                for i in range(1, len(inflow_series)):
+                    model.input.inflow = inflow_series[i]
+                    model.step()
+                    sim_outflow[i] = model.output
+                return sim_outflow
 
-        # Create a dummy response dataframe. In a real scenario, this would come
-        # from running a high-fidelity model (e.g., StVenantModel).
-        t_data = np.arange(0, sim_duration, dt)
-        # Create a plausible-looking dummy response
-        dummy_response = initial_output_val + (step_input_val - initial_input_val) * (1 - np.exp(-t_data / 3600))
-        y_data = dummy_response
+            return np.array([])
 
-        # 3. Fit parameters using the new simulation helpers
-        def muskingum_fit_func(t, K, x):
-            inflow_series = np.full_like(t, step_input_val, dtype=np.float64)
-            params = {'K': K, 'X': x}
-            return run_single_model(inflow_series, 'Muskingum', params, dt, initial_inflow=initial_input_val, initial_outflow=initial_output_val)
-
-        def integral_delay_fit_func(t, K, T):
-            inflow_series = np.full_like(t, step_input_val, dtype=np.float64)
-            params = {'K': K, 'T': T}
-            return run_single_model(inflow_series, 'IntegralDelay', params, dt, initial_inflow=initial_input_val, initial_outflow=initial_output_val)
+        time_array = np.arange(len(inflow)) * dt
 
         try:
-            if task['model_type'] == 'Muskingum':
-                popt, _ = curve_fit(
-                    muskingum_fit_func,
-                    t_data, y_data, p0=[3600, 0.2], bounds=([0, 0], [np.inf, 0.5])
-                )
-                results[task_key] = {"K": popt[0], "X": popt[1]}
-            elif task['model_type'] == 'IntegralDelay':
-                 popt, _ = curve_fit(
-                    integral_delay_fit_func,
-                    t_data, y_data, p0=[0.01, 300], bounds=([0, 0], [np.inf, sim_duration])
-                )
-                 results[task_key] = {"K": popt[0], "T": popt[1]}
+            popt, _ = curve_fit(model_response, time_array, outflow, p0=initial_guess, bounds=bounds)
         except (RuntimeError, ValueError) as e:
-            results[task_key] = {"error": str(e)}
+            raise RuntimeError(f"Parameter identification failed: {e}")
 
-    return results
+        final_response = model_response(time_array, *popt)
+        rmse = calculate_rmse(final_response, outflow)
+        param_names = ['K', 'X'] if model_type == 'Muskingum' else ['K', 'T']
+        return {"params": dict(zip(param_names, popt)), "rmse": rmse}
 
+    def _run_piecewise_model(self, inflow: np.ndarray, model_bank: List[Dict], model_type: str, dt: float, initial_outflow: float) -> np.ndarray:
+        """
+        Runs a simulation using a piecewise model bank.
+        """
+        sim_outflow = np.zeros_like(inflow)
+        if len(inflow) == 0:
+            return sim_outflow
+        sim_outflow[0] = initial_outflow
 
-def generate_model_bank(base_config: dict, operating_space: list, task: dict, validation_hydrograph: pd.DataFrame, ground_truth_output: pd.DataFrame, target_accuracy: float = 0.8) -> list:
-    """
-    Generates an optimal piecewise linear model bank.
-    """
-    # 1. Full-condition scan
-    param_map = []
-    for op_point in operating_space:
-        # op_point is e.g. {'upstream_flow': 100}
-        # The identify_at_point function needs to be called with the full operating point dict
-        full_op_point_dict = {'upstream_flow': op_point['flow'], 'downstream_level': op_point['level']}
+        models = {}
+        if model_type == 'Muskingum':
+            for i, segment in enumerate(model_bank):
+                params = segment['parameters']
+                K, X = params['K'], params['X']
+                denominator = 2 * K * (1 - X) + dt
+                C1 = (dt - 2 * K * X) / denominator
+                C2 = (dt + 2 * K * X) / denominator
+                C3 = (2 * K * (1 - X) - dt) / denominator
+                models[i] = (C1, C2, C3)
+        else:
+            raise NotImplementedError(f"Piecewise simulation for {model_type} is not yet supported.")
 
-        # For now, identify_at_point is not fully functional, so we generate dummy parameters
-        # params = identify_at_point(base_config, full_op_point_dict, [task])
-        # task_key = f"{task['model_type']}_{task['input']}_{task['output']}"
-        # identified_params = params.get(task_key, {})
+        sorted_model_bank = sorted(model_bank, key=lambda x: x['max_value'])
 
-        # Dummy parameter generation based on flow
-        flow = op_point['flow']
-        dummy_params = {'K': 3600 - flow * 10, 'X': 0.1 + flow / 2000}
+        for i in range(1, len(inflow)):
+            current_inflow = inflow[i]
+            segment_idx = -1
+            for idx, segment in enumerate(sorted_model_bank):
+                if current_inflow <= segment['max_value']:
+                    segment_idx = idx
+                    break
+            if segment_idx == -1:
+                segment_idx = len(sorted_model_bank) - 1
 
-        if dummy_params:
-            param_map.append({'operating_point': op_point, 'params': dummy_params})
+            if model_type == 'Muskingum':
+                C1, C2, C3 = models[segment_idx]
+                sim_outflow[i] = C1 * inflow[i] + C2 * inflow[i - 1] + sim_outflow[i - 1] * C3
 
-    if not param_map:
-        raise ValueError("Could not identify parameters for any operating point.")
+        return sim_outflow
 
-    # Sort the map by the primary operating variable (e.g., flow)
-    sort_key = 'flow' # This should be determined from the task
-    param_map.sort(key=lambda x: x['operating_point'][sort_key])
-
-    # 2. Optimal segmentation search
-    segments = []
-
-    # Initial segment: covers the whole range
-    op_points_in_segment = [p['operating_point'] for p in param_map]
-    params_in_segment = [p['params'] for p in param_map]
-    avg_params = {k: np.mean([p[k] for p in params_in_segment]) for k in params_in_segment[0]}
-
-    segments.append({
-        'range_start': op_points_in_segment[0][sort_key],
-        'range_end': op_points_in_segment[-1][sort_key],
-        'params': avg_params,
-        'points_in_segment': param_map
-    })
-
-    current_nse = -np.inf
-    max_iter = 10 # Safety break
-    iter_count = 0
-
-    while current_nse < target_accuracy and iter_count < max_iter:
-        # Create a temporary model bank in the format expected by the simulation helper
-        temp_model_bank = [
-            {
-                'max_value': seg['range_end'],
-                'parameters': seg['params']
-            }
-            for seg in segments
-        ]
-
-        inflow_series = validation_hydrograph['flow'].values
-        dt = validation_hydrograph['time'].values[1] - validation_hydrograph['time'].values[0] if len(validation_hydrograph['time'].values) > 1 else 1.0
-        sim_out_flow = run_piecewise_model(inflow_series, temp_model_bank, task['model_type'], dt)
-        sim_out_df = pd.DataFrame({'time': validation_hydrograph['time'], 'flow': sim_out_flow})
-        current_nse = calculate_nse(sim_out_df['flow'].values, ground_truth_output['flow'].values)
-
-        if current_nse >= target_accuracy:
-            break
-
-        # Find segment with highest parameter variance to split
-        variances = []
-        for i, seg in enumerate(segments):
-            if len(seg['points_in_segment']) < 2:
-                variances.append(-1) # Cannot split a segment with one point
+    def identify_piecewise(self, model_type: str, operating_inflows: List[np.ndarray],
+                         operating_outflows: List[np.ndarray], operating_points: List[float], dt: float,
+                         initial_guess: List[float], bounds: List[tuple], validation_inflow: np.ndarray,
+                         validation_outflow: np.ndarray, target_nse: float = 0.8,
+                         max_iter: int = 10) -> List[Dict[str, Any]]:
+        """
+        Implements the 'optimal segmentation search' to build a model bank.
+        """
+        param_map = []
+        for i, op_point_val in enumerate(operating_points):
+            try:
+                result = self.identify_offline(
+                    model_type=model_type, inflow=operating_inflows[i], outflow=operating_outflows[i],
+                    dt=dt, initial_guess=initial_guess, bounds=bounds)
+                param_map.append({'operating_point': op_point_val, 'params': result['params']})
+            except RuntimeError:
                 continue
 
-            params_in_seg = [p['params'] for p in seg['points_in_segment']]
-            # Calculate variance for each parameter, then sum them up (simple approach)
-            total_variance = 0
-            for key in params_in_seg[0].keys():
-                param_values = [p[key] for p in params_in_seg]
-                total_variance += np.var(param_values)
-            variances.append(total_variance)
+        if not param_map:
+            raise ValueError("Could not identify parameters for any operating point.")
 
-        if not any(v > 0 for v in variances):
-            break # No more splits possible
+        param_map.sort(key=lambda x: x['operating_point'])
 
-        idx_to_split = np.argmax(variances)
+        all_params = [p['params'] for p in param_map]
+        avg_params = {k: np.mean([p[k] for p in all_params]) for k in all_params[0]}
 
-        # Split the segment
-        seg_to_split = segments.pop(idx_to_split)
-        points = seg_to_split['points_in_segment']
-        split_idx = len(points) // 2
+        segments = [{'range_start': param_map[0]['operating_point'], 'range_end': param_map[-1]['operating_point'],
+                     'params': avg_params, 'points_in_segment': param_map}]
 
-        points1 = points[:split_idx]
-        points2 = points[split_idx:]
+        current_nse = -np.inf
+        iter_count = 0
 
-        # Create two new segments
-        for new_points in [points1, points2]:
-            if not new_points: continue
-            params_in_new_seg = [p['params'] for p in new_points]
-            avg_params = {k: np.mean([p[k] for p in params_in_new_seg]) for k in params_in_new_seg[0]}
-            new_segment = {
-                'range_start': new_points[0]['operating_point'][sort_key],
-                'range_end': new_points[-1]['operating_point'][sort_key],
-                'params': avg_params,
-                'points_in_segment': new_points
-            }
-            segments.append(new_segment)
+        while current_nse < target_nse and iter_count < max_iter and len(segments) < len(param_map):
+            temp_model_bank = [{'max_value': seg['range_end'], 'parameters': seg['params']} for seg in segments]
+            sim_outflow = self._run_piecewise_model(
+                validation_inflow, temp_model_bank, model_type, dt, initial_outflow=validation_outflow[0])
+            current_nse = calculate_nse(sim_outflow, validation_outflow)
 
-        segments.sort(key=lambda x: x['range_start'])
-        iter_count += 1
+            if current_nse >= target_nse:
+                break
 
-    # Final format for Piecewise...Model
-    final_model_bank = [
-        {
-            'condition_variable': sort_key,
-            'max_value': seg['range_end'],
-            'parameters': seg['params']
-        }
-        for seg in segments
-    ]
+            variances = []
+            for i, seg in enumerate(segments):
+                if len(seg['points_in_segment']) < 2:
+                    variances.append(-1)
+                    continue
+                params_in_seg = [p['params'] for p in seg['points_in_segment']]
+                total_variance = sum(np.var([p[key] for p in params_in_seg]) for key in params_in_seg[0])
+                variances.append(total_variance)
 
-    return final_model_bank
+            if not any(v > 0 for v in variances):
+                break
+
+            idx_to_split = np.argmax(variances)
+
+            seg_to_split = segments.pop(idx_to_split)
+            points = seg_to_split['points_in_segment']
+            split_idx = len(points) // 2
+
+            for new_points in [points[:split_idx], points[split_idx:]]:
+                if not new_points: continue
+                params_in_new_seg = [p['params'] for p in new_points]
+                avg_params = {k: np.mean([p[k] for p in params_in_new_seg]) for k in params_in_new_seg[0]}
+                new_segment = {'range_start': new_points[0]['operating_point'], 'range_end': new_points[-1]['operating_point'],
+                               'params': avg_params, 'points_in_segment': new_points}
+                segments.append(new_segment)
+
+            segments.sort(key=lambda x: x['range_start'])
+            iter_count += 1
+
+        final_model_bank = [{'condition_variable': 'inflow', 'max_value': seg['range_end'],
+                             'parameters': seg['params']} for seg in segments]
+        return final_model_bank
+
+    def track_online_rls(self, inflow: np.ndarray, outflow: np.ndarray, dt: float,
+                         model_type: str, initial_guess: Dict[str, float], forgetting_factor: float,
+                         initial_covariance: float = 1000.0) -> pd.DataFrame:
+        """
+        Tracks model parameters online using Recursive Least Squares (RLS).
+        """
+        if model_type != 'Muskingum':
+            raise NotImplementedError(f"Online RLS tracking for {model_type} is not yet supported.")
+
+        K0, X0 = initial_guess['K'], initial_guess['X']
+        denominator = 2 * K0 * (1 - X0) + dt
+        if abs(denominator) < 1e-9:
+            raise ValueError("Initial guess for K and X leads to a zero denominator.")
+        c1_0 = (dt - 2 * K0 * X0) / denominator
+        c2_0 = (dt + 2 * K0 * X0) / denominator
+        c3_0 = (2 * K0 * (1 - X0) - dt) / denominator
+
+        theta = np.array([c1_0, c2_0, c3_0])
+        P = np.eye(3) * initial_covariance
+        lambda_ = forgetting_factor
+        history = []
+
+        for k in range(1, len(inflow)):
+            H = np.array([inflow[k], inflow[k-1], outflow[k-1]])
+            PH_T = P @ H.T
+            denominator_gain = lambda_ + H @ PH_T
+            if abs(denominator_gain) < 1e-9:
+                if history: history.append({**history[-1], 'time': k * dt})
+                continue
+            K_gain = PH_T / denominator_gain
+
+            prediction = H @ theta
+            error = outflow[k] - prediction
+            theta = theta + K_gain * error
+            P = (1 / lambda_) * (P - np.outer(K_gain, H) @ P)
+
+            c1, c2, c3 = theta[0], theta[1], theta[2]
+            K, X = K0, X0
+            if abs(1 - c3) > 1e-6 and abs(1 - c1) > 1e-6:
+                temp_K = dt * (1 - c1) / (1 - c3)
+                temp_X = 0.5 * (c2 - c1) / (1 - c1)
+                if temp_K > 0 and 0 <= temp_X <= 0.5:
+                    K, X = temp_K, temp_X
+                elif history: K, X = history[-1]['K'], history[-1]['X']
+            elif history: K, X = history[-1]['K'], history[-1]['X']
+            history.append({'time': k * dt, 'K': K, 'X': X})
+
+        return pd.DataFrame(history)
+
+    def track_online_kf(self, model_type: str, inflow: np.ndarray, outflow: np.ndarray, dt: float,
+                        initial_guess: Dict[str, float], process_noise: float, measurement_noise: float,
+                        initial_covariance: float = 1000.0) -> pd.DataFrame:
+        """
+        Tracks model parameters online using a Kalman Filter (KF) with an augmented state.
+        """
+        if model_type != 'Muskingum':
+            raise NotImplementedError(f"Online KF tracking for {model_type} is not yet supported.")
+
+        K0, X0 = initial_guess['K'], initial_guess['X']
+        denominator = 2 * K0 * (1 - X0) + dt
+        if abs(denominator) < 1e-9:
+            raise ValueError("Initial guess for K and X leads to a zero denominator.")
+        c1_0 = (dt - 2 * K0 * X0) / denominator
+        c2_0 = (dt + 2 * K0 * X0) / denominator
+        c3_0 = (2 * K0 * (1 - X0) - dt) / denominator
+
+        x0 = np.array([c1_0, c2_0, c3_0])
+        F = np.eye(3)
+        Q = np.eye(3) * process_noise
+        R = np.array([[measurement_noise]])
+        P0 = np.eye(3) * initial_covariance
+        H0 = np.array([[inflow[1], inflow[0], outflow[0]]])
+
+        kf = KalmanFilter(F=F, H=H0, Q=Q, R=R, x0=x0, P0=P0)
+        history = []
+
+        for k in range(1, len(inflow)):
+            kf.predict()
+            H_k = np.array([[inflow[k], inflow[k-1], outflow[k-1]]])
+            kf.H = H_k
+            observation = np.array([outflow[k]])
+            kf.update(observation)
+
+            estimated_coeffs = kf.get_state()
+            c1, c2, c3 = estimated_coeffs[0], estimated_coeffs[1], estimated_coeffs[2]
+
+            K, X = K0, X0
+            if abs(1 - c3) > 1e-6 and abs(1 - c1) > 1e-6:
+                temp_K = dt * (1 - c1) / (1 - c3)
+                temp_X = 0.5 * (c2 - c1) / (1 - c1)
+                if temp_K > 0 and 0 <= temp_X <= 0.5:
+                    K, X = temp_K, temp_X
+                elif history: K, X = history[-1]['K'], history[-1]['X']
+            elif history: K, X = history[-1]['K'], history[-1]['X']
+            history.append({'time': k * dt, 'K': K, 'X': X})
+
+        return pd.DataFrame(history)
