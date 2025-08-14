@@ -86,6 +86,7 @@ class ComponentRegistry:
         "MuskingumChannelModel": "water_system_simulator.modeling.storage_models.MuskingumChannelModel",
         "FirstOrderInertiaModel": "water_system_simulator.modeling.storage_models.FirstOrderInertiaModel",
         "IntegralDelayModel": "water_system_simulator.modeling.delay_models.IntegralDelayModel",
+        "IntegralPlusDelayModel": "water_system_simulator.modeling.integral_plus_delay_model.IntegralPlusDelayModel",
         "GateModel": "water_system_simulator.modeling.control_structure_models.GateModel",
         "PumpStationModel": "water_system_simulator.modeling.control_structure_models.PumpStationModel",
         "TwoDimensionalHydrodynamicModel": "water_system_simulator.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
