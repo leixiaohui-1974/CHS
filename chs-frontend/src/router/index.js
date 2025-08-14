@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import MainLayout from '../layouts/MainLayout.vue';
-import DashboardPage from '../pages/DashboardPage.vue';
+import DecisionCockpitPage from '../pages/DecisionCockpitPage.vue';
+import ProjectListPage from '../pages/ProjectListPage.vue';
 import ProjectDetailPage from '../pages/ProjectDetailPage.vue';
 import WorkbenchPage from '../pages/WorkbenchPage.vue';
 import EdgeDeviceManagerPage from '../pages/EdgeDeviceManagerPage.vue';
@@ -12,8 +13,13 @@ const routes = [
     children: [
       {
         path: '',
-        name: 'Dashboard',
-        component: DashboardPage,
+        name: 'DecisionCockpit',
+        component: DecisionCockpitPage,
+      },
+      {
+        path: 'projects',
+        name: 'ProjectList',
+        component: ProjectListPage,
       },
       {
         path: 'projects/:id',
