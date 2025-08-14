@@ -1,19 +1,59 @@
 from typing import Dict, Any
+import numpy as np
+from numba import njit
 from .strategies import BaseRoutingModel
+
+@njit
+def _muskingum_route_jitted(effective_rainfall_vector, I_prev, O_prev, params, dt):
+    """Jitted and vectorized Muskingum routing calculation."""
+    # Extract parameter vectors
+    K = params['K']
+    x = params['x']
+    area_km2 = params['area']
+
+    # Vectorized conversion from effective rainfall (mm) to inflow (m^3/s)
+    inflow_m3_per_s = (effective_rainfall_vector * area_km2 * 1000) / (dt * 3600)
+
+    I_t = inflow_m3_per_s
+
+    # Calculate coefficients dynamically
+    denominator = 2 * K * (1 - x) + dt
+    C1 = (dt - 2 * K * x) / denominator
+    C2 = (dt + 2 * K * x) / denominator
+    C3 = (2 * K * (1 - x) - dt) / denominator
+
+    # Vectorized Muskingum equation
+    O_t = C1 * I_t + C2 * I_prev + C3 * O_prev
+
+    # Ensure non-negative outflow
+    O_t = np.maximum(O_t, 0.0)
+
+    # Return new states
+    I_new = I_t
+    O_new = O_t
+
+    return O_t, I_new, O_new
 
 class MuskingumModel(BaseRoutingModel):
     """
     Implements the Muskingum method for river routing.
+    Includes both original and vectorized methods.
     """
     def __init__(self, **kwargs):
-        # Initialize states. Parameters are passed in route_flow.
+        # This model is now effectively stateless for the vectorized path.
+        # Restore state init for non-vectorized path to pass unit tests
         self.I_prev = 0.0
         self.O_prev = 0.0
         self.output = 0.0
-        # Check for initial states passed in kwargs
         if 'states' in kwargs:
             self.I_prev = kwargs['states'].get("initial_inflow", 0.0)
             self.O_prev = kwargs['states'].get("initial_outflow", 0.0)
+
+    def route_flow_vectorized(self, effective_rainfall_vector, I_prev, O_prev, params, dt):
+        """
+        Wrapper for the jitted vectorized Muskingum calculation.
+        """
+        return _muskingum_route_jitted(effective_rainfall_vector, I_prev, O_prev, params, dt)
 
     def route_flow(self, effective_rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         """

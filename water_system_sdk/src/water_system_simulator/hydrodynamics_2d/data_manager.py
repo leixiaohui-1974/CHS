@@ -30,33 +30,36 @@ class GPUDataManager: # Note: Class name is now a misnomer, but we keep it for c
 
         # --- Static variables (mesh properties) ---
         self.z: np.ndarray
+        # Use float32 for memory efficiency
+        dtype = np.float32
+
         if bed_elevation is None:
-            self.z = np.zeros(num_cells, dtype=np.float64)
+            self.z = np.zeros(num_cells, dtype=dtype)
         else:
             if not isinstance(bed_elevation, np.ndarray) or bed_elevation.shape[0] != num_cells:
                 raise ValueError("bed_elevation must be a NumPy array with a shape matching the number of cells.")
-            self.z = bed_elevation
+            self.z = bed_elevation.astype(dtype)
 
         if isinstance(manning_n, (float, int)):
-            self.n = np.full(num_cells, manning_n, dtype=np.float64)
+            self.n = np.full(num_cells, manning_n, dtype=dtype)
         else:
             if not isinstance(manning_n, np.ndarray) or manning_n.shape[0] != num_cells:
                 raise ValueError("manning_n must be a float or a NumPy array with a shape matching the number of cells.")
-            self.n = manning_n
+            self.n = manning_n.astype(dtype)
 
         # --- Dynamic variables (state variables) ---
 
-        self.h = np.full(num_cells, initial_h, dtype=np.float64)
+        self.h = np.full(num_cells, initial_h, dtype=dtype)
         self.h = np.maximum(self.h, 0.0)
 
-        self.hu = np.zeros(num_cells, dtype=np.float64)
-        self.hv = np.zeros(num_cells, dtype=np.float64)
+        self.hu = np.zeros(num_cells, dtype=dtype)
+        self.hv = np.zeros(num_cells, dtype=dtype)
 
         # --- Derived quantities ---
         self.wse = self.z + self.h
 
         # --- Source Term variables ---
-        self.source_terms = np.zeros((num_cells, 3), dtype=np.float64)
+        self.source_terms = np.zeros((num_cells, 3), dtype=dtype)
 
         logger.info("DataManager initialized successfully.")
 

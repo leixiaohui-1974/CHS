@@ -5,10 +5,7 @@ import os
 import numpy as np
 import meshio
 
-# Adjust path to import from the SDK
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from water_system_sdk.src.water_system_simulator.simulation_manager import SimulationManager
+from water_system_simulator.simulation_manager import SimulationManager
 
 def setup_test_mesh():
     """Creates the simple mesh file needed for the test."""
@@ -39,7 +36,8 @@ def run_inflow_simulation():
         config = yaml.safe_load(f)
 
     manager = SimulationManager()
-    results_df = manager.run(config)
+    manager.load_config(config)
+    results_df = manager.run()
     return results_df
 
 def plot_results(df):

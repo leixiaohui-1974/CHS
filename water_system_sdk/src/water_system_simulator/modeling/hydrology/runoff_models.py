@@ -1,6 +1,42 @@
 import math
 from typing import Dict, Any
+import numpy as np
+from numba import njit
 from .strategies import BaseRunoffModel
+
+@njit
+def _xinanjiang_runoff_jitted(rainfall_vector, W_initial, WM, B, IM):
+    """Jitted and vectorized Xinanjiang runoff calculation."""
+    num_basins = len(rainfall_vector)
+    runoff = np.zeros(num_basins, dtype=np.float32)
+    W = W_initial.copy() # Make a mutable copy of the state
+
+    # Evaporation is not included in this simplified vectorized version yet
+    # It would require another vector input
+
+    WMM = WM * (1 + B)
+
+    for i in range(num_basins):
+        if rainfall_vector[i] > 0:
+            # Calculate A based on current moisture W[i] and max capacity WM[i]
+            if W[i] >= WM[i]:
+                A = WMM[i]
+            else:
+                A = WMM[i] * (1 - math.pow(1 - W[i] / WM[i], 1 / (1 + B[i])))
+
+            # Calculate runoff based on rainfall and A
+            if rainfall_vector[i] + A >= WMM[i]:
+                current_runoff = rainfall_vector[i] - (WM[i] - W[i])
+            else:
+                term = 1 - (rainfall_vector[i] + A) / WMM[i]
+                current_runoff = rainfall_vector[i] + W[i] - WM[i] + WM[i] * math.pow(term, 1 + B[i])
+
+            runoff[i] = max(0, current_runoff)
+            W[i] += rainfall_vector[i] - runoff[i]
+            W[i] = max(0, min(W[i], WM[i]))
+
+    return runoff, W
+
 
 class RunoffCoefficientModel(BaseRunoffModel):
     """A simple runoff model based on a runoff coefficient."""
@@ -25,19 +61,39 @@ class RunoffCoefficientModel(BaseRunoffModel):
 class XinanjiangModel(BaseRunoffModel):
     """
     Implementation of the Xinanjiang rainfall-runoff model.
+    Includes both original and vectorized methods.
     """
     def __init__(self, **kwargs):
+        # This model is now effectively stateless for the vectorized path.
+        # The state is managed by the orchestrator (e.g., SemiDistributedHydrologyModel)
         self.params = kwargs
-        # Initialize states. Parameters are passed in calculate_runoff.
+        # Restore state init for non-vectorized path to pass unit tests
         self.W = 0.0
         self.output = 0.0
-        # Check for initial states passed in kwargs
         if 'states' in kwargs:
-            # Note: initial_W depends on WM, which is a param.
-            # This highlights a dependency that makes stateless calculation tricky.
-            # A good compromise is to require WM as an init param if initial_W is not given.
             WM = self.params.get('WM', 100)
             self.W = kwargs['states'].get("initial_W", WM * 0.5)
+
+    def calculate_runoff_vectorized(self, rainfall_vector, W_initial, params, dt):
+        """
+        Wrapper for the jitted vectorized Xinanjiang calculation.
+
+        Args:
+            rainfall_vector (np.ndarray): Vector of rainfall for each sub-basin.
+            W_initial (np.ndarray): The initial soil moisture state vector.
+            params (np.ndarray): The structured array of parameters for all sub-basins.
+            dt (float): Time step.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray]: A tuple containing the runoff vector and the updated state vector.
+        """
+        # Extract parameter vectors from the structured array
+        WM = params['WM']
+        B = params['B']
+        IM = params['IM']
+
+        runoff, W_new = _xinanjiang_runoff_jitted(rainfall_vector, W_initial, WM, B, IM)
+        return runoff, W_new
 
     def calculate_runoff(self, rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         """
