@@ -111,3 +111,17 @@ class StVenantModel(BaseModel):
             'reaches': {reach.name: {'discharge': reach.discharge} for reach in self.reaches},
             'structures': {s.name: {'discharge': s.discharge} for s in self.structures}
         }
+
+    def set_state(self, state: Dict[str, Any]):
+        """
+        Sets the state of the network from a dictionary.
+
+        Args:
+            state (Dict[str, Any]): A dictionary representing the state of the network.
+        """
+        for node_name, node_state in state['nodes'].items():
+            self.network.get_node(node_name).head = node_state['head']
+        for reach_name, reach_state in state['reaches'].items():
+            self.network.get_reach(reach_name).discharge = reach_state['discharge']
+        for structure_name, structure_state in state['structures'].items():
+            self.network.get_structure(structure_name).discharge = structure_state['discharge']

@@ -40,9 +40,9 @@ class Solver:
         self.num_vars = self.num_nodes + self.num_reaches + self.num_structures
 
     def solve_step(self, dt: float):
-        H_old = np.array([node.head for node in self.network.nodes])
-        Q_old = np.array([reach.discharge for reach in self.network.reaches])
-        S_old = np.array([struct.discharge for struct in self.network.structures])
+        H_old = np.array([node.head for node in self.network.nodes], dtype=float)
+        Q_old = np.array([reach.discharge for reach in self.network.reaches], dtype=float)
+        S_old = np.array([struct.discharge for struct in self.network.structures], dtype=float)
 
         H_new = np.copy(H_old)
         Q_new = np.copy(Q_old)
