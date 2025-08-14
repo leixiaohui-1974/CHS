@@ -22,7 +22,8 @@ dependencies = [
     "scipy",
     "matplotlib",
     "pykrige",
-    "pyyaml"
+    "pyyaml",
+    "meshio"
 ]
 
 [project.optional-dependencies]

@@ -1,6 +1,13 @@
 import unittest
 from water_system_simulator.control.rule_based_controller import RuleBasedOperationalController
 
+# A mock component to simulate the objects in the system_state dictionary
+class MockStatefulComponent:
+    def __init__(self, state):
+        self._state = state
+    def get_state(self):
+        return self._state
+
 class TestRuleBasedOperationalController(unittest.TestCase):
 
     def test_simple_rule_triggers(self):
@@ -14,12 +21,12 @@ class TestRuleBasedOperationalController(unittest.TestCase):
         controller = RuleBasedOperationalController(rules=rules, default_actions=default_actions)
 
         # Mock system state where the condition is met
-        system_state = {"reservoir": {"state": {"level": 11}}}
+        system_state = {"reservoir": MockStatefulComponent({"level": 11})}
         controller.step(system_state, dt=1)
         self.assertEqual(controller.get_state(), {"command": 1})
 
         # Mock system state where the condition is not met
-        system_state = {"reservoir": {"state": {"level": 9}}}
+        system_state = {"reservoir": MockStatefulComponent({"level": 9})}
         controller.step(system_state, dt=1)
         self.assertEqual(controller.get_state(), {"command": 0})
 
@@ -37,17 +44,26 @@ class TestRuleBasedOperationalController(unittest.TestCase):
         controller = RuleBasedOperationalController(rules=rules, default_actions=default_actions)
 
         # Both conditions met
-        system_state = {"reservoir": {"state": {"level": 12}}, "pump": {"state": {"status": "off"}}}
+        system_state = {
+            "reservoir": MockStatefulComponent({"level": 12}),
+            "pump": MockStatefulComponent({"status": "off"})
+        }
         controller.step(system_state, dt=1)
         self.assertEqual(controller.get_state(), {"command": "start_pump"})
 
         # First condition not met
-        system_state = {"reservoir": {"state": {"level": 8}}, "pump": {"state": {"status": "off"}}}
+        system_state = {
+            "reservoir": MockStatefulComponent({"level": 8}),
+            "pump": MockStatefulComponent({"status": "off"})
+        }
         controller.step(system_state, dt=1)
         self.assertEqual(controller.get_state(), {"command": "do_nothing"})
 
         # Second condition not met
-        system_state = {"reservoir": {"state": {"level": 12}}, "pump": {"state": {"status": "on"}}}
+        system_state = {
+            "reservoir": MockStatefulComponent({"level": 12}),
+            "pump": MockStatefulComponent({"status": "on"})
+        }
         controller.step(system_state, dt=1)
         self.assertEqual(controller.get_state(), {"command": "do_nothing"})
 
@@ -62,7 +78,7 @@ class TestRuleBasedOperationalController(unittest.TestCase):
         controller = RuleBasedOperationalController(rules=rules, default_actions=default_actions)
 
         # Condition not met, should use default action
-        system_state = {"reservoir": {"state": {"level": 5}}}
+        system_state = {"reservoir": MockStatefulComponent({"level": 5})}
         controller.step(system_state, dt=1)
         self.assertEqual(controller.get_state(), {"command": 0})
 
@@ -81,17 +97,17 @@ class TestRuleBasedOperationalController(unittest.TestCase):
         controller = RuleBasedOperationalController(rules=rules, default_actions=default_actions)
 
         # Both conditions are met, but the first rule should be triggered
-        system_state = {"reservoir": {"state": {"level": 16}}}
+        system_state = {"reservoir": MockStatefulComponent({"level": 16})}
         controller.step(system_state, dt=1)
         self.assertEqual(controller.get_state(), {"command": "high_alert"})
 
         # Only the second condition is met
-        system_state = {"reservoir": {"state": {"level": 12}}}
+        system_state = {"reservoir": MockStatefulComponent({"level": 12})}
         controller.step(system_state, dt=1)
         self.assertEqual(controller.get_state(), {"command": "medium_alert"})
 
         # No conditions are met
-        system_state = {"reservoir": {"state": {"level": 8}}}
+        system_state = {"reservoir": MockStatefulComponent({"level": 8})}
         controller.step(system_state, dt=1)
         self.assertEqual(controller.get_state(), {"command": "no_alert"})
 
