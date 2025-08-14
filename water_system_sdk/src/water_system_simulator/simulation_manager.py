@@ -67,6 +67,8 @@ class ComponentRegistry:
         "MPCController": "water_system_simulator.control.mpc_controller.MPCController",
         "GainScheduledMPCController": "water_system_simulator.control.gs_mpc_controller.GainScheduledMPCController",
         "RuleBasedOperationalController": "water_system_simulator.control.rule_based_controller.RuleBasedOperationalController",
+        "RecursiveLeastSquaresAgent": "water_system_simulator.control.rls_estimator.RecursiveLeastSquaresAgent",
+        "ParameterKalmanFilterAgent": "water_system_simulator.control.kf_estimator.ParameterKalmanFilterAgent",
         # Disturbances
         "Disturbance": "water_system_simulator.disturbances.predefined.Disturbance",
         "TimeSeriesDisturbance": "water_system_simulator.disturbances.timeseries_disturbance.TimeSeriesDisturbance",
@@ -85,6 +87,7 @@ class ComponentRegistry:
 
         # Storage / Routing Models
         "ReservoirModel": "water_system_simulator.modeling.storage_models.ReservoirModel",
+        "FirstOrderSystem": "water_system_simulator.modeling.first_order_system.FirstOrderSystem",
         "MuskingumChannelModel": "water_system_simulator.modeling.storage_models.MuskingumChannelModel",
         "FirstOrderInertiaModel": "water_system_simulator.modeling.storage_models.FirstOrderInertiaModel",
         "IntegralDelayModel": "water_system_simulator.modeling.delay_models.IntegralDelayModel",

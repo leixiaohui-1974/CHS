@@ -39,8 +39,8 @@ class TestSimulationManager(unittest.TestCase):
         config = {
             "simulation_params": { "total_time": 2, "dt": 1 },
             "components": {
-                "source": { "type": "MockComponent", "params": { "value": 10 } },
-                "target": { "type": "MockComponent", "params": {} }
+                "source": { "type": "MockComponent", "properties": { "value": 10 } },
+                "target": { "type": "MockComponent", "properties": {} }
             },
             "execution_order": [
                 "source", # Standard step call
@@ -58,7 +58,8 @@ class TestSimulationManager(unittest.TestCase):
         from water_system_simulator.simulation_manager import ComponentRegistry
         ComponentRegistry._CLASS_MAP['MockComponent'] = f"{__name__}.MockComponent"
 
-        results_df = self.manager.run(config)
+        self.manager.load_config(config)
+        results_df = self.manager.run()
 
         # At t=0:
         # source.step() runs -> source.value becomes 11

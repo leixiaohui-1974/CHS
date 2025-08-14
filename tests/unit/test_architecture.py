@@ -67,18 +67,18 @@ class TestArchitecture(unittest.TestCase):
             "components": {
                 "test_entity": {
                     "type": "BasePhysicalEntity",
-                    "params": {},
+                    "properties": {},
                     "steady_model": {
                         "type": "MockSteadyModel",
-                        "params": {}
+                        "properties": {}
                     },
                     "dynamic_model": {
                         "type": "MockDynamicModel",
-                        "params": {}
+                        "properties": {}
                     },
                     "precision_model": {
                         "type": "MockPrecisionModel",
-                        "params": {}
+                        "properties": {}
                     }
                 }
             },
@@ -86,6 +86,7 @@ class TestArchitecture(unittest.TestCase):
             "execution_order": ["test_entity"],
             "logger_config": ["test_entity.output"]
         }
+        self.sm.load_config(self.config)
 
     def test_entity_model_delegation(self):
         """
@@ -94,7 +95,7 @@ class TestArchitecture(unittest.TestCase):
         based on the simulation mode.
         """
         # --- Test DYNAMIC mode ---
-        results_dyn = self.sm.run(self.config, mode="DYNAMIC")
+        results_dyn = self.sm.run(mode="DYNAMIC")
         entity_dyn = self.sm.components["test_entity"]
 
         self.assertIsInstance(entity_dyn, BasePhysicalEntity)
@@ -105,12 +106,8 @@ class TestArchitecture(unittest.TestCase):
         self.assertEqual(results_dyn['test_entity.output'].iloc[-1], 2.0)
 
         # --- Test STEADY mode ---
-        # Reset called flags
-        entity_dyn.steady_model.called = False
-        entity_dyn.dynamic_model.called = False
-        entity_dyn.precision_model.called = False
-
-        results_std = self.sm.run(self.config, mode="STEADY")
+        self.sm.load_config(self.config) # Reload config to reset state
+        results_std = self.sm.run(mode="STEADY")
         entity_std = self.sm.components["test_entity"]
 
         self.assertTrue(entity_std.steady_model.called, "Steady model should have been called")
@@ -122,12 +119,8 @@ class TestArchitecture(unittest.TestCase):
 
 
         # --- Test PRECISION mode ---
-        # Reset called flags
-        entity_std.steady_model.called = False
-        entity_std.dynamic_model.called = False
-        entity_std.precision_model.called = False
-
-        results_pre = self.sm.run(self.config, mode="PRECISION")
+        self.sm.load_config(self.config) # Reload config to reset state
+        results_pre = self.sm.run(mode="PRECISION")
         entity_pre = self.sm.components["test_entity"]
 
         self.assertTrue(entity_pre.precision_model.called, "Precision model should have been called")
