@@ -42,7 +42,6 @@ class RunoffCoefficientModel(BaseRunoffModel):
     """A simple runoff model based on a runoff coefficient."""
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
         self.params = kwargs
         self.output = 0.0
 

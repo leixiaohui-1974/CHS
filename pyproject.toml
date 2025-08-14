@@ -3,12 +3,13 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "water-system-simulator-sdk"
+name = "chs-water-system-simulator"
 version = "0.1.0"
 authors = [
-  { name="Jules", email="jules@example.com" },
+  { name="Your Name", email="you@example.com" },
 ]
-description = "A Python SDK for simulating water systems."
+description = "A simulator for complex hydrosystems."
+readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -16,25 +17,21 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "pyyaml",
-    "pandas",
     "numpy",
+    "pandas",
+    "scipy",
     "matplotlib",
-    "scipy", # MPC controller likely needs this
-    "pytest",
+    "pyyaml",
+    "meshio",
+    "numba"
 ]
 
-[project.urls]
-"Homepage" = "https://github.com/example/water-system-simulator"
-"Bug Tracker" = "https://github.com/example/water-system-simulator/issues"
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "mypy",
+    "sphinx",
+]
 
 [tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.pytest.ini_options]
-testpaths = [
-    "tests",
-]
-pythonpath = [
-    "water_system_sdk/src",
-]
+where = ["water_system_sdk/src"]
