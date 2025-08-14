@@ -1,6 +1,7 @@
 from abc import abstractmethod
 import numpy as np
 from water_system_simulator.modeling.base_model import BaseModel
+from water_system_simulator.data_processing.pipeline import DataProcessingPipeline
 
 # Phase 1: Instrument Layer
 # Action 1: Create new base classes (Corrected Implementation)
@@ -71,51 +72,87 @@ class BaseActuator(BaseModel):
 
 class LevelSensor(BaseSensor):
     """
-    A sensor that measures water level with Gaussian noise.
+    A sensor that measures water level. It can use a DataProcessingPipeline
+    to simulate real-world sensor characteristics like noise and smoothing.
     """
-    def __init__(self, noise_std_dev: float = 0.05, **kwargs):
+    def __init__(self, pipeline: DataProcessingPipeline = None, **kwargs):
         super().__init__(**kwargs)
-        self.noise_std_dev = noise_std_dev
+        self.data_pipeline = pipeline
 
     def measure(self, true_value: float) -> float:
         """
-        Adds Gaussian noise to the true water level.
+        Processes the true value through the data pipeline to get a measured value.
+        If no pipeline is provided, it returns the true value.
         """
-        noise = np.random.normal(0, self.noise_std_dev)
-        measured_value = true_value + noise
-        return measured_value
+        if self.data_pipeline:
+            # The pipeline expects a dictionary.
+            processed_data = self.data_pipeline.process({'value': true_value})
+            # The pipeline returns a dictionary. We expect a key 'value'.
+            return processed_data.get('value', true_value)
+        return true_value
 
 
 class GateActuator(BaseActuator):
     """
-    A model for a gate actuator that has a finite travel time.
+    A model for a gate actuator that simulates response delay and travel time.
     The position is represented as a value from 0.0 (closed) to 1.0 (open).
     """
-    def __init__(self, travel_time: float = 120.0, **kwargs):
+    def __init__(self,
+                 travel_time: float = 120.0,
+                 response_delay: float = 0.0,
+                 initial_position: float = 0.0,
+                 **kwargs):
         """
         Args:
-            travel_time: Time in seconds to go from fully closed (0) to fully open (1).
+            travel_time (float): Time in seconds to go from fully closed (0) to fully open (1).
+            response_delay (float): Time in seconds to wait before starting to move after a command.
+            initial_position (float): The starting position of the actuator.
         """
-        super().__init__(**kwargs)
+        super().__init__(initial_position=initial_position, **kwargs)
         if travel_time <= 0:
             raise ValueError("travel_time must be positive.")
+        if response_delay < 0:
+            raise ValueError("response_delay cannot be negative.")
+
         self.travel_time = travel_time
+        self.response_delay = response_delay
+
+        # State for handling response delay
+        self.target_command = self.current_position
+        self.time_since_command_change = self.response_delay # Start as if delay is over
 
     def step(self, command: float, dt: float):
         """
-        Moves the gate towards the command position based on travel_time.
+        Moves the gate towards the command position, respecting delay and travel time.
 
         Args:
-            command: The target position for the gate (0.0 to 1.0).
-            dt: The simulation time step in seconds.
+            command (float): The target position for the gate (0.0 to 1.0).
+            dt (float): The simulation time step in seconds.
         """
-        target_position = np.clip(command, 0.0, 1.0)
+        clipped_command = np.clip(command, 0.0, 1.0)
+
+        # Check if the command has changed
+        if clipped_command != self.target_command:
+            self.target_command = clipped_command
+            self.time_since_command_change = 0.0
+
+        # Increment time since command change, but don't let it grow indefinitely
+        if self.time_since_command_change < self.response_delay:
+            self.time_since_command_change += dt
+
+        # Only move if the response delay has passed
+        if self.time_since_command_change < self.response_delay:
+            # Still in delay period, do nothing
+            self.output = self.current_position
+            return self.current_position
+
+        # --- Movement logic (same as before, but uses self.target_command) ---
         max_speed = 1.0 / self.travel_time
         max_change = max_speed * dt
-        difference = target_position - self.current_position
+        difference = self.target_command - self.current_position
 
         if abs(difference) <= max_change:
-            self.current_position = target_position
+            self.current_position = self.target_command
         else:
             self.current_position += np.sign(difference) * max_change
 

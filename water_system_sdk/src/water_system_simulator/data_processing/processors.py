@@ -92,3 +92,17 @@ class DataFusionEngine(BaseDataProcessor):
             self.P = (1 - K) * self.P # Update uncertainty
 
         return {'fused_value': self.x}
+
+class NoiseInjector(BaseDataProcessor):
+    """
+    Injects Gaussian noise into the data.
+    """
+    def __init__(self, noise_std_dev: float):
+        self.noise_std_dev = noise_std_dev
+
+    def process(self, data_input: dict) -> dict:
+        processed_data = {}
+        for key, value in data_input.items():
+            noise = np.random.normal(0, self.noise_std_dev)
+            processed_data[key] = value + noise
+        return processed_data

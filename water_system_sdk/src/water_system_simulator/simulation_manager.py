@@ -121,11 +121,16 @@ class ComponentRegistry:
         "DataSmoother": "water_system_simulator.data_processing.processors.DataSmoother",
         "DataFusionEngine": "water_system_simulator.data_processing.processors.DataFusionEngine",
         "OutlierRemover": "water_system_simulator.data_processing.processors.OutlierRemover",
+        "NoiseInjector": "water_system_simulator.data_processing.processors.NoiseInjector",
 
         # --- Custom Agents ---
         "SensorClusterAgent": "water_system_simulator.modeling.sensor_cluster_agent.SensorClusterAgent",
         "PumpStationAgent": "water_system_simulator.modeling.pump_station_agent.PumpStationAgent",
         "CentralDataFusionAgent": "water_system_simulator.modeling.central_data_fusion_agent.CentralDataFusionAgent",
+
+        # --- Body Agents ---
+        "BaseBodyAgent": "water_system_simulator.modeling.body_agent.BaseBodyAgent",
+        "ReservoirBodyAgent": "water_system_simulator.modeling.body_agent.ReservoirBodyAgent",
     }
 
     @classmethod
@@ -293,6 +298,50 @@ class SimulationManager:
                     strategy=interpolation_strategy,
                     **params
                 )
+            # New block for Body Agents
+            # First, we need to get the class to check its inheritance
+            component_class = ComponentRegistry.get_class(comp_type)
+            try:
+                base_body_agent_class = ComponentRegistry.get_class("BaseBodyAgent")
+                is_body_agent = issubclass(component_class, base_body_agent_class)
+            except ImportError:
+                is_body_agent = False
+
+            if is_body_agent:
+                # Build core_physics_model
+                core_physics_model_config = params.pop("core_physics_model")
+                core_physics_model_class = ComponentRegistry.get_class(core_physics_model_config["type"])
+                core_physics_model_params = core_physics_model_config.get("params", {})
+                core_physics_model = core_physics_model_class(**core_physics_model_params)
+
+                # Build sensors
+                sensors = {}
+                sensors_config = params.pop("sensors", {})
+                for sensor_name, sensor_config in sensors_config.items():
+                    sensor_class = ComponentRegistry.get_class(sensor_config["type"])
+                    sensor_params = sensor_config.get("params", {})
+                    # Check for a pipeline inside the sensor's params
+                    if "pipeline" in sensor_params:
+                        pipeline_config = sensor_params.pop("pipeline")
+                        pipeline_instance = self._create_pipeline(pipeline_config)
+                        sensor_params["pipeline"] = pipeline_instance
+                    sensors[sensor_name] = sensor_class(**sensor_params)
+
+                # Build actuators
+                actuators = {}
+                actuators_config = params.pop("actuators", {})
+                for actuator_name, actuator_config in actuators_config.items():
+                    actuator_class = ComponentRegistry.get_class(actuator_config["type"])
+                    actuator_params = actuator_config.get("params", {})
+                    actuators[actuator_name] = actuator_class(**actuator_params)
+
+                # Create the body agent
+                self.components[name] = component_class(
+                    core_physics_model=core_physics_model,
+                    sensors=sensors,
+                    actuators=actuators,
+                    **params # remaining params
+                )
             else:
                 # Default behavior for all other components
 
@@ -303,7 +352,6 @@ class SimulationManager:
                     # Add the created pipeline instance to the component's constructor args
                     params["pipeline"] = pipeline_instance
 
-                component_class = ComponentRegistry.get_class(comp_type)
                 self.components[name] = component_class(**params)
 
     def _execute_step(self, instruction: Any, t: float, dt: float, simulation_mode: SimulationMode):
@@ -322,10 +370,15 @@ class SimulationManager:
             comp_name = instruction["component"]
             method_name = instruction["method"]
 
+            # Resolve potentially nested component path
+            try:
+                component = getattr_by_path(self, f"components.{comp_name}")
+            except AttributeError:
+                raise AttributeError(f"Component '{comp_name}' not found in simulation components.")
+
             # Prepare arguments for the method call
             args = {}
             # Add simulation_mode to args if the method is 'step' and the component is an entity
-            component = self.components[comp_name]
             if method_name == 'step' and isinstance(component, ComponentRegistry.get_class("BasePhysicalEntity")):
                 args['simulation_mode'] = simulation_mode
 
