@@ -5,10 +5,13 @@ from water_system_simulator.modeling.hydrology.sub_basin import SubBasin
 from .strategies import BaseRunoffModel, BaseRoutingModel
 
 
+import numpy as np
+
 class SemiDistributedHydrologyModel(BaseModel):
     """
     A semi-distributed hydrological model that uses strategy pattern to simulate
     runoff and routing for a watershed composed of multiple sub-basins.
+    This version is optimized for vectorization.
     """
 
     def __init__(
@@ -20,65 +23,71 @@ class SemiDistributedHydrologyModel(BaseModel):
     ):
         """
         Initializes the SemiDistributedHydrologyModel.
-
-        Args:
-            sub_basins (List[dict]): A list of dictionaries, each describing a sub-basin's properties.
-            runoff_strategy (BaseRunoffModel): The strategy for calculating runoff.
-            routing_strategy (BaseRoutingModel): The strategy for routing flow.
-            **kwargs: Additional keyword arguments for the BaseModel.
         """
         super().__init__(**kwargs)
-        # Instantiate SubBasin objects from the config dictionaries
-        self.sub_basins = [SubBasin(**sb_info) for sb_info in sub_basins]
         self.runoff_strategy = runoff_strategy
         self.routing_strategy = routing_strategy
-        self.output = 0.0  # Initialize output
-        self.input_rainfall: Union[pd.DataFrame, None] = None # For interpolated rainfall
+        self.output = 0.0
+        self.input_rainfall: Union[pd.DataFrame, None] = None
+
+        # --- Vectorization Setup ---
+        num_basins = len(sub_basins)
+        self.num_basins = num_basins
+
+        # Create structured array for parameters for better organization
+        param_dtype = [
+            ('area', 'f4'), ('WM', 'f4'), ('B', 'f4'), ('IM', 'f4'), # Runoff
+            ('K', 'f4'), ('x', 'f4') # Routing
+        ]
+        self.params = np.zeros(num_basins, dtype=param_dtype)
+
+        # Initialize parameter and state arrays
+        self.runoff_state_W = np.zeros(num_basins, dtype=np.float32)
+        self.routing_state_I_prev = np.zeros(num_basins, dtype=np.float32)
+        self.routing_state_O_prev = np.zeros(num_basins, dtype=np.float32)
+
+        for i, sb_info in enumerate(sub_basins):
+            p = sb_info['params']
+            self.params[i] = (
+                sb_info['area'], p.get('WM', 100), p.get('B', 0.3), p.get('IM', 0.05),
+                p.get('K', 12), p.get('x', 0.2)
+            )
+            # Initialize states from config
+            self.runoff_state_W[i] = p.get('initial_W', self.params[i]['WM'] * 0.5)
+            self.routing_state_I_prev[i] = p.get('initial_inflow', 0.0)
+            self.routing_state_O_prev[i] = p.get('initial_outflow', 0.0)
+
 
     def step(self, dt: float, t: float, **kwargs):
         """
-        Executes a single time step for the entire watershed model.
-
-        It calculates the outflow from each sub-basin using the provided strategies
-        and sums them up to get the total watershed outflow.
-
-        Args:
-            dt (float): The time step in hours.
-            t (float): The current simulation time.
-            **kwargs: Can contain 'precipitation' (in mm/hr) for backward compatibility.
+        Executes a single time step for the entire watershed model using vectorized operations.
         """
-        total_outflow_m3_per_s = 0.0
+        # For now, we assume uniform precipitation for the vectorized version
+        precipitation_per_hour = kwargs.get('precipitation', 0.0)
+        precipitation_mm = precipitation_per_hour * dt
 
-        # Determine the current time step index
-        current_step_index = round(t / dt)
+        # Create a vector of precipitation for all sub-basins
+        precip_vector = np.full(self.num_basins, precipitation_mm, dtype=np.float32)
 
-        for sub_basin in self.sub_basins:
-            precipitation_mm = 0.0
-            if self.input_rainfall is not None:
-                # Use spatially distributed rainfall if available
-                if not self.input_rainfall.empty and sub_basin.id in self.input_rainfall.columns:
-                    # Assuming the input_rainfall DataFrame index aligns with simulation steps
-                    if current_step_index < len(self.input_rainfall):
-                        precipitation_mm = self.input_rainfall[sub_basin.id].iloc[current_step_index]
-            else:
-                # Fallback to uniform precipitation for backward compatibility
-                precipitation_per_hour = kwargs.get('precipitation', 0.0)
-                precipitation_mm = precipitation_per_hour * dt
+        # 1. Call the (vectorized) runoff strategy
+        effective_rainfall_mm, self.runoff_state_W = self.runoff_strategy.calculate_runoff_vectorized(
+            rainfall_vector=precip_vector,
+            W_initial=self.runoff_state_W,
+            params=self.params,
+            dt=dt
+        )
 
-            # 1. Call the runoff strategy to calculate effective rainfall
-            effective_rainfall_mm = self.runoff_strategy.calculate_runoff(
-                rainfall=precipitation_mm,
-                sub_basin_params=sub_basin.params,
-                dt=dt
-            )
+        # 2. Call the (vectorized) routing strategy
+        outflow_vector, self.routing_state_I_prev, self.routing_state_O_prev = self.routing_strategy.route_flow_vectorized(
+            effective_rainfall_vector=effective_rainfall_mm,
+            I_prev=self.routing_state_I_prev,
+            O_prev=self.routing_state_O_prev,
+            params=self.params,
+            dt=dt
+        )
 
-            # 2. Call the routing strategy to calculate outflow
-            sub_basin_outflow = self.routing_strategy.route_flow(
-                effective_rainfall=effective_rainfall_mm,
-                sub_basin_params=sub_basin.params,
-                dt=dt
-            )
-            total_outflow_m3_per_s += sub_basin_outflow
+        # 3. Sum the outflows from all sub-basins
+        total_outflow_m3_per_s = np.sum(outflow_vector)
 
         self.output = total_outflow_m3_per_s
         return self.output

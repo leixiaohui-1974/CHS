@@ -5,3 +5,7 @@ pykrige
 numpy
 cvxpy
 osqp
+numba
+PyYAML
+meshio
+pytest

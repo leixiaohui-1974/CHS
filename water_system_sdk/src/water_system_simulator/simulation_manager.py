@@ -230,7 +230,11 @@ class SimulationManager:
         component_configs = self.config["components"]
         for name, comp_info in component_configs.items():
             comp_type = comp_info["type"]
-            params = comp_info.get("properties", {}) # Use 'properties' to match YAML
+            # Handle both 'properties' and 'params' for component configuration
+            if 'properties' in comp_info:
+                params = comp_info.get("properties", {})
+            else:
+                params = comp_info.get("params", {})
 
             # --- Determine Component Type ---
             component_class = ComponentRegistry.get_class(comp_type)

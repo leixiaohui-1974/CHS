@@ -1,17 +1,30 @@
 import numpy as np
+from numba import njit
 
 from .data_manager import GPUDataManager
 
+@njit
 def _calculate_hllc_flux(h_l, hu_l, hv_l, z_l, h_r, hu_r, hv_r, z_r, nx, ny, g, dry_tol):
     """
     NumPy-based HLLC Approximate Riemann Solver for 2D Shallow Water Equations.
     This is a vectorized function that computes fluxes for all edges at once.
     """
     # A. PREPARE ROTATED STATES
-    u_l = np.divide(hu_l, h_l, out=np.zeros_like(hu_l), where=h_l > dry_tol)
-    v_l = np.divide(hv_l, h_l, out=np.zeros_like(hv_l), where=h_l > dry_tol)
-    u_r = np.divide(hu_r, h_r, out=np.zeros_like(hu_r), where=h_r > dry_tol)
-    v_r = np.divide(hv_r, h_r, out=np.zeros_like(hv_r), where=h_r > dry_tol)
+    # Numba-friendly safe division
+    u_l = np.zeros_like(h_l)
+    v_l = np.zeros_like(h_l)
+    u_r = np.zeros_like(h_r)
+    v_r = np.zeros_like(h_r)
+
+    for i in range(len(h_l)):
+        if h_l[i] > dry_tol:
+            u_l[i] = hu_l[i] / h_l[i]
+            v_l[i] = hv_l[i] / h_l[i]
+
+    for i in range(len(h_r)):
+        if h_r[i] > dry_tol:
+            u_r[i] = hu_r[i] / h_r[i]
+            v_r[i] = hv_r[i] / h_r[i]
 
     un_l = u_l * nx + v_l * ny
     ut_l = -u_l * ny + v_l * nx
@@ -61,9 +74,10 @@ def _calculate_hllc_flux(h_l, hu_l, hv_l, z_l, h_r, hu_r, hv_r, z_r, nx, ny, g, 
     f_hun_sr = f_hun_r + s_r * (h_star_r * s_star - h_r * un_r)
     f_hut_sr = f_hut_r + s_r * (h_star_r * ut_r - h_r * ut_r)
 
-    f_h = np.select([cond_l, cond_r, cond_star_l], [f_h_l, f_h_r, f_h_sl], default=f_h_sr)
-    f_hun = np.select([cond_l, cond_r, cond_star_l], [f_hun_l, f_hun_r, f_hun_sl], default=f_hun_sr)
-    f_hut = np.select([cond_l, cond_r, cond_star_l], [f_hut_l, f_hut_r, f_hut_sl], default=f_hut_sr)
+    # Numba-compatible equivalent of np.select with array default
+    f_h = np.where(cond_l, f_h_l, np.where(cond_r, f_h_r, np.where(cond_star_l, f_h_sl, f_h_sr)))
+    f_hun = np.where(cond_l, f_hun_l, np.where(cond_r, f_hun_r, np.where(cond_star_l, f_hun_sl, f_hun_sr)))
+    f_hut = np.where(cond_l, f_hut_l, np.where(cond_r, f_hut_r, np.where(cond_star_l, f_hut_sl, f_hut_sr)))
 
     # E. ROTATE FLUX BACK
     flux_h = f_h
@@ -71,6 +85,116 @@ def _calculate_hllc_flux(h_l, hu_l, hv_l, z_l, h_r, hu_r, hv_r, z_r, nx, ny, g, 
     flux_hv = f_hun * ny + f_hut * nx
 
     return flux_h, flux_hu, flux_hv
+
+@njit
+def _compute_fluxes_jitted(h, hu, hv, z, edge_to_cell, edge_normals, edge_lengths, g, dry_tol):
+    cell_l_idx = edge_to_cell[:, 0]
+    cell_r_idx = edge_to_cell[:, 1]
+
+    # Create copies to avoid modifying source arrays directly in the caller
+    h_l, hu_l, hv_l, z_l = h[cell_l_idx], hu[cell_l_idx], hv[cell_l_idx], z[cell_l_idx]
+    h_r, hu_r, hv_r, z_r = h[cell_r_idx].copy(), hu[cell_r_idx].copy(), hv[cell_r_idx].copy(), z[cell_r_idx].copy()
+
+    boundary_mask = cell_r_idx < 0
+    h_r[boundary_mask] = h_l[boundary_mask]
+    z_r[boundary_mask] = z_l[boundary_mask]
+
+    h_l_b = h_l[boundary_mask] + dry_tol
+    # Numba doesn't have `divide` with `where`, so we handle it manually
+    u_l_b = np.zeros_like(h_l_b)
+    v_l_b = np.zeros_like(h_l_b)
+    for i in range(len(h_l_b)):
+        if h_l_b[i] > dry_tol:
+            u_l_b[i] = hu_l[boundary_mask][i] / h_l_b[i]
+            v_l_b[i] = hv_l[boundary_mask][i] / h_l_b[i]
+
+    nx_b, ny_b = edge_normals[boundary_mask, 0], edge_normals[boundary_mask, 1]
+
+    un_l_b = u_l_b * nx_b + v_l_b * ny_b
+    ut_l_b = -u_l_b * ny_b + v_l_b * nx_b
+    un_r_b, ut_r_b = -un_l_b, ut_l_b
+
+    u_r_b = un_r_b * nx_b - ut_r_b * ny_b
+    v_r_b = un_r_b * ny_b + ut_r_b * nx_b
+
+    hu_r[boundary_mask] = u_r_b * h_r[boundary_mask]
+    hv_r[boundary_mask] = v_r_b * h_r[boundary_mask]
+
+    flux_h, flux_hu, flux_hv = _calculate_hllc_flux(
+        h_l, hu_l, hv_l, z_l, h_r, hu_r, hv_r, z_r,
+        edge_normals[:, 0], edge_normals[:, 1], g, dry_tol
+    )
+
+    flux_h[boundary_mask] = 0.0
+
+    num_edges = len(flux_h)
+    fluxes = np.empty((num_edges, 3), dtype=flux_h.dtype)
+    fluxes[:, 0] = flux_h
+    fluxes[:, 1] = flux_hu
+    fluxes[:, 2] = flux_hv
+
+    fluxes *= edge_lengths.reshape(-1, 1)
+    return fluxes
+
+@njit
+def _update_state_jitted(h, hu, hv, source_terms, n, fluxes, dt, edge_to_cell, cell_areas, g, dry_tol):
+    num_cells = len(h)
+    net_flux_per_cell = np.zeros((num_cells, 3), dtype=h.dtype)
+    cell_l = edge_to_cell[:, 0]
+    cell_r = edge_to_cell[:, 1]
+
+    # Numba-friendly explicit loop for flux accumulation
+    for i in range(len(edge_to_cell)):
+        # Subtract flux from the left cell
+        left_cell_idx = cell_l[i]
+        net_flux_per_cell[left_cell_idx, 0] -= fluxes[i, 0]
+        net_flux_per_cell[left_cell_idx, 1] -= fluxes[i, 1]
+        net_flux_per_cell[left_cell_idx, 2] -= fluxes[i, 2]
+
+        # Add flux to the right cell if it's an internal edge
+        right_cell_idx = cell_r[i]
+        if right_cell_idx >= 0:
+            net_flux_per_cell[right_cell_idx, 0] += fluxes[i, 0]
+            net_flux_per_cell[right_cell_idx, 1] += fluxes[i, 1]
+            net_flux_per_cell[right_cell_idx, 2] += fluxes[i, 2]
+
+
+    source_term = np.zeros_like(net_flux_per_cell)
+    h_eff = h + dry_tol
+
+    # Manual loop for safe division
+    u = np.zeros_like(h)
+    v = np.zeros_like(h)
+    for i in range(len(h_eff)):
+        if h_eff[i] > dry_tol:
+            u[i] = hu[i] / h_eff[i]
+            v[i] = hv[i] / h_eff[i]
+
+    velocity_mag = np.sqrt(u**2 + v**2)
+    n_sq = n**2
+    friction_denom = h_eff**(4./3.)
+
+    # Manual loop for safe division
+    s_fx = np.zeros_like(h)
+    s_fy = np.zeros_like(h)
+    for i in range(len(friction_denom)):
+        if friction_denom[i] > dry_tol:
+            s_fx[i] = -g * n_sq[i] * u[i] * velocity_mag[i] / friction_denom[i]
+            s_fy[i] = -g * n_sq[i] * v[i] * velocity_mag[i] / friction_denom[i]
+
+    source_term[:, 1], source_term[:, 2] = s_fx, s_fy
+
+    update_from_flux = (dt / cell_areas.reshape(-1, 1)) * (net_flux_per_cell + source_terms)
+    update_from_friction = dt * source_term
+    h += update_from_flux[:, 0]
+    hu += update_from_flux[:, 1] + update_from_friction[:, 1]
+    hv += update_from_flux[:, 2] + update_from_friction[:, 2]
+
+    for i in range(len(h)):
+        if h[i] < dry_tol:
+            h[i] = 0.0
+            hu[i] = 0.0
+            hv[i] = 0.0
 
 class Solver:
     def __init__(self, data_manager: GPUDataManager, g: float = 9.81, cfl: float = 0.5):
@@ -82,75 +206,20 @@ class Solver:
     def _calculate_fluxes(self):
         dm = self.data_manager
         mesh = dm.mesh
-        cell_l_idx = mesh.edge_to_cell[:, 0]
-        cell_r_idx = mesh.edge_to_cell[:, 1]
-
-        h_l, hu_l, hv_l, z_l = dm.h[cell_l_idx], dm.hu[cell_l_idx], dm.hv[cell_l_idx], dm.z[cell_l_idx]
-        h_r, hu_r, hv_r, z_r = dm.h[cell_r_idx], dm.hu[cell_r_idx], dm.hv[cell_r_idx], dm.z[cell_r_idx]
-
-        boundary_mask = cell_r_idx < 0
-        h_r[boundary_mask] = h_l[boundary_mask]
-        z_r[boundary_mask] = z_l[boundary_mask]
-
-        h_l_b = h_l[boundary_mask] + self.dry_tolerance
-        u_l_b, v_l_b = hu_l[boundary_mask] / h_l_b, hv_l[boundary_mask] / h_l_b
-        nx_b, ny_b = mesh.edge_normals[boundary_mask, 0], mesh.edge_normals[boundary_mask, 1]
-
-        un_l_b = u_l_b * nx_b + v_l_b * ny_b
-        ut_l_b = -u_l_b * ny_b + v_l_b * nx_b
-        un_r_b, ut_r_b = -un_l_b, ut_l_b
-
-        u_r_b = un_r_b * nx_b - ut_r_b * ny_b
-        v_r_b = un_r_b * ny_b + ut_r_b * nx_b
-
-        hu_r[boundary_mask] = u_r_b * h_r[boundary_mask]
-        hv_r[boundary_mask] = v_r_b * h_r[boundary_mask]
-
-        flux_h, flux_hu, flux_hv = _calculate_hllc_flux(
-            h_l, hu_l, hv_l, z_l, h_r, hu_r, hv_r, z_r,
-            mesh.edge_normals[:, 0], mesh.edge_normals[:, 1],
+        return _compute_fluxes_jitted(
+            dm.h, dm.hu, dm.hv, dm.z,
+            mesh.edge_to_cell, mesh.edge_normals, mesh.edge_lengths,
             self.g, self.dry_tolerance
         )
-
-        # For perfect conservation, explicitly enforce zero mass flux at solid boundaries.
-        # The momentum flux represents the pressure force against the wall.
-        flux_h[boundary_mask] = 0.0
-
-        fluxes = np.vstack([flux_h, flux_hu, flux_hv]).T
-        fluxes *= mesh.edge_lengths[:, np.newaxis]
-        return fluxes
 
     def _update_state(self, fluxes, dt):
         dm = self.data_manager
         mesh = dm.mesh
-        net_flux_per_cell = np.zeros((mesh.num_cells, 3), dtype=np.float64)
-        cell_l = mesh.edge_to_cell[:, 0]
-        cell_r = mesh.edge_to_cell[:, 1]
-
-        np.add.at(net_flux_per_cell, cell_l, -fluxes)
-        internal_edges_mask = cell_r >= 0
-        np.add.at(net_flux_per_cell, cell_r[internal_edges_mask], fluxes[internal_edges_mask])
-
-        source_term = np.zeros_like(net_flux_per_cell)
-        h_eff = dm.h + self.dry_tolerance
-        u, v = dm.hu / h_eff, dm.hv / h_eff
-        velocity_mag = np.sqrt(u**2 + v**2)
-        n_sq = dm.n**2
-        friction_denom = h_eff**(4./3.)
-
-        s_fx = -self.g * n_sq * u * velocity_mag / friction_denom
-        s_fy = -self.g * n_sq * v * velocity_mag / friction_denom
-        source_term[:, 1], source_term[:, 2] = s_fx, s_fy
-
-        update_from_flux = (dt / mesh.cell_areas[:, np.newaxis]) * (net_flux_per_cell + dm.source_terms)
-        update_from_friction = dt * source_term
-        dm.h += update_from_flux[:, 0]
-        dm.hu += update_from_flux[:, 1] + update_from_friction[:, 1]
-        dm.hv += update_from_flux[:, 2] + update_from_friction[:, 2]
-
-        dm.h = np.maximum(dm.h, 0.0)
-        dry_mask = dm.h < self.dry_tolerance
-        dm.hu[dry_mask], dm.hv[dry_mask] = 0.0, 0.0
+        _update_state_jitted(
+            dm.h, dm.hu, dm.hv, dm.source_terms, dm.n,
+            fluxes, dt, mesh.edge_to_cell, mesh.cell_areas,
+            self.g, self.dry_tolerance
+        )
 
     def step(self, dt: float):
         """

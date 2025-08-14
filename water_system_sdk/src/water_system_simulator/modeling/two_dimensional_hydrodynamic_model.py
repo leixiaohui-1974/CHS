@@ -1,9 +1,40 @@
 import numpy as np
 from typing import Optional, Dict, Any
+from numba import njit
 from .base_model import BaseModel
 from ..hydrodynamics_2d.mesh import load_mesh, UnstructuredMesh
 from ..hydrodynamics_2d.data_manager import GPUDataManager
 from ..hydrodynamics_2d.solver import Solver
+
+@njit
+def _calculate_cfl_dt_jitted(h, hu, hv, cell_areas, g, cfl_number, dry_tolerance):
+    """
+    Calculates the maximum stable time step (dt) based on the CFL condition.
+    """
+    h_eff = h + dry_tolerance
+
+    # Using loops for safe division in Numba
+    u = np.zeros_like(h)
+    v = np.zeros_like(h)
+    for i in range(len(h_eff)):
+        if h_eff[i] > dry_tolerance:
+            u[i] = hu[i] / h_eff[i]
+            v[i] = hv[i] / h_eff[i]
+
+    velocity_mag = np.sqrt(u**2 + v**2)
+    celerity = np.sqrt(g * h)
+    char_length = np.sqrt(cell_areas)
+    wave_speed = np.maximum(velocity_mag + celerity, dry_tolerance)
+
+    local_dt = char_length / wave_speed
+
+    # Numba doesn't like np.min on empty arrays, handle carefully if that's possible.
+    # Assuming local_dt is never empty.
+    global_dt = np.min(local_dt)
+
+    if np.isinf(global_dt):
+        return 1.0
+    return cfl_number * float(global_dt)
 
 class TwoDimensionalHydrodynamicModel(BaseModel):
     """
@@ -43,23 +74,13 @@ class TwoDimensionalHydrodynamicModel(BaseModel):
 
     def _calculate_cfl_dt(self):
         """
-        Calculates the maximum stable time step (dt) based on the CFL condition.
+        Calculates the maximum stable time step (dt) by calling the jitted function.
         """
         dm = self.data_manager
-        mesh = dm.mesh
-        h_eff = dm.h + self.dry_tolerance
-        u = dm.hu / h_eff
-        v = dm.hv / h_eff
-        velocity_mag = np.sqrt(u**2 + v**2)
-        celerity = np.sqrt(self.solver.g * dm.h)
-        char_length = np.sqrt(mesh.cell_areas)
-        wave_speed = np.maximum(velocity_mag + celerity, self.dry_tolerance)
-        local_dt = char_length / wave_speed
-        global_dt = np.min(local_dt)
-        # Handle case where domain is totally dry and still
-        if np.isinf(global_dt):
-            return 1.0 # Return a default dt if no wave speed
-        return self.cfl_number * float(global_dt)
+        return _calculate_cfl_dt_jitted(
+            dm.h, dm.hu, dm.hv, dm.mesh.cell_areas,
+            self.solver.g, self.cfl_number, self.dry_tolerance
+        )
 
     def step(self, dt: float, t: float = 0):
         """
