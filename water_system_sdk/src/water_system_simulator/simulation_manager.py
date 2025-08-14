@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import importlib
 import functools
+import logging
+import logging.config
 from typing import Dict, Any, List, Optional
 
 from water_system_simulator.core.simulation_modes import SimulationMode
@@ -150,6 +152,7 @@ class SimulationManager:
         self.config: Dict[str, Any] = {}
         self.datasets: Dict[str, Any] = {}
         self._current_t: float = 0.0
+        self.logger = logging.getLogger(__name__)
         if config:
             self.load_config(config)
 
@@ -336,7 +339,7 @@ class SimulationManager:
                     if eval(condition_str, {"__builtins__": {}}, local_context):
                         triggered = True
                 except Exception as e:
-                    print(f"Warning: Could not evaluate trigger condition '{condition_str}' at time {t}. Error: {e}")
+                    self.logger.warning(f"Could not evaluate trigger condition '{condition_str}' at time {t}. Error: {e}")
 
             elif trigger["type"] == "always":
                 triggered = True
@@ -348,17 +351,17 @@ class SimulationManager:
                     new_model_id = action["value"]
 
                     if target_entity_name not in self.components:
-                        print(f"Warning: Could not switch model. Target entity '{target_entity_name}' not found.")
+                        self.logger.warning(f"Could not switch model. Target entity '{target_entity_name}' not found.")
                         continue
 
                     target_entity = self.components[target_entity_name]
 
                     if not hasattr(target_entity, 'dynamic_model_bank'):
-                        print(f"Warning: Could not switch model. Target '{target_entity_name}' is not a physical entity with a model bank.")
+                        self.logger.warning(f"Could not switch model. Target '{target_entity_name}' is not a physical entity with a model bank.")
                         continue
 
                     if new_model_id not in target_entity.dynamic_model_bank:
-                        print(f"Warning: Could not switch model. Model ID '{new_model_id}' not found in bank for '{target_entity_name}'.")
+                        self.logger.warning(f"Could not switch model. Model ID '{new_model_id}' not found in bank for '{target_entity_name}'.")
                         continue
 
                     target_entity.active_dynamic_model_id = new_model_id
@@ -372,7 +375,7 @@ class SimulationManager:
                         try:
                             value = getattr_by_path(self, f"components.{source_path}")
                         except AttributeError as e:
-                            print(f"Warning: {e}")
+                            self.logger.warning(e)
                             continue
                     else:
                         value = action["value"]
@@ -399,13 +402,30 @@ class SimulationManager:
                             setattr_by_path(self, f"components.{target_path}", value)
 
                     except (AttributeError, ValueError) as e:
-                        print(f"Warning: Could not set parameter for target '{target_path}'. Error: {e}")
+                        self.logger.warning(f"Could not set parameter for target '{target_path}'. Error: {e}")
                         continue
+
+    def _setup_logging(self) -> None:
+        """Configures logging for the simulation."""
+        log_config = self.config.get("logging")
+        if log_config and isinstance(log_config, dict):
+            try:
+                logging.config.dictConfig(log_config)
+                self.logger.info("Logging configured from dictionary.")
+            except (ValueError, TypeError, AttributeError, ImportError) as e:
+                logging.basicConfig(level=logging.WARNING)
+                self.logger.warning(f"Failed to configure logging from dictConfig: {e}. Falling back to basic config.")
+        else:
+            # Default basic configuration if no config is provided or it's invalid
+            logging.basicConfig(level=logging.INFO,
+                                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            self.logger.info("Using default basic logging configuration because no valid 'logging' section was found in config.")
 
     def load_config(self, config: Dict[str, Any]):
         """Loads a configuration and builds the system."""
         # Reset state for the new run
         self.config = self._preprocess_config(config)
+        self._setup_logging()
         self.datasets = self.config.get("datasets", {})
         self.components = {}
         self._build_system()

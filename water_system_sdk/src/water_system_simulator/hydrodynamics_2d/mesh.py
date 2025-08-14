@@ -18,7 +18,7 @@ def load_mesh(mesh_file_path: str) -> Tuple[np.ndarray, np.ndarray]:
         - points (np.ndarray): Array of node coordinates, shape (num_points, 2).
         - cells (np.ndarray): Array of triangle connectivity, shape (num_cells, 3).
     """
-    print(f"Loading mesh from {mesh_file_path}...")
+    logger.info(f"Loading mesh from {mesh_file_path}...")
     mesh = meshio.read(mesh_file_path)
 
     # We only use 2D coordinates, so we discard the z-coordinate if it exists.
@@ -31,7 +31,7 @@ def load_mesh(mesh_file_path: str) -> Tuple[np.ndarray, np.ndarray]:
     except KeyError:
         raise ValueError("Mesh must contain triangular elements for this model.")
 
-    print(f"Mesh loaded: {points.shape[0]} nodes, {cells.shape[0]} cells.")
+    logger.info(f"Mesh loaded: {points.shape[0]} nodes, {cells.shape[0]} cells.")
     return points, cells
 
 
@@ -51,18 +51,18 @@ class UnstructuredMesh:
             points (np.ndarray): Node coordinates, shape (num_points, 2).
             cells (np.ndarray): Triangle connectivity, shape (num_cells, 3).
         """
-        print("Initializing UnstructuredMesh for CPU...")
+        logger.info("Initializing UnstructuredMesh for CPU...")
         self.nodes = np.asarray(points, dtype=np.float64)
         self.cells = np.asarray(cells, dtype=np.int32)
 
         self.num_nodes = self.nodes.shape[0]
         self.num_cells = self.cells.shape[0]
 
-        print("Computing cell properties...")
+        logger.info("Computing cell properties...")
         self.cell_centers = self.nodes[self.cells].mean(axis=1)
         self.cell_areas = self._compute_cell_areas()
 
-        print("Computing edge connectivity and properties...")
+        logger.info("Computing edge connectivity and properties...")
         (
             self.edges,
             self.edge_to_cell,
@@ -77,7 +77,7 @@ class UnstructuredMesh:
         # Normalize the normal vectors to get unit normals
         self.edge_normals /= self.edge_lengths[:, np.newaxis]
 
-        print(f"Mesh initialization complete. Found {self.num_edges} unique edges.")
+        logger.info(f"Mesh initialization complete. Found {self.num_edges} unique edges.")
 
     def _compute_cell_areas(self) -> np.ndarray:
         """Computes the area of each triangular cell using the Shoelace formula."""

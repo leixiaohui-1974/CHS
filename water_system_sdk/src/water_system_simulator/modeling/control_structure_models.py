@@ -5,7 +5,7 @@ from .base_model import BaseModel
 class GateModel(BaseModel):
     """
     Represents a station with multiple identical sluice gates.
-    Calculates flow based on the gate opening and upstream water level.
+    Calculates flow based on gate opening and upstream/downstream water levels.
     """
     def __init__(self, num_gates: int, gate_width: float, discharge_coeff: float, **kwargs):
         """
@@ -24,21 +24,45 @@ class GateModel(BaseModel):
         self.flow = 0.0
         self.output = self.flow
 
-    def step(self, upstream_level: float, gate_opening: float, **kwargs):
+    def step(self, upstream_level: float, downstream_level: float, gate_opening: float, **kwargs):
         """
-        Calculates the total flow for the next time step.
+        Calculates the total flow for the next time step, considering both
+        free-flow and submerged-flow conditions.
 
         Args:
             upstream_level (float): The water level upstream of the gate (m).
+            downstream_level (float): The water level downstream of the gate (m).
             gate_opening (float): The height of the gate opening (m).
         """
         gate_opening = np.clip(gate_opening, 0, np.inf)
-        if upstream_level <= 0 or gate_opening <= 0:
+
+        # No flow if gate is closed, or upstream level is not higher than downstream.
+        if gate_opening <= 0 or upstream_level <= downstream_level:
+            self.flow = 0.0
+            self.output = self.flow
+            return self.output
+
+        # Determine the effective head based on flow conditions.
+        # A common heuristic is to consider the flow submerged if the downstream
+        # water level is higher than the gate opening.
+        is_submerged = downstream_level > gate_opening
+
+        if is_submerged:
+            # Submerged flow: head is the difference between levels.
+            effective_head = upstream_level - downstream_level
+        else:
+            # Free flow: head is the upstream water level.
+            # This matches the original simplified formula.
+            effective_head = upstream_level
+
+        # Final check on head and calculation
+        if effective_head <= 0:
             self.flow = 0.0
         else:
             area_per_gate = self.gate_width * gate_opening
-            flow_per_gate = self.discharge_coeff * area_per_gate * np.sqrt(2 * self.g * upstream_level)
+            flow_per_gate = self.discharge_coeff * area_per_gate * np.sqrt(2 * self.g * effective_head)
             self.flow = flow_per_gate * self.num_gates
+
         self.output = self.flow
         return self.output
 

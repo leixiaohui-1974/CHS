@@ -4,63 +4,86 @@ from water_system_simulator.modeling.control_structure_models import GateModel
 
 class TestGateModel(unittest.TestCase):
 
-    def test_gate_flow_calculation(self):
-        """
-        Tests the flow calculation for the GateModel.
-        Flow = C * A * sqrt(2 * g * h)
-        """
-        num_gates = 2
-        gate_width = 1.5  # m
-        discharge_coeff = 0.6
-        g = 9.81
-        upstream_level = 10.0  # m
-        gate_opening = 0.5  # m
+    def setUp(self):
+        """Set up a standard gate model for reuse in tests."""
+        self.gate_params = {
+            "num_gates": 2,
+            "gate_width": 1.5,
+            "discharge_coeff": 0.6
+        }
+        self.gate_model = GateModel(**self.gate_params)
+        self.g = 9.81
 
-        # Instantiate the model
-        gate_model = GateModel(
-            name="test_gate",
-            num_gates=num_gates,
-            gate_width=gate_width,
-            discharge_coeff=discharge_coeff
+    def test_gate_free_flow_calculation(self):
+        """
+        Tests the flow calculation for the GateModel under free-flow conditions.
+        """
+        upstream_level = 10.0
+        downstream_level = 0.2  # Lower than gate opening
+        gate_opening = 0.5
+
+        # Ensure it's a free-flow condition
+        self.assertLess(downstream_level, gate_opening)
+
+        self.gate_model.step(
+            upstream_level=upstream_level,
+            downstream_level=downstream_level,
+            gate_opening=gate_opening
         )
+        calculated_flow = self.gate_model.flow
 
-        # Run one step
-        gate_model.step(upstream_level=upstream_level, gate_opening=gate_opening)
-        calculated_flow = gate_model.flow
-
-        # Calculate expected flow
-        area_per_gate = gate_width * gate_opening
-        flow_per_gate = discharge_coeff * area_per_gate * np.sqrt(2 * g * upstream_level)
-        expected_flow = flow_per_gate * num_gates
+        # Expected flow for FREE-FLOW
+        area_per_gate = self.gate_params["gate_width"] * gate_opening
+        flow_per_gate = self.gate_params["discharge_coeff"] * area_per_gate * np.sqrt(2 * self.g * upstream_level)
+        expected_flow = flow_per_gate * self.gate_params["num_gates"]
 
         self.assertAlmostEqual(calculated_flow, expected_flow, places=5)
-        theoretical_flow = expected_flow
-        self.assertEqual(calculated_flow, theoretical_flow)
 
+    def test_gate_submerged_flow_calculation(self):
+        """
+        Tests the flow calculation for the GateModel under submerged-flow conditions.
+        """
+        upstream_level = 10.0
+        downstream_level = 1.0  # Higher than gate opening
+        gate_opening = 0.5
+
+        # Ensure it's a submerged-flow condition
+        self.assertGreater(downstream_level, gate_opening)
+
+        self.gate_model.step(
+            upstream_level=upstream_level,
+            downstream_level=downstream_level,
+            gate_opening=gate_opening
+        )
+        calculated_flow = self.gate_model.flow
+
+        # Expected flow for SUBMERGED-FLOW
+        effective_head = upstream_level - downstream_level
+        area_per_gate = self.gate_params["gate_width"] * gate_opening
+        flow_per_gate = self.gate_params["discharge_coeff"] * area_per_gate * np.sqrt(2 * self.g * effective_head)
+        expected_flow = flow_per_gate * self.gate_params["num_gates"]
+
+        self.assertAlmostEqual(calculated_flow, expected_flow, places=5)
 
     def test_flow_zero_conditions(self):
         """
-        Tests that flow is zero when upstream level or gate opening is zero.
+        Tests that flow is zero under various boundary conditions.
         """
-        gate_model = GateModel(
-            name="test_gate_zero",
-            num_gates=1,
-            gate_width=2.0,
-            discharge_coeff=0.6
-        )
-
-        # Test with zero upstream level
-        gate_model.step(upstream_level=0, gate_opening=0.5)
-        self.assertEqual(gate_model.flow, 0.0)
-
         # Test with zero gate opening
-        gate_model.step(upstream_level=10.0, gate_opening=0)
-        self.assertEqual(gate_model.flow, 0.0)
+        self.gate_model.step(upstream_level=10.0, downstream_level=2.0, gate_opening=0)
+        self.assertEqual(self.gate_model.flow, 0.0)
 
         # Test with negative gate opening (should be clipped to 0)
-        gate_model.step(upstream_level=10.0, gate_opening=-0.5)
-        self.assertEqual(gate_model.flow, 0.0)
+        self.gate_model.step(upstream_level=10.0, downstream_level=2.0, gate_opening=-0.5)
+        self.assertEqual(self.gate_model.flow, 0.0)
 
+        # Test with upstream level equal to downstream level
+        self.gate_model.step(upstream_level=5.0, downstream_level=5.0, gate_opening=0.5)
+        self.assertEqual(self.gate_model.flow, 0.0)
+
+        # Test with upstream level less than downstream level
+        self.gate_model.step(upstream_level=4.0, downstream_level=5.0, gate_opening=0.5)
+        self.assertEqual(self.gate_model.flow, 0.0)
 
 if __name__ == '__main__':
     unittest.main()
