@@ -9,11 +9,14 @@ import matplotlib.pyplot as plt
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'water_system_sdk', 'src')))
 
 from water_system_simulator.tools.identification_toolkit import generate_model_bank
+from water_system_simulator.tools.simulation_helpers import run_piecewise_model, run_single_model
+from water_system_simulator.utils.metrics import calculate_nse
+
 
 def run_model_bank_generation():
     """
-    Demonstrates the use of the generate_model_bank function to create
-    an optimal piecewise model library for a given operating space.
+    Demonstrates the use of the generate_model_bank function and validates
+    the resulting piecewise model against a single model.
     """
     print("--- Defining Base Configuration and Operating Space ---")
 
@@ -51,6 +54,7 @@ def run_model_bank_generation():
 
     # Create dummy validation data (a simple flood wave)
     time = np.arange(0, 86400, 3600)
+    dt = time[1] - time[0]
     flow = 100 + 80 * np.sin(np.pi * time / 86400)**2
     validation_hydrograph = pd.DataFrame({'time': time, 'flow': flow})
 
@@ -72,29 +76,45 @@ def run_model_bank_generation():
         print("\n--- Optimal Model Bank ---")
         pprint.pprint(model_bank)
 
-        # (Optional) Visualize the parameter-condition map from dummy data
-        # This part won't run now as the real param_map is internal to the function
-        # but it shows the intent.
-        flows = [p['flow'] for p in operating_space]
-        # These are the dummy params generated inside the current toolkit
-        dummy_Ks = [3600 - f * 10 for f in flows]
-        dummy_Xs = [0.1 + f / 2000 for f in flows]
+        print("\n--- Validation Stage ---")
+        inflow_series = validation_hydrograph['flow'].values
+        ground_truth_series = ground_truth_output['flow'].values
 
-        fig, ax1 = plt.subplots(figsize=(10, 6))
-        ax1.set_xlabel('Flow (m^3/s)')
-        ax1.set_ylabel('Parameter K (s)', color='tab:blue')
-        ax1.plot(flows, dummy_Ks, 'o-', color='tab:blue', label='K')
-        ax1.tick_params(axis='y', labelcolor='tab:blue')
+        # 1. Run piecewise model
+        piecewise_outflow = run_piecewise_model(inflow_series, model_bank, task['model_type'], dt)
+        piecewise_nse = calculate_nse(piecewise_outflow, ground_truth_series)
+        print(f"Piecewise Model NSE: {piecewise_nse:.4f}")
 
-        ax2 = ax1.twinx()
-        ax2.set_ylabel('Parameter X', color='tab:red')
-        ax2.plot(flows, dummy_Xs, 's--', color='tab:red', label='X')
-        ax2.tick_params(axis='y', labelcolor='tab:red')
+        # 2. Run single model with average parameters for comparison
+        avg_params = {
+            'K': np.mean([seg['parameters']['K'] for seg in model_bank]),
+            'X': np.mean([seg['parameters']['X'] for seg in model_bank])
+        }
+        print(f"\nUsing average parameters for single model: {avg_params}")
+        single_model_outflow = run_single_model(
+            inflow_series,
+            task['model_type'],
+            avg_params,
+            dt,
+            initial_inflow=inflow_series[0],
+            initial_outflow=inflow_series[0]
+        )
+        single_model_nse = calculate_nse(single_model_outflow, ground_truth_series)
+        print(f"Single Model (Avg. Params) NSE: {single_model_nse:.4f}")
 
-        plt.title('Parameter-Condition Map (from Dummy Data)')
-        fig.tight_layout()
-        plt.savefig('parameter_map.png')
-        print("\nSaved parameter map visualization to 'parameter_map.png'")
+        # 3. Plot results
+        plt.figure(figsize=(12, 7))
+        plt.plot(time, ground_truth_series, 'k-', label='Ground Truth')
+        plt.plot(time, piecewise_outflow, 'b--', label=f'Piecewise Model (NSE={piecewise_nse:.3f})')
+        plt.plot(time, single_model_outflow, 'r:', label=f'Single Model (NSE={single_model_nse:.3f})')
+        plt.plot(time, inflow_series, 'g-.', label='Inflow', alpha=0.6)
+        plt.legend()
+        plt.title('Piecewise vs. Single Model Validation')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Flow (m^3/s)')
+        plt.grid(True)
+        plt.savefig('model_validation_comparison.png')
+        print("\nSaved validation comparison plot to 'model_validation_comparison.png'")
         plt.close()
 
 

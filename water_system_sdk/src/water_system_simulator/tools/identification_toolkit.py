@@ -7,64 +7,8 @@ from typing import Dict, Any, List, Tuple, Callable
 from water_system_simulator.simulation_manager import SimulationManager, getattr_by_path, setattr_by_path
 from water_system_simulator.modeling.hydrology.routing_models import MuskingumModel
 from water_system_simulator.modeling.integral_plus_delay_model import IntegralPlusDelayModel
-
-# --- Placeholder functions for generate_model_bank ---
-
-def _calculate_nse(simulated: np.ndarray, observed: np.ndarray) -> float:
-    """Calculates the Nash-Sutcliffe Efficiency."""
-    if len(simulated) != len(observed):
-        raise ValueError("Simulated and observed arrays must have the same length.")
-    if np.var(observed) == 0:
-        return -np.inf # Or handle as an error, as NSE is undefined.
-    return 1 - (np.sum((simulated - observed)**2) / np.sum((observed - np.mean(observed))**2))
-
-def _simulate_piecewise_model(segments: list, validation_hydrograph: pd.DataFrame) -> pd.DataFrame:
-    """
-    A placeholder function to simulate the response of a piecewise model.
-    In a real implementation, this would use a Piecewise...Model class.
-    """
-    # This is a dummy implementation.
-    # It just returns a slightly modified version of the input hydrograph.
-    simulated_output = validation_hydrograph['flow'].values * 0.95
-    return pd.DataFrame({'time': validation_hydrograph['time'], 'flow': simulated_output})
-
-
-# --- Helper functions for model fitting ---
-
-def _muskingum_response(t: np.ndarray, K: float, x: float, I0: float, I1: float, O0: float, dt: float) -> np.ndarray:
-    """
-    Simulates the Muskingum model response to a step input.
-    """
-    # This is a simplified numerical solution for fitting purposes.
-    # A more accurate analytical solution would be better if available.
-    C1 = (dt - 2 * K * x) / (2 * K * (1 - x) + dt) if (2 * K * (1 - x) + dt) != 0 else 0
-    C2 = (dt + 2 * K * x) / (2 * K * (1 - x) + dt) if (2 * K * (1 - x) + dt) != 0 else 0
-    C3 = (2 * K * (1 - x) - dt) / (2 * K * (1 - x) + dt) if (2 * K * (1 - x) + dt) != 0 else 0
-
-    outflow = np.zeros_like(t)
-    O_prev = O0
-    I_prev = I0
-
-    for i in range(len(t)):
-        I_t = I1
-        O_t = C1 * I_t + C2 * I_prev + C3 * O_prev
-        outflow[i] = max(0, O_t)
-        O_prev = outflow[i]
-        I_prev = I_t
-
-    return outflow
-
-def _integral_plus_delay_response(t: np.ndarray, K: float, T: float, initial_output: float, step_input_value: float) -> np.ndarray:
-    """
-    Simulates the Integral-Plus-Delay model response to a step input.
-    """
-    output = np.full_like(t, initial_output)
-    dt = t[1] - t[0] if len(t) > 1 else 0
-    for i in range(1, len(t)):
-        time_since_step = t[i] - t[0]
-        if time_since_step >= T:
-            output[i] = output[i-1] + K * step_input_value * dt
-    return output
+from water_system_simulator.utils.metrics import calculate_nse
+from water_system_simulator.tools.simulation_helpers import run_piecewise_model, run_single_model
 
 
 def identify_at_point(base_config: dict, operating_point: dict, identification_tasks: list, dt:float = 60.0, sim_duration:float = 7200.0, step_increase_factor:float=0.1) -> dict:
@@ -103,24 +47,34 @@ def identify_at_point(base_config: dict, operating_point: dict, identification_t
 
         step_input_val = initial_input_val * (1 + step_increase_factor)
 
-        # Create a dummy response dataframe
+        # Create a dummy response dataframe. In a real scenario, this would come
+        # from running a high-fidelity model (e.g., StVenantModel).
         t_data = np.arange(0, sim_duration, dt)
         # Create a plausible-looking dummy response
         dummy_response = initial_output_val + (step_input_val - initial_input_val) * (1 - np.exp(-t_data / 3600))
-        response_df = pd.DataFrame({'time': t_data, 'output': dummy_response})
-        y_data = response_df['output'].values
+        y_data = dummy_response
 
-        # 3. Fit parameters
+        # 3. Fit parameters using the new simulation helpers
+        def muskingum_fit_func(t, K, x):
+            inflow_series = np.full_like(t, step_input_val, dtype=np.float64)
+            params = {'K': K, 'X': x}
+            return run_single_model(inflow_series, 'Muskingum', params, dt, initial_inflow=initial_input_val, initial_outflow=initial_output_val)
+
+        def integral_delay_fit_func(t, K, T):
+            inflow_series = np.full_like(t, step_input_val, dtype=np.float64)
+            params = {'K': K, 'T': T}
+            return run_single_model(inflow_series, 'IntegralDelay', params, dt, initial_inflow=initial_input_val, initial_outflow=initial_output_val)
+
         try:
             if task['model_type'] == 'Muskingum':
                 popt, _ = curve_fit(
-                    lambda t, K, x: _muskingum_response(t, K, x, initial_input_val, step_input_val, initial_output_val, dt),
+                    muskingum_fit_func,
                     t_data, y_data, p0=[3600, 0.2], bounds=([0, 0], [np.inf, 0.5])
                 )
                 results[task_key] = {"K": popt[0], "X": popt[1]}
             elif task['model_type'] == 'IntegralDelay':
                  popt, _ = curve_fit(
-                    lambda t, K, T: _integral_plus_delay_response(t, K, T, initial_output_val, step_input_val - initial_input_val),
+                    integral_delay_fit_func,
                     t_data, y_data, p0=[0.01, 300], bounds=([0, 0], [np.inf, sim_duration])
                 )
                  results[task_key] = {"K": popt[0], "T": popt[1]}
@@ -180,8 +134,20 @@ def generate_model_bank(base_config: dict, operating_space: list, task: dict, va
     iter_count = 0
 
     while current_nse < target_accuracy and iter_count < max_iter:
-        sim_out_df = _simulate_piecewise_model(segments, validation_hydrograph)
-        current_nse = _calculate_nse(sim_out_df['flow'].values, ground_truth_output['flow'].values)
+        # Create a temporary model bank in the format expected by the simulation helper
+        temp_model_bank = [
+            {
+                'max_value': seg['range_end'],
+                'parameters': seg['params']
+            }
+            for seg in segments
+        ]
+
+        inflow_series = validation_hydrograph['flow'].values
+        dt = validation_hydrograph['time'].values[1] - validation_hydrograph['time'].values[0] if len(validation_hydrograph['time'].values) > 1 else 1.0
+        sim_out_flow = run_piecewise_model(inflow_series, temp_model_bank, task['model_type'], dt)
+        sim_out_df = pd.DataFrame({'time': validation_hydrograph['time'], 'flow': sim_out_flow})
+        current_nse = calculate_nse(sim_out_df['flow'].values, ground_truth_output['flow'].values)
 
         if current_nse >= target_accuracy:
             break
