@@ -1,5 +1,5 @@
 import collections
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from ..modeling.base_model import BaseModel
 from ..core.datastructures import State, Input
 
@@ -11,15 +11,18 @@ class IntegralPlusDelayState(State):
 
 @dataclass
 class IntegralPlusDelayInput(Input):
-    inflow: float
+    """Input structure for the model, separating base inflow from control action."""
+    inflow: float = 0.0
+    control_inflow: float = 0.0
 
 
 class IntegralPlusDelayModel(BaseModel):
     """
     A first-order inertial model with a time delay.
     This model represents a system where the rate of change of the output
-    is proportional to the delayed input.
-    Equation: dy/dt = K * u(t-T)
+    is proportional to the delayed total input.
+    Equation: dy/dt = K * u_total(t-T)
+    where u_total = inflow + control_inflow
     """
 
     def __init__(self, K: float, T: float, dt: float, initial_value: float = 0.0, **kwargs):
@@ -42,14 +45,11 @@ class IntegralPlusDelayModel(BaseModel):
         self.T = T
         self.dt = dt
 
-        # Calculate the number of time steps for the delay
         self.delay_steps = int(round(T / dt))
-
-        # Use a deque as a simple and efficient FIFO buffer for the input signal
+        # Initial total inflow is based on the initial_value passed
         self.input_buffer: collections.deque = collections.deque([initial_value] * self.delay_steps, maxlen=self.delay_steps)
 
-        self.input: IntegralPlusDelayInput = IntegralPlusDelayInput(inflow=initial_value)
-        # The state holds the integrated output value
+        self.input: IntegralPlusDelayInput = IntegralPlusDelayInput()
         self.state: IntegralPlusDelayState = IntegralPlusDelayState(output=initial_value)
         self.output = self.state.output
 
@@ -57,18 +57,14 @@ class IntegralPlusDelayModel(BaseModel):
         """
         Processes one time step of the model.
         """
-        # Get the delayed input by taking the oldest value from the buffer
+        total_inflow = self.input.inflow + self.input.control_inflow
+
         if self.delay_steps > 0:
             delayed_input = self.input_buffer.popleft()
+            self.input_buffer.append(total_inflow)
         else:
-            delayed_input = self.input.inflow
+            delayed_input = total_inflow
 
-        # Add the current input to the end of the buffer
-        if self.delay_steps > 0:
-            self.input_buffer.append(self.input.inflow)
-
-        # Integrate using the delayed input
-        # y(t) = y(t-dt) + K * u(t-T) * dt
         new_output = self.state.output + self.K * delayed_input * self.dt
 
         self.state.output = new_output
