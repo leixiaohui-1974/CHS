@@ -15,6 +15,10 @@
             <span>Edge Devices</span>
           </router-link>
         </a-menu-item>
+        <a-menu-item key="99" @click="handleLogout">
+          <logout-outlined />
+          <span>Logout</span>
+        </a-menu-item>
       </a-menu>
     </a-layout-sider>
     <a-layout>
@@ -26,12 +30,23 @@
 </template>
 <script setup>
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   PieChartOutlined,
   DesktopOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons-vue';
+import { useAuthStore } from '../store/authStore';
+
 const collapsed = ref(false);
 const selectedKeys = ref(['1']);
+const authStore = useAuthStore();
+const router = useRouter();
+
+const handleLogout = () => {
+  authStore.logout();
+  router.push('/login');
+};
 </script>
 <style scoped>
 .logo {
