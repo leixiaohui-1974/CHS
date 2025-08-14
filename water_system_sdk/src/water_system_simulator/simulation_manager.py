@@ -2,7 +2,9 @@ import pandas as pd
 import numpy as np
 import importlib
 import functools
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
+
+from water_system_simulator.core.simulation_modes import SimulationMode
 
 # --- Helper functions for attribute access ---
 
@@ -68,9 +70,16 @@ class ComponentRegistry:
         "DemandAgent": "water_system_simulator.disturbances.agents.DemandAgent",
         "PriceAgent": "water_system_simulator.disturbances.agents.PriceAgent",
         "FaultAgent": "water_system_simulator.disturbances.agents.FaultAgent",
-        # Entities
-        "RiverEntity": "water_system_simulator.modeling.river_entity.RiverEntity",
-        # Models
+        # --- Entities ---
+        "BasePhysicalEntity": "water_system_simulator.modeling.base_physical_entity.BasePhysicalEntity",
+        "ChannelEntity": "water_system_simulator.modeling.entities.channel_entity.ChannelEntity",
+
+        # --- Models ---
+        # Hydrodynamic Models
+        "SteadyChannelModel": "water_system_simulator.modeling.hydrodynamics.channel_models.SteadyChannelModel",
+        "StVenantModel": "water_system_simulator.modeling.hydrodynamics.channel_models.StVenantModel",
+
+        # Storage / Routing Models
         "ReservoirModel": "water_system_simulator.modeling.storage_models.ReservoirModel",
         "MuskingumChannelModel": "water_system_simulator.modeling.storage_models.MuskingumChannelModel",
         "FirstOrderInertiaModel": "water_system_simulator.modeling.storage_models.FirstOrderInertiaModel",
@@ -135,12 +144,14 @@ class SimulationManager:
         datasets (Dict[str, Any]): A dictionary to hold any datasets loaded
             during preprocessing, for access by components during the simulation.
     """
-    def __init__(self) -> None:
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initializes the simulation manager."""
         self.components: Dict[str, Any] = {}
         self.config: Dict[str, Any] = {}
         self.datasets: Dict[str, Any] = {}
         self._current_t: float = 0.0
+        if config:
+            self.load_config(config)
 
     @property
     def t(self) -> float:
@@ -154,6 +165,15 @@ class SimulationManager:
         strategy_class = ComponentRegistry.get_class(strategy_type)
         return strategy_class(**strategy_params)
 
+    def _create_model_instance(self, model_config: Optional[Dict[str, Any]]):
+        """Creates a model instance from its configuration dictionary."""
+        if not model_config:
+            return None
+        model_type = model_config["type"]
+        model_params = model_config.get("properties", {}) # Use 'properties' to match YAML
+        model_class = ComponentRegistry.get_class(model_type)
+        return model_class(**model_params)
+
     def _build_system(self):
         """Constructs the system of components from the configuration."""
         if "components" not in self.config:
@@ -162,10 +182,32 @@ class SimulationManager:
         component_configs = self.config["components"]
         for name, comp_info in component_configs.items():
             comp_type = comp_info["type"]
-            params = comp_info.get("params", {})
+            params = comp_info.get("properties", {}) # Use 'properties' to match YAML
 
-            # Check if this component is a physical entity with a model bank
-            if "dynamic_model_bank" in comp_info:
+            # New check for multi-fidelity physical entities
+            is_physical_entity = any(k in comp_info for k in ["steady_model", "dynamic_model", "precision_model"])
+
+            if is_physical_entity:
+                entity_class = ComponentRegistry.get_class(comp_type)
+
+                # Instantiate the three models
+                steady_model = self._create_model_instance(comp_info.get("steady_model"))
+                dynamic_model = self._create_model_instance(comp_info.get("dynamic_model"))
+                precision_model = self._create_model_instance(comp_info.get("precision_model"))
+
+                # Entity-level params are those not related to model definitions
+                entity_params = params.copy()
+                entity_params['name'] = name
+
+                self.components[name] = entity_class(
+                    steady_model=steady_model,
+                    dynamic_model=dynamic_model,
+                    precision_model=precision_model,
+                    **entity_params
+                )
+
+            # Check for legacy physical entity with a model bank
+            elif "dynamic_model_bank" in comp_info:
                 entity_class = ComponentRegistry.get_class(comp_type)
                 # Pass entity-level params, but exclude model bank config
                 entity_params = {k: v for k, v in comp_info.items() if k not in ["type", "dynamic_model_bank", "initial_active_model"]}
@@ -222,11 +264,17 @@ class SimulationManager:
                 component_class = ComponentRegistry.get_class(comp_type)
                 self.components[name] = component_class(**params)
 
-    def _execute_step(self, instruction: Any, t: float, dt: float):
+    def _execute_step(self, instruction: Any, t: float, dt: float, simulation_mode: SimulationMode):
         """Executes a single instruction from the execution_order."""
         if isinstance(instruction, str):
             # It's a simple component name, call the standard step method
-            self.components[instruction].step(dt=dt, t=t)
+            component = self.components[instruction]
+            # Pass simulation_mode to entities, otherwise call standard step
+            if isinstance(component, ComponentRegistry.get_class("BasePhysicalEntity")):
+                 component.step(simulation_mode=simulation_mode, dt=dt, t=t)
+            else:
+                 component.step(dt=dt, t=t)
+
         elif isinstance(instruction, dict):
             # It's a detailed instruction for a method call
             comp_name = instruction["component"]
@@ -234,6 +282,11 @@ class SimulationManager:
 
             # Prepare arguments for the method call
             args = {}
+            # Add simulation_mode to args if the method is 'step' and the component is an entity
+            component = self.components[comp_name]
+            if method_name == 'step' and isinstance(component, ComponentRegistry.get_class("BasePhysicalEntity")):
+                args['simulation_mode'] = simulation_mode
+
             for arg_name, source_path in instruction.get("args", {}).items():
                 if source_path == "simulation.dt":
                     args[arg_name] = dt
@@ -250,8 +303,7 @@ class SimulationManager:
                     else:
                         args[arg_name] = source_path
 
-            # Get the component and its method
-            component = self.components[comp_name]
+            # Get the method
             method = getattr(component, method_name)
 
             # Call the method
@@ -350,29 +402,49 @@ class SimulationManager:
                         print(f"Warning: Could not set parameter for target '{target_path}'. Error: {e}")
                         continue
 
-    def run(self, config: Dict[str, Any]) -> pd.DataFrame:
-        """Runs a complete simulation based on a configuration dictionary.
+    def load_config(self, config: Dict[str, Any]):
+        """Loads a configuration and builds the system."""
+        # Reset state for the new run
+        self.config = self._preprocess_config(config)
+        self.datasets = self.config.get("datasets", {})
+        self.components = {}
+        self._build_system()
 
-        This is the main public method of the SimulationManager. It takes a
-        detailed configuration dictionary, builds the system, runs the
-        simulation loop for the specified duration, and logs the requested
-        variables at each time step.
+    def _preprocess_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """Pre-processes the raw config to a standard format."""
+        # This handles the case where 'components' is a list from YAML
+        if isinstance(config.get("components"), list):
+            processed_config = config.copy()
+            components_dict = {comp['name']: comp for comp in config['components']}
+            processed_config['components'] = components_dict
+            return processed_config
+        return config
+
+    def run(self, mode: str = "DYNAMIC", **kwargs) -> pd.DataFrame:
+        """Runs a complete simulation based on the loaded configuration.
+
+        This is the main public method of the SimulationManager. It uses the
+        pre-loaded configuration, runs the simulation loop for the specified
+        duration, and logs the requested variables at each time step.
 
         Args:
-            config: A dictionary defining the entire simulation setup.
-                It should contain keys such as 'components', 'connections',
-                'simulation_params', 'execution_order', and 'logger_config'.
+            mode: The simulation fidelity mode to run in. Can be "STEADY",
+                  "DYNAMIC", or "PRECISION". Defaults to "DYNAMIC".
+            **kwargs: Can override simulation_params like 'total_time' and 'dt'.
 
         Returns:
             A pandas DataFrame where each row represents a time step and
             each column represents a logged variable. The DataFrame includes
             a 'time' column indicating the simulation time for each row.
         """
-        # Reset state for the new run
-        self.config = config
-        self.datasets = config.get("datasets", {})
-        self.components = {}
-        self._build_system()
+        if not self.config:
+            raise RuntimeError("Configuration must be loaded via constructor or load_config() before running.")
+
+        # Set simulation mode
+        try:
+            simulation_mode = SimulationMode[mode.upper()]
+        except KeyError:
+            raise ValueError(f"Invalid simulation mode '{mode}'. Must be one of 'STEADY', 'DYNAMIC', 'PRECISION'.")
 
         # --- Preprocessing Step ---
         preprocessing_order = self.config.get("preprocessing", [])
@@ -386,8 +458,8 @@ class SimulationManager:
 
         # --- Simulation Loop ---
         sim_params = self.config.get("simulation_params", {})
-        total_time = sim_params.get("total_time", 100)
-        dt = sim_params.get("dt", 1.0)
+        total_time = kwargs.get('total_time', sim_params.get("total_time", 100))
+        dt = kwargs.get('dt', sim_params.get("dt", 1.0))
 
         connections = self.config.get("connections", [])
         execution_order = self.config.get("execution_order", [])
@@ -398,7 +470,13 @@ class SimulationManager:
 
         history = []
 
-        for t in np.arange(0, total_time, dt):
+        # For STEADY mode, we only run one step (t=0)
+        if simulation_mode == SimulationMode.STEADY:
+            time_steps = [0.0]
+        else:
+            time_steps = np.arange(0, total_time, dt)
+
+        for t in time_steps:
             # 1. Check and execute events
             self._check_and_execute_events(t)
 
@@ -411,7 +489,7 @@ class SimulationManager:
 
             # 3. Execute components based on the new expressive execution order
             for instruction in execution_order:
-                self._execute_step(instruction, t=t, dt=dt)
+                self._execute_step(instruction, t=t, dt=dt, simulation_mode=simulation_mode)
 
             # 4. Log data for this time step
             step_log = {"time": t}

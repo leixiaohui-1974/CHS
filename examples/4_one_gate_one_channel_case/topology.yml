@@ -4,17 +4,33 @@
 components:
   - name: inflow_to_channel
     type: Disturbance
+    properties:
+      signal_type: "constant"
+      value: 10.0
 
   - name: channel
-    type: MuskingumChannelModel
-    properties:
-      K: 5.0
-      x: 0.1 # Corrected for stability
-      dt: 1.0
-      initial_inflow: 10.0
-      initial_outflow: 10.0
-    connections:
-      inflow: inflow_to_channel.output
+    type: ChannelEntity
+    properties: {} # No entity-level properties for now
+
+    # Define the three fidelity models for the channel
+    steady_model:
+      type: SteadyChannelModel
+      properties: {} # No params for the placeholder
+
+    dynamic_model:
+      type: MuskingumChannelModel
+      properties:
+        K: 5.0
+        x: 0.1 # Corrected for stability
+        dt: 1.0
+        initial_inflow: 10.0
+        initial_outflow: 10.0
+      connections:
+        inflow: inflow_to_channel.output
+
+    precision_model:
+      type: StVenantModel
+      properties: {} # No params for the placeholder
 
   - name: pid_controller
     type: PIDController
