@@ -72,24 +72,31 @@ class BaseActuator(BaseModel):
 
 class LevelSensor(BaseSensor):
     """
-    A sensor that measures water level. It can use a DataProcessingPipeline
-    to simulate real-world sensor characteristics like noise and smoothing.
+    A sensor that measures water level. It can add simple noise and/or use a
+    more complex DataProcessingPipeline to simulate real-world sensor
+    characteristics.
     """
-    def __init__(self, pipeline: DataProcessingPipeline = None, **kwargs):
+    def __init__(self, pipeline: DataProcessingPipeline = None, noise_std_dev: float = 0.0, **kwargs):
         super().__init__(**kwargs)
         self.data_pipeline = pipeline
+        self.noise_std_dev = noise_std_dev
 
     def measure(self, true_value: float) -> float:
         """
-        Processes the true value through the data pipeline to get a measured value.
-        If no pipeline is provided, it returns the true value.
+        Measures the true value, adds noise if configured, and then processes
+        it through the data pipeline if one is provided.
         """
+        # 1. Add simple noise if configured
+        measured_value = true_value + np.random.normal(0, self.noise_std_dev)
+
+        # 2. Process through the pipeline if it exists
         if self.data_pipeline:
             # The pipeline expects a dictionary.
-            processed_data = self.data_pipeline.process({'value': true_value})
+            processed_data = self.data_pipeline.process({'value': measured_value})
             # The pipeline returns a dictionary. We expect a key 'value'.
-            return processed_data.get('value', true_value)
-        return true_value
+            measured_value = processed_data.get('value', measured_value)
+
+        return measured_value
 
 
 class GateActuator(BaseActuator):
