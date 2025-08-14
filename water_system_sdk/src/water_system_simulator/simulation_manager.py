@@ -116,6 +116,16 @@ class ComponentRegistry:
         # Instruments
         "LevelSensor": "water_system_simulator.modeling.instrument_models.LevelSensor",
         "GateActuator": "water_system_simulator.modeling.instrument_models.GateActuator",
+
+        # --- Data Processing ---
+        "DataSmoother": "water_system_simulator.data_processing.processors.DataSmoother",
+        "DataFusionEngine": "water_system_simulator.data_processing.processors.DataFusionEngine",
+        "OutlierRemover": "water_system_simulator.data_processing.processors.OutlierRemover",
+
+        # --- Custom Agents ---
+        "SensorClusterAgent": "water_system_simulator.modeling.sensor_cluster_agent.SensorClusterAgent",
+        "PumpStationAgent": "water_system_simulator.modeling.pump_station_agent.PumpStationAgent",
+        "CentralDataFusionAgent": "water_system_simulator.modeling.central_data_fusion_agent.CentralDataFusionAgent",
     }
 
     @classmethod
@@ -174,6 +184,20 @@ class SimulationManager:
         strategy_params = strategy_info.get("params", {})
         strategy_class = ComponentRegistry.get_class(strategy_type)
         return strategy_class(**strategy_params)
+
+    def _create_pipeline(self, pipeline_config: dict):
+        """Creates a DataProcessingPipeline from its configuration."""
+        from water_system_simulator.data_processing.pipeline import DataProcessingPipeline
+
+        processor_instances = []
+        processor_configs = pipeline_config.get("processors", [])
+        for proc_config in processor_configs:
+            proc_type = proc_config["type"]
+            proc_params = proc_config.get("params", {})
+            proc_class = ComponentRegistry.get_class(proc_type)
+            processor_instances.append(proc_class(**proc_params))
+
+        return DataProcessingPipeline(processors=processor_instances)
 
     def _create_model_instance(self, model_config: Optional[Dict[str, Any]]):
         """Creates a model instance from its configuration dictionary."""
@@ -271,6 +295,14 @@ class SimulationManager:
                 )
             else:
                 # Default behavior for all other components
+
+                # Check if there is a pipeline to build and inject
+                if "pipeline" in params:
+                    pipeline_config = params.pop("pipeline")
+                    pipeline_instance = self._create_pipeline(pipeline_config)
+                    # Add the created pipeline instance to the component's constructor args
+                    params["pipeline"] = pipeline_instance
+
                 component_class = ComponentRegistry.get_class(comp_type)
                 self.components[name] = component_class(**params)
 
