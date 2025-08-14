@@ -4,4 +4,3 @@ src/water_system_simulator_sdk.egg-info/SOURCES.txt
 src/water_system_simulator_sdk.egg-info/dependency_links.txt
 src/water_system_simulator_sdk.egg-info/requires.txt
 src/water_system_simulator_sdk.egg-info/top_level.txt
-tests/test_new_models.py

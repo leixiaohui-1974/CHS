@@ -36,5 +36,5 @@ testpaths = [
     "tests",
 ]
 pythonpath = [
-    "src",
+    "water_system_sdk/src",
 ]
