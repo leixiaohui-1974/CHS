@@ -6,6 +6,14 @@ from water_system_sdk.src.water_system_simulator.agent.control_agent import Cont
 from water_system_sdk.src.water_system_simulator.agent.dispatch_agent import DispatchAgent
 from water_system_sdk.src.chs_sdk.agents.message import Message, MacroCommandMessage
 from water_system_sdk.src.water_system_simulator.modeling.base_model import BaseModel
+from chs_sdk.agents.message_bus import InMemoryMessageBus as MessageBus
+
+
+class MockKernel:
+    def __init__(self, time_step=1.0):
+        self.message_bus = MessageBus()
+        self.current_time = 0
+        self.time_step = time_step
 
 class MockModel(BaseModel):
     def __init__(self, **kwargs):
@@ -23,6 +31,9 @@ class MockModel(BaseModel):
         return -y + kwargs.get("input", 0)
 
 class TestNewAgentsV3(unittest.TestCase):
+
+    def setUp(self):
+        self.kernel = MockKernel()
 
     def test_perception_agent_offline_id(self):
         import pandas as pd
@@ -75,13 +86,13 @@ class TestNewAgentsV3(unittest.TestCase):
         self.assertEqual(ca.algorithm.Kp, 1)
 
     def test_dispatch_agent_command_generation(self):
-        da = DispatchAgent(name="test_dispatch", control_agents=["pump1", "valve2"])
+        da = DispatchAgent(agent_id="test_dispatch", kernel=self.kernel, control_agents=["pump1", "valve2"])
         commands = da.run_long_term_optimization()
         self.assertEqual(len(commands), 2)
         self.assertEqual(type(commands[0]["command"]).__name__, 'MacroCommandMessage')
 
     def test_dispatch_agent_emergency_response(self):
-        da = DispatchAgent(name="test_dispatch")
+        da = DispatchAgent(agent_id="test_dispatch", kernel=self.kernel)
         commands = da.trigger_emergency_response({"alarm": "high_pressure"})
         self.assertEqual(len(commands), 1)
         self.assertEqual(commands[0]["command"].strategy, "immediate")
@@ -92,7 +103,7 @@ class TestNewAgentsV3(unittest.TestCase):
         A real test would involve a SimulationManager and a message bus.
         """
         # 1. Dispatcher sends a command
-        dispatch = DispatchAgent(name="dispatch", control_agents=["control"])
+        dispatch = DispatchAgent(agent_id="dispatch", kernel=self.kernel, control_agents=["control"])
         macro_commands = dispatch.run_long_term_optimization()
 
         # 2. Control agent receives the command
