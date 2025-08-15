@@ -5,6 +5,8 @@ from water_system_simulator.modeling.storage_models import ReservoirModel
 from water_system_simulator.modeling.control_structure_models import GateModel, PumpStationModel, HydropowerStationModel
 from water_system_simulator.modeling.pipeline_model import PipelineModel
 from water_system_simulator.modeling.hydrodynamics.routing_models import MuskingumModel
+from water_system_simulator.modeling.st_venant_model import StVenantModel
+from water_system_simulator.hydrodynamics.node import InflowBoundary, LevelBoundary
 
 try:
     # Use a full path import to be robust
@@ -446,42 +448,57 @@ class PipeAgent(BaseAgent):
             self.outlet_pressure = message.payload.get("pressure", 0.0)
 
 
-class ChannelAgent(BaseAgent):
+class RiverAgent(BaseAgent):
     """
-    An agent that represents a river or channel reach, using a routing model.
+    An agent that represents a river system with one or more reaches,
+    simulated using the 1D St. Venant equations for hydrodynamics.
+    This agent is capable of simulating complex effects like backwater curves.
     """
-    def __init__(self, agent_id, kernel, K, x, initial_outflow,
-                 inflow_topic, state_topic, **kwargs):
+    def __init__(self, agent_id, kernel, nodes_data, reaches_data, state_topic,
+                 boundary_topics, solver_params=None, **kwargs):
         super().__init__(agent_id, kernel, **kwargs)
-        time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
-        self.model = MuskingumModel(
-            K=K,
-            x=x,
-            dt=time_step,
-            initial_outflow=initial_outflow
+
+        self.model = StVenantModel(
+            nodes_data=nodes_data,
+            reaches_data=reaches_data,
+            solver_params=solver_params
         )
-        self.inflow_topic = inflow_topic
+
         self.state_topic = state_topic
-        self.current_inflow = initial_outflow
+        self.boundary_topics = boundary_topics  # e.g., {"us_inflow": "topic1", "ds_level": "topic2"}
 
     def setup(self):
         """
-        Subscribe to the necessary topics for channel simulation.
+        Subscribe to topics that provide boundary conditions for the river model.
         """
-        self.kernel.message_bus.subscribe(self, self.inflow_topic)
+        for topic in self.boundary_topics.values():
+            self.kernel.message_bus.subscribe(self, topic)
 
     def execute(self, current_time: float):
         """
-        Runs one step of the channel routing simulation.
+        Runs one step of the hydrodynamic simulation using the St. Venant solver.
         """
-        self.model.step(self.current_inflow)
+        time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
+        self.model.step(dt=time_step)
+
+        # Publish the full state of the network (all nodes and reaches)
         self._publish(self.state_topic, self.model.get_state())
 
     def on_message(self, message: Message):
         """
-        Handles incoming messages to update the channel's inflow.
+        Handles incoming messages to update the boundary conditions of the model,
+        such as upstream inflow or downstream water level.
         """
-        if message.topic == self.inflow_topic:
-            # The inflow can come from various sources (e.g., gate, another channel)
-            # We look for 'flow' or 'output' keys in the payload.
-            self.current_inflow = message.payload.get("flow", message.payload.get("output", 0.0))
+        for node_name, topic in self.boundary_topics.items():
+            if message.topic == topic:
+                node = self.model.network.get_node(node_name)
+                if node:
+                    # The payload is expected to have a "value" key.
+                    value = message.payload.get("value")
+                    if value is None:
+                        return
+
+                    if isinstance(node, InflowBoundary):
+                        node.inflow = value
+                    elif isinstance(node, LevelBoundary):
+                        node.level = value
