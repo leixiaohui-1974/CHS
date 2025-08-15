@@ -1,0 +1,18 @@
+# scenarios/case_kernel_fault_tolerance/config.yaml
+simulation_settings:
+  duration: 6 # 确保有足够的时间让故障发生
+  time_step: 1.0
+
+agent_society:
+  - id: dummy_agent_1
+    class: scenarios.case_kernel_fault_tolerance.agents.DummyAgent
+    params: {}
+
+  - id: faulty_agent_1
+    class: scenarios.case_kernel_fault_tolerance.agents.FaultyAgent
+    params:
+      fail_at_tick: 4 # 让这个智能体在第4次执行时失败
+
+  - id: dummy_agent_2
+    class: scenarios.case_kernel_fault_tolerance.agents.DummyAgent
+    params: {}
