@@ -1,28 +1,58 @@
 import pandas as pd
-from .base import BaseAgent, Message
+from .base_agent import BaseAgent
+from .message import Message
 
 
 class FileAdapterAgent(BaseAgent):
     """
-    An agent that reads data from a CSV file and publishes it to the message bus.
+    An agent that reads data from a CSV file and publishes it to the message bus
+    at each time step. Conforms to the new AgentKernel architecture.
     """
-    def __init__(self, agent_id, message_bus, file_path, topic, time_column, value_column):
-        super().__init__(agent_id, message_bus)
-        self.file_path = file_path
-        self.topic = topic
-        self.time_column = time_column
-        self.value_column = value_column
-        self.data = pd.read_csv(file_path)
+    def __init__(self, agent_id, kernel, **config):
+        super().__init__(agent_id, kernel, **config)
+        self.filepath = self.config.get("filepath")
+        self.topic_template = self.config.get("topic_template")
+        self.payload_columns = self.config.get("payload_columns", [])
+        self.rename_map = self.config.get("rename_map", {})
+
+        if not self.filepath or not self.topic_template:
+            raise ValueError("FileAdapterAgent requires 'filepath' and 'topic_template' in config.")
+
+        try:
+            self.data = pd.read_csv(self.filepath)
+        except FileNotFoundError:
+            print(f"Error: Data file not found at {self.filepath}")
+            self.data = pd.DataFrame()
+
         self.current_index = 0
 
-    def execute(self, dt=1.0):
+    def setup(self):
         """
-        Publishes the next value from the CSV file.
+        No specific setup required for this agent.
+        """
+        print(f"FileAdapterAgent '{self.agent_id}' initialized. Reading from {self.filepath}")
+
+    def execute(self, current_time: float):
+        """
+        Publishes the next row from the CSV file if the simulation time corresponds.
+        This simplified version assumes one row per time step.
         """
         if self.current_index < len(self.data):
             row = self.data.iloc[self.current_index]
-            value = row[self.value_column]
-            self.publish(self.topic, {"value": value})
+
+            payload = {}
+            # Construct payload from specified columns
+            for col_name in self.payload_columns:
+                if col_name in self.data.columns:
+                    # Rename the key in the payload if a map is provided
+                    payload_key = self.rename_map.get(col_name, col_name)
+                    # Ensure value is a native Python type for serialization
+                    payload[payload_key] = row[col_name].item()
+
+            if payload:
+                # The topic is static in this implementation, based on the template.
+                self._publish(self.topic_template, payload)
+
             self.current_index += 1
 
     def on_message(self, message: Message):
