@@ -46,12 +46,15 @@ class TankAgent(BaseAgent):
         """
         Subscribe to the necessary topics for control and data assimilation.
         """
-        for topic in self.config.get("subscribes_to", []):
+        # Let's prioritize the explicit subscriptions
+        subscribed_topics = self.config.get("subscribes_to", [])
+        if not subscribed_topics and self.filter:
+            # If no subscriptions are provided, default to the conventional topic
+            subscribed_topics.append(f"measurement.level.{self.agent_id}")
+
+        for topic in subscribed_topics:
             self.kernel.message_bus.subscribe(self, topic)
-        if self.filter:
-            measurement_topic = f"measurement/level/{self.agent_id}"
-            self.kernel.message_bus.subscribe(self, measurement_topic)
-            print(f"TankAgent {self.agent_id} subscribed to {measurement_topic}")
+            print(f"TankAgent {self.agent_id} subscribed to {topic}")
 
     def execute(self, current_time: float):
         """
@@ -89,7 +92,9 @@ class TankAgent(BaseAgent):
         topic = message.topic
         payload = message.payload
 
-        if self.filter and topic.startswith("measurement/"):
+        # The measurement topic can be customized now, so we check against the subscribed topics
+        measurement_topics = self.config.get("subscribes_to", [])
+        if self.filter and topic in measurement_topics:
             if isinstance(payload, dict):
                 measurement_value = payload.get('value')
                 if measurement_value is not None:
