@@ -9,3 +9,4 @@ numba
 PyYAML
 meshio
 pytest
+loguru

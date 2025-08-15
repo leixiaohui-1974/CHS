@@ -23,7 +23,9 @@ dependencies = [
     "matplotlib",
     "pyyaml",
     "meshio",
-    "numba"
+    "numba",
+    "loguru",
+    "pydantic"
 ]
 
 [project.optional-dependencies]
