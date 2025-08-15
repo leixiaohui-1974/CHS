@@ -154,6 +154,37 @@ class MotherMachine:
         # 5. Generate the final agent configuration
         return self.generate_config("identified_body_agent", config_params)
 
+    def design_optimal_controller(self, system_model: Dict[str, Any], optimization_objective: str,
+                                  parameter_bounds: list, initial_guess: list) -> Dict[str, Any]:
+        """
+        Designs an optimal PID controller by running the control tuning workflow.
+
+        Args:
+            system_model: The system the controller will be designed for.
+            optimization_objective: The metric to optimize (e.g., 'ISE').
+            parameter_bounds: Bounds for each parameter.
+            initial_guess: Initial guess for the parameters [Kp, Ki, Kd].
+
+        Returns:
+            A dictionary containing the optimal PID parameters.
+        """
+        # 1. Prepare context for the Control Tuning workflow
+        context = {
+            "system_model": system_model,
+            "optimization_objective": optimization_objective,
+            "parameter_bounds": parameter_bounds,
+            "initial_guess": initial_guess,
+        }
+
+        # 2. Run the workflow to get optimal controller parameters
+        result = self.run_workflow("control_tuning_workflow", context)
+
+        # 3. Clean up the result for direct use
+        # The optimizer returns numpy types, which we convert to standard floats.
+        optimal_params = {k: float(v) for k, v in result["optimal_params"].items()}
+
+        return optimal_params
+
 
 # Example usage (can be run for testing)
 if __name__ == '__main__':
