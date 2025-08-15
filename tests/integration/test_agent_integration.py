@@ -54,23 +54,24 @@ class TestAgentIntegration(unittest.TestCase):
             agent_id="inflow_1",
             kernel=mock_kernel,
             rainfall_pattern=inflow_pattern,
-            topic="tank/tank_1/inflow"
+            topic="data.inflow/tank_1"
         )
 
         tank_agent = TankAgent(
             agent_id="tank_1",
             kernel=mock_kernel,
             area=1000,
-            initial_level=5.0
+            initial_level=5.0,
+            subscribes_to=["data.inflow/tank_1"]
         )
         # The tank's state (level) is published to this topic
         pid_agent = PIDAgent(
             agent_id="pid_1",
             kernel=mock_kernel,
-            Kp=-0.5, Ki=-0.1, Kd=-0.01,
+            Kp=0.5, Ki=0.1, Kd=0.01,
             set_point=10.0, # Target water level
-            input_topic="tank/tank_1/state",
-            output_topic="gate/gate_1/opening",
+            subscribes_to=["dummy_macro_topic", "tank/tank_1/state"],
+            publishes_to="gate/gate_1/opening",
             output_min=0,
             output_max=1
         )

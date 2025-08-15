@@ -30,11 +30,13 @@ class TestNewAgentImplementation(unittest.TestCase):
             kernel=self.mock_kernel,
             Kp=1.0, Ki=0.1, Kd=0.01,
             set_point=5.0,
-            input_topic='tank/level',
-            output_topic='valve/opening'
+            subscribes_to=['cmd/macro', 'tank/level'],
+            publishes_to='valve/opening'
         )
         pid_agent.setup()
-        self.mock_kernel.message_bus.subscribe.assert_called_once_with('tank/level', pid_agent)
+        self.assertEqual(self.mock_kernel.message_bus.subscribe.call_count, 2)
+        self.mock_kernel.message_bus.subscribe.assert_any_call(pid_agent, 'cmd/macro')
+        self.mock_kernel.message_bus.subscribe.assert_any_call(pid_agent, 'tank/level')
 
         # Simulate receiving a message and then executing
         pid_agent.current_value = 4.5
@@ -95,26 +97,27 @@ class TestNewAgentImplementation(unittest.TestCase):
         valve_agent = ValveAgent(
             agent_id='valve1',
             kernel=self.mock_kernel,
-            num_gates=1, # The model is a gate model
-            gate_width=1.0,
-            discharge_coeff=0.9,
-            upstream_topic='tank/level',
-            downstream_topic='pipe/pressure',
-            opening_topic='control/output',
-            state_topic='valve/state'
+            cv=10.0,
+            subscribes_to=['control/output']
         )
         valve_agent.setup()
 
         # Verify subscriptions
-        self.assertEqual(self.mock_kernel.message_bus.subscribe.call_count, 3)
-        self.mock_kernel.message_bus.subscribe.assert_any_call(valve_agent, 'tank/level')
+        self.mock_kernel.message_bus.subscribe.assert_called_once_with(valve_agent, 'control/output')
+
+        # Simulate receiving a message
+        valve_agent.on_message(Message(topic='control/output', sender_id='pid1', payload={'value': 0.75}))
+        self.assertEqual(valve_agent.opening, 0.75)
 
         # Verify execution and publication
         valve_agent.execute(current_time=0)
         self.mock_kernel.message_bus.publish.assert_called_once()
         args, kwargs = self.mock_kernel.message_bus.publish.call_args
         sent_message = args[0]
-        self.assertEqual(sent_message.topic, 'valve/state')
+        self.assertEqual(sent_message.topic, 'state/valve/valve1')
+        self.assertIn('opening', sent_message.payload)
+        self.assertIn('flow', sent_message.payload)
+        self.assertEqual(sent_message.payload['flow'], 7.5) # cv * opening = 10.0 * 0.75
 
     def test_mpc_agent_full_implementation(self):
         """
