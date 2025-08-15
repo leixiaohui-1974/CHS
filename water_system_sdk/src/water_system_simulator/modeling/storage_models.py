@@ -52,8 +52,10 @@ class ReservoirModel(BaseModel):
         """
         Updates the water level in the reservoir.
         """
+        print(f"Reservoir {self.name}: inflow={self.input.inflow}, release={self.input.release_outflow}, demand={self.input.demand_outflow}")
         total_outflow = self.input.release_outflow + self.input.demand_outflow
         dh = (self.input.inflow - total_outflow) / self.area * dt
+        print(f"Reservoir {self.name}: dt={dt}, dh={dh}")
         level = self.state.level + dh
 
         if level > self.max_level:

@@ -48,11 +48,9 @@ def test_ping_pong_communication():
     kernel = AgentKernel()
 
     # 2. Create and add agents
-    ping_agent = PingAgent(agent_id="ping_agent_1", kernel=kernel)
-    pong_agent = PongAgent(agent_id="pong_agent_1", kernel=kernel)
-
-    kernel.add_agent(ping_agent)
-    kernel.add_agent(pong_agent)
+    kernel.add_agent(PingAgent, agent_id="ping_agent_1")
+    kernel.add_agent(PongAgent, agent_id="pong_agent_1")
+    pong_agent = kernel._agents["pong_agent_1"]
 
     # 3. Run the simulation for a few steps
     # Duration of 2.0 with time_step 1.0 means 2 execute() calls.

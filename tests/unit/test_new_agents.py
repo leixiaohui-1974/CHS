@@ -68,9 +68,9 @@ class TestNewAgentImplementation(unittest.TestCase):
 
         # Verify it subscribed to all its input topics
         self.assertEqual(self.mock_kernel.message_bus.subscribe.call_count, 3)
-        self.mock_kernel.message_bus.subscribe.assert_any_call('tank/level', gate_agent)
-        self.mock_kernel.message_bus.subscribe.assert_any_call('channel/level', gate_agent)
-        self.mock_kernel.message_bus.subscribe.assert_any_call('pid/output', gate_agent)
+        self.mock_kernel.message_bus.subscribe.assert_any_call(gate_agent, 'tank/level')
+        self.mock_kernel.message_bus.subscribe.assert_any_call(gate_agent, 'channel/level')
+        self.mock_kernel.message_bus.subscribe.assert_any_call(gate_agent, 'pid/output')
 
         # Simulate receiving messages
         gate_agent.on_message(Message(topic='tank/level', sender_id='t1', payload={'level': 10.0}))
@@ -108,7 +108,7 @@ class TestNewAgentImplementation(unittest.TestCase):
 
         # Verify subscriptions
         self.assertEqual(self.mock_kernel.message_bus.subscribe.call_count, 3)
-        self.mock_kernel.message_bus.subscribe.assert_any_call('tank/level', valve_agent)
+        self.mock_kernel.message_bus.subscribe.assert_any_call(valve_agent, 'tank/level')
 
         # Verify execution and publication
         valve_agent.execute(current_time=0)
@@ -194,9 +194,9 @@ class TestNewAgentImplementation(unittest.TestCase):
 
         # Verify subscriptions
         self.assertEqual(self.mock_kernel.message_bus.subscribe.call_count, 3)
-        self.mock_kernel.message_bus.subscribe.assert_any_call('reservoir/level', hydro_agent)
-        self.mock_kernel.message_bus.subscribe.assert_any_call('river/level', hydro_agent)
-        self.mock_kernel.message_bus.subscribe.assert_any_call('control/vane', hydro_agent)
+        self.mock_kernel.message_bus.subscribe.assert_any_call(hydro_agent, 'reservoir/level')
+        self.mock_kernel.message_bus.subscribe.assert_any_call(hydro_agent, 'river/level')
+        self.mock_kernel.message_bus.subscribe.assert_any_call(hydro_agent, 'control/vane')
 
         # Simulate receiving messages
         hydro_agent.on_message(Message(topic='reservoir/level', sender_id='r1', payload={'level': 100.0}))
@@ -247,8 +247,8 @@ class TestNewAgentImplementation(unittest.TestCase):
 
         # Verify subscriptions
         self.assertEqual(self.mock_kernel.message_bus.subscribe.call_count, 2)
-        self.mock_kernel.message_bus.subscribe.assert_any_call('node1/pressure', pipe_agent)
-        self.mock_kernel.message_bus.subscribe.assert_any_call('node2/pressure', pipe_agent)
+        self.mock_kernel.message_bus.subscribe.assert_any_call(pipe_agent, 'node1/pressure')
+        self.mock_kernel.message_bus.subscribe.assert_any_call(pipe_agent, 'node2/pressure')
 
         # Simulate receiving messages
         pipe_agent.on_message(Message(topic='node1/pressure', sender_id='n1', payload={'pressure': 50.0}))
@@ -315,7 +315,7 @@ class TestNewAgentImplementation(unittest.TestCase):
         channel_agent.setup()
 
         # Verify subscription
-        self.mock_kernel.message_bus.subscribe.assert_called_once_with('gate/flow', channel_agent)
+        self.mock_kernel.message_bus.subscribe.assert_called_once_with(channel_agent, 'gate/flow')
 
         # Simulate receiving message
         channel_agent.on_message(Message(topic='gate/flow', sender_id='g1', payload={'flow': 20.0}))

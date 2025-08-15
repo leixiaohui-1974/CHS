@@ -7,6 +7,7 @@ class BaseModel(ABC):
     def __init__(self, **kwargs):
         # The output attribute should be initialized by all child classes.
         self.output = None
+        self.name = kwargs.get("name", "unnamed")
         super().__init__()
 
     @abstractmethod

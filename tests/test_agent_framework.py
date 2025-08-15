@@ -72,8 +72,8 @@ class TestAgentFramework(unittest.TestCase):
         Tests that the kernel correctly manages the agent lifecycle.
         """
         kernel = AgentKernel()
-        agent = MockAgent(agent_id="mock1", kernel=kernel)
-        kernel.add_agent(agent)
+        kernel.add_agent(MockAgent, agent_id="mock1")
+        agent = kernel._agents["mock1"]
 
         self.assertFalse(agent.setup_called)
         self.assertEqual(agent.execute_count, 0)
@@ -92,10 +92,10 @@ class TestAgentFramework(unittest.TestCase):
         kernel = AgentKernel()
 
         # Create and add agents
-        pinger = PingAgent(agent_id="pinger", kernel=kernel)
-        ponger = PongAgent(agent_id="ponger", kernel=kernel)
-        kernel.add_agent(pinger)
-        kernel.add_agent(ponger)
+        kernel.add_agent(PingAgent, agent_id="pinger")
+        kernel.add_agent(PongAgent, agent_id="ponger")
+        pinger = kernel._agents["pinger"]
+        ponger = kernel._agents["ponger"]
 
         # Pinger subscribes to the return topic
         kernel.message_bus.subscribe(pinger, "ping_topic")
@@ -129,11 +129,9 @@ class TestAgentFramework(unittest.TestCase):
         Tests that adding an agent with a duplicate ID raises a ValueError.
         """
         kernel = AgentKernel()
-        agent1 = MockAgent(agent_id="agent1", kernel=kernel)
-        agent2 = MockAgent(agent_id="agent1", kernel=kernel)
-        kernel.add_agent(agent1)
+        kernel.add_agent(MockAgent, agent_id="agent1")
         with self.assertRaises(ValueError):
-            kernel.add_agent(agent2)
+            kernel.add_agent(MockAgent, agent_id="agent1")
 
 if __name__ == '__main__':
     unittest.main()
