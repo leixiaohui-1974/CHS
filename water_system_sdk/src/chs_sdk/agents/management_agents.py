@@ -1,3 +1,4 @@
+from typing import List, Dict
 from ..utils.logger import log
 from .base_agent import BaseAgent
 from .message import Message
@@ -133,3 +134,52 @@ class DataLoggerAgent(BaseAgent):
         Prints the received message to the console.
         """
         print(f"[Logger] Time: {self.kernel.current_time:.2f} | Topic: {message.topic} | Sender: {message.sender_id} | Payload: {message.payload}")
+
+
+class DataCaptureAgent(BaseAgent):
+    """
+    An agent that captures messages from specified topics and stores them in memory.
+    This is intended for use in automated workflows where simulation results need
+    to be programmatically analyzed.
+    """
+    def __init__(self, agent_id: str, kernel: 'AgentKernel', **config):
+        super().__init__(agent_id, kernel, **config)
+        self.topics_to_log = config.get("topics_to_log", ["#"])  # Default to all topics
+        self.data = []
+
+    def setup(self):
+        """
+        Subscribe to the specified topics.
+        """
+        for topic in self.topics_to_log:
+            self.kernel.message_bus.subscribe(self, topic)
+        log.info(f"DataCaptureAgent '{self.agent_id}' is active and capturing topics: {self.topics_to_log}")
+
+    def execute(self, current_time: float):
+        """
+        The DataCaptureAgent is purely reactive.
+        """
+        pass
+
+    def on_message(self, message: Message):
+        """
+        Captures the received message and stores it in a list.
+        """
+        self.data.append({
+            "time": self.kernel.current_time,
+            "topic": message.topic,
+            "sender_id": message.sender_id,
+            "payload": message.payload
+        })
+
+    def get_data(self) -> List[Dict]:
+        """
+        Returns all captured data.
+        """
+        return self.data
+
+    def clear_data(self):
+        """
+        Clears all captured data from memory.
+        """
+        self.data = []
