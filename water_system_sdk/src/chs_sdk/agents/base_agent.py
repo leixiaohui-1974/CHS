@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, Optional
 
 from .agent_status import AgentStatus
 from .message import Message
+from .fsm import StateMachine, State
 
 if TYPE_CHECKING:
     from .agent_kernel import AgentKernel
@@ -11,12 +12,14 @@ if TYPE_CHECKING:
 class BaseAgent(ABC):
     """
     Abstract base class for all agents in the CHS platform.
+    Now with state machine capabilities.
     """
     def __init__(self, agent_id: str, kernel: 'AgentKernel', **config):
         self.agent_id = agent_id
         self.kernel = kernel
         self.config = config
         self.status: AgentStatus = AgentStatus.INITIALIZING
+        self.state_machine: Optional[StateMachine] = None
 
     def setup(self):
         """
@@ -25,20 +28,28 @@ class BaseAgent(ABC):
         """
         pass
 
-    @abstractmethod
     def execute(self, current_time: float):
         """
         The main execution loop for the agent.
-        This method is called by the kernel at each time step.
+        This method delegates execution to the current state of the state machine.
         """
-        pass
+        if self.state_machine:
+            self.state_machine.execute(current_time)
 
-    @abstractmethod
     def on_message(self, message: Message):
         """
         Called by the kernel when the agent receives a message.
+        The message is passed to the current state for handling.
         """
-        pass
+        if self.state_machine and hasattr(self.state_machine.current_state, 'on_message'):
+            self.state_machine.current_state.on_message(message)
+
+    def transition_to(self, state_name: str):
+        """
+        A convenience method to transition the agent's state machine to a new state.
+        """
+        if self.state_machine:
+            self.state_machine.transition_to(state_name)
 
     def shutdown(self):
         """
