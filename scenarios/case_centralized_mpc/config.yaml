@@ -1,0 +1,97 @@
+# scenarios/case_centralized_mpc/config.yaml
+
+simulation_settings:
+  duration_seconds: 3600  # Simulate for 1 hour
+  time_step: 60           # Time step of 1 minute
+
+agent_society:
+  # ==================================================
+  # 1. The Strategic Dispatch Brain (Centralized MPC)
+  # ==================================================
+  - id: central_dispatch_brain
+    class: water_system_simulator.agent.dispatch_agent.DispatchAgent
+    params:
+      mode: 'centralized_mpc'
+      # This agent makes high-level decisions for the entire system
+      # It subscribes to key system states and publishes macro commands
+      subscribes_to:
+        - data.level.tank_1
+        - data.level.tank_2
+        - data.inflow.main_river
+      publishes_to:
+        - cmd.macro.control_tank_1
+        - cmd.macro.control_tank_2
+      control_agents: ["pid_controller_1", "pid_controller_2"]
+
+  # ==================================================
+  # 2. The Tactical Execution Units (Local PID Controllers)
+  # ==================================================
+  - id: pid_controller_1
+    class: chs_sdk.agents.control_agents.PIDAgent
+    params:
+      Kp: 1.2
+      Ki: 0.1
+      Kd: 0.05
+      # This agent receives macro commands and translates them to local setpoints
+      # It subscribes to its macro command and its local measurement
+      subscribes_to:
+        - cmd.macro.control_tank_1
+        - data.level.tank_1
+      publishes_to: cmd.opening.valve_1
+
+  - id: pid_controller_2
+    class: chs_sdk.agents.control_agents.PIDAgent
+    params:
+      Kp: 1.0
+      Ki: 0.12
+      Kd: 0.04
+      subscribes_to:
+        - cmd.macro.control_tank_2
+        - data.level.tank_2
+      publishes_to: cmd.opening.valve_2
+
+  # ==================================================
+  # 3. The Digital Twin of the Physical System (Body Agents)
+  # ==================================================
+  - id: main_inflow_source
+    class: chs_sdk.agents.disturbance_agents.InflowAgent
+    params:
+      # This agent simulates the main water source for the system
+      topic: data.inflow.main_river
+      rainfall_pattern: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+
+  - id: storage_tank_1
+    class: chs_sdk.agents.body_agents.TankAgent
+    params:
+      area: 100.0
+      initial_level: 5.0
+      # This tank's level is affected by the main inflow and its outlet valve
+      subscribes_to:
+        - data.inflow.main_river
+        - state/valve/outlet_valve_1
+      publishes_to: data.level.tank_1
+
+  - id: outlet_valve_1
+    class: chs_sdk.agents.body_agents.ValveAgent
+    params:
+      cv: 0.5
+      # This valve's opening is controlled by its corresponding PID controller
+      subscribes_to:
+        - cmd.opening.valve_1
+
+  - id: storage_tank_2
+    class: chs_sdk.agents.body_agents.TankAgent
+    params:
+      area: 120.0
+      initial_level: 4.5
+      subscribes_to:
+        - data.inflow.main_river
+        - state/valve/outlet_valve_2
+      publishes_to: data.level.tank_2
+
+  - id: outlet_valve_2
+    class: chs_sdk.agents.body_agents.ValveAgent
+    params:
+      cv: 0.45
+      subscribes_to:
+        - cmd.opening.valve_2

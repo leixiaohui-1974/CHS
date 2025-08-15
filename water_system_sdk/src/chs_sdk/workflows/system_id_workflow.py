@@ -50,7 +50,7 @@ class SystemIDWorkflow(BaseWorkflow):
             )
         except RuntimeError as e:
             # Handle potential errors from the identification process
-            return {"error": str(e)}
+            return {"status": "error", "error": str(e)}
 
         # 4. Return the results
         return {

@@ -26,13 +26,39 @@ class TestNewAgentsV3(unittest.TestCase):
 
     def test_perception_agent_offline_id(self):
         import pandas as pd
+        import numpy as np
         pa = PerceptionAgent(name="test_perception")
-        mock_data = pd.DataFrame({
-            "inflow": [1, 2, 3],
-            "outflow": [0.5, 1.5, 2.5]
-        })
-        params = pa.execute_offline_identification(mock_data, strategy='Muskingum')
-        self.assertIsNotNone(params)
+
+        # Create more realistic data that allows for stable identification
+        K = 2.0
+        X = 0.2
+        dt = 1.0
+        inflow = np.full(20, 10.0)
+        outflow = np.zeros_like(inflow)
+        outflow[0] = inflow[0] # Assume steady state initially
+
+        # Manually calculate Muskingum response
+        C1 = (dt - 2 * K * X) / (2 * K * (1 - X) + dt)
+        C2 = (dt + 2 * K * X) / (2 * K * (1 - X) + dt)
+        C3 = (2 * K * (1 - X) - dt) / (2 * K * (1 - X) + dt)
+
+        for i in range(1, len(inflow)):
+            outflow[i] = C1 * inflow[i] + C2 * inflow[i-1] + C3 * outflow[i-1]
+
+        mock_data = pd.DataFrame({"inflow": inflow, "outflow": outflow})
+
+        # Use the true parameters as the initial guess to ensure convergence
+        params = pa.execute_offline_identification(
+            mock_data,
+            strategy='Muskingum',
+            initial_guess=[K, X],
+            bounds=([0, 0], [10, 0.5])
+        )
+        self.assertIsNotNone(params, "Parameter identification should return a result.")
+        self.assertIn('K', params)
+        self.assertIn('X', params)
+        self.assertAlmostEqual(params['K'], K, delta=0.1)
+        self.assertAlmostEqual(params['X'], X, delta=0.1)
 
     def test_body_agent_mode_switching(self):
         model = MockModel()

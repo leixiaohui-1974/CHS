@@ -44,12 +44,11 @@ class TankAgent(BaseAgent):
         """
         Subscribe to the necessary topics for control and data assimilation.
         """
-        self.kernel.message_bus.subscribe(f"tank/{self.agent_id}/inflow", self)
-        self.kernel.message_bus.subscribe(f"tank/{self.agent_id}/release_outflow", self)
-        self.kernel.message_bus.subscribe(f"tank/{self.agent_id}/demand_outflow", self)
+        for topic in self.config.get("subscribes_to", []):
+            self.kernel.message_bus.subscribe(self, topic)
         if self.filter:
             measurement_topic = f"measurement/level/{self.agent_id}"
-            self.kernel.message_bus.subscribe(measurement_topic, self)
+            self.kernel.message_bus.subscribe(self, measurement_topic)
             print(f"TankAgent {self.agent_id} subscribed to {measurement_topic}")
 
     def execute(self, current_time: float):
@@ -57,6 +56,8 @@ class TankAgent(BaseAgent):
         Runs one step of the reservoir simulation, applying data assimilation if enabled.
         """
         time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
+        publishes_to = self.config.get("publishes_to", f"tank/{self.agent_id}/state")
+
 
         # Run the physical model step first to get its own prediction
         self.model.step(time_step)
@@ -74,32 +75,30 @@ class TankAgent(BaseAgent):
 
             # Publish the corrected, high-fidelity state
             state_to_publish = self.model.get_state()
-            self._publish(f"tank/{self.agent_id}/state", state_to_publish)
+            self._publish(publishes_to, state_to_publish)
         else:
             # Original behavior: publish the raw model state
-            self._publish(f"tank/{self.agent_id}/state", self.model.get_state())
+            self._publish(publishes_to, self.model.get_state())
 
     def on_message(self, message: Message):
         """
         Handles incoming messages for control inputs and measurement data.
         """
-        measurement_topic = f"measurement/level/{self.agent_id}"
+        topic = message.topic
+        payload = message.payload
 
-        if self.filter and message.topic == measurement_topic:
-            payload_data = message.payload
-            if isinstance(payload_data, dict):
-                measurement_value = payload_data.get('value')
+        if self.filter and topic.startswith("measurement/"):
+            if isinstance(payload, dict):
+                measurement_value = payload.get('value')
                 if measurement_value is not None:
                     self._assimilate(measurement_value)
-            # If payload is already a MeasurementPayload object, pydantic handles it.
-            # This part is simplified assuming dict payload for now.
 
-        elif message.topic == f"tank/{self.agent_id}/inflow":
-            self.model.input.inflow = message.payload.get("value", 0)
-        elif message.topic == f"tank/{self.agent_id}/release_outflow":
-            self.model.input.release_outflow = message.payload.get("value", 0)
-        elif message.topic == f"tank/{self.agent_id}/demand_outflow":
-            self.model.input.demand_outflow = message.payload.get("value", 0)
+        elif topic.startswith("data.inflow"):
+            self.model.input.inflow = payload.get("value", 0)
+        elif topic.startswith("state/valve/"):
+            self.model.input.release_outflow = payload.get("flow", 0)
+        elif topic.startswith("demand/"):
+            self.model.input.demand_outflow = payload.get("value", 0)
 
 
 class GateAgent(BaseAgent):
@@ -127,9 +126,9 @@ class GateAgent(BaseAgent):
         """
         Subscribe to the necessary topics for gate operation.
         """
-        self.kernel.message_bus.subscribe(self.upstream_topic, self)
-        self.kernel.message_bus.subscribe(self.downstream_topic, self)
-        self.kernel.message_bus.subscribe(self.opening_topic, self)
+        self.kernel.message_bus.subscribe(self, self.upstream_topic)
+        self.kernel.message_bus.subscribe(self, self.downstream_topic)
+        self.kernel.message_bus.subscribe(self, self.opening_topic)
 
     def execute(self, current_time: float):
         """
@@ -152,51 +151,41 @@ class GateAgent(BaseAgent):
 
 class ValveAgent(BaseAgent):
     """
-    An agent that encapsulates a valve, modeled using the GateModel logic.
-    It operates on its own topics for inputs and outputs.
+    A simplified agent that encapsulates a valve.
+    Its flow is determined by a flow coefficient (cv) and an opening percentage.
     """
-    def __init__(self, agent_id, kernel, num_gates, gate_width, discharge_coeff,
-                 upstream_topic, downstream_topic, opening_topic, state_topic, **kwargs):
+    def __init__(self, agent_id, kernel, cv, subscribes_to, **kwargs):
         super().__init__(agent_id, kernel, **kwargs)
-        self.model = GateModel(
-            num_gates=num_gates,
-            gate_width=gate_width,
-            discharge_coeff=discharge_coeff
-        )
-        self.upstream_topic = upstream_topic
-        self.downstream_topic = downstream_topic
-        self.opening_topic = opening_topic
-        self.state_topic = state_topic
-
-        self.upstream_level = 0.0
-        self.downstream_level = 0.0
-        self.gate_opening = 0.0
+        self.cv = cv
+        self.opening = 0.0  # 0.0 to 1.0
+        self.flow = 0.0
+        # The agent subscribes to a topic that provides the opening command.
+        self.opening_topic = subscribes_to[0] if isinstance(subscribes_to, list) else subscribes_to
 
     def setup(self):
         """
         Subscribe to the necessary topics for valve operation.
         """
-        self.kernel.message_bus.subscribe(self.upstream_topic, self)
-        self.kernel.message_bus.subscribe(self.downstream_topic, self)
-        self.kernel.message_bus.subscribe(self.opening_topic, self)
+        self.kernel.message_bus.subscribe(self, self.opening_topic)
 
     def execute(self, current_time: float):
         """
         Runs one step of the valve simulation.
+        This is a simplified model: flow = cv * opening.
+        A more realistic model would include pressure difference.
         """
-        self.model.step(self.upstream_level, self.downstream_level, self.gate_opening)
-        self._publish(self.state_topic, self.model.get_state())
+        self.flow = self.cv * self.opening
+        # Note: A valve doesn't have a state to publish on its own.
+        # It's an actuator. Its effect is on other agents.
+        # However, we can publish its internal state for monitoring.
+        self._publish(f"state/valve/{self.agent_id}", {"opening": self.opening, "flow": self.flow})
 
     def on_message(self, message: Message):
         """
-        Handles incoming messages to update the valve's inputs.
+        Handles incoming messages to update the valve's opening.
         """
-        if message.topic == self.upstream_topic:
-            self.upstream_level = message.payload.get("level", message.payload.get("output", 0.0))
-        elif message.topic == self.downstream_topic:
-            self.downstream_level = message.payload.get("level", message.payload.get("output", 0.0))
-        elif message.topic == self.opening_topic:
-            self.gate_opening = message.payload.get("value", 0.0)
+        if message.topic == self.opening_topic:
+            self.opening = message.payload.get("value", 0.0)
 
 
 from .fsm import State, StateMachine
@@ -345,14 +334,14 @@ class PumpAgent(BaseAgent):
         """
         Subscribe to the necessary topics for pump operation.
         """
-        self.kernel.message_bus.subscribe(self.inlet_pressure_topic, self)
-        self.kernel.message_bus.subscribe(self.outlet_pressure_topic, self)
-        self.kernel.message_bus.subscribe(self.num_pumps_on_topic, self)
+        self.kernel.message_bus.subscribe(self, self.inlet_pressure_topic)
+        self.kernel.message_bus.subscribe(self, self.outlet_pressure_topic)
+        self.kernel.message_bus.subscribe(self, self.num_pumps_on_topic)
         # Subscribe to command topics
-        self.kernel.message_bus.subscribe("cmd.pump.start", self)
-        self.kernel.message_bus.subscribe("cmd.pump.stop", self)
-        self.kernel.message_bus.subscribe("cmd.pump.fault", self)
-        self.kernel.message_bus.subscribe("cmd.pump.reset", self)
+        self.kernel.message_bus.subscribe(self, "cmd.pump.start")
+        self.kernel.message_bus.subscribe(self, "cmd.pump.stop")
+        self.kernel.message_bus.subscribe(self, "cmd.pump.fault")
+        self.kernel.message_bus.subscribe(self, "cmd.pump.reset")
 
 
 class HydropowerStationAgent(BaseAgent):
@@ -383,9 +372,9 @@ class HydropowerStationAgent(BaseAgent):
         """
         Subscribe to the necessary topics for hydropower station operation.
         """
-        self.kernel.message_bus.subscribe(self.upstream_topic, self)
-        self.kernel.message_bus.subscribe(self.downstream_topic, self)
-        self.kernel.message_bus.subscribe(self.vane_opening_topic, self)
+        self.kernel.message_bus.subscribe(self, self.upstream_topic)
+        self.kernel.message_bus.subscribe(self, self.downstream_topic)
+        self.kernel.message_bus.subscribe(self, self.vane_opening_topic)
 
     def execute(self, current_time: float):
         """
@@ -436,8 +425,8 @@ class PipeAgent(BaseAgent):
         """
         Subscribe to the necessary topics for pipe simulation.
         """
-        self.kernel.message_bus.subscribe(self.inlet_pressure_topic, self)
-        self.kernel.message_bus.subscribe(self.outlet_pressure_topic, self)
+        self.kernel.message_bus.subscribe(self, self.inlet_pressure_topic)
+        self.kernel.message_bus.subscribe(self, self.outlet_pressure_topic)
 
     def execute(self, current_time: float):
         """
@@ -479,7 +468,7 @@ class ChannelAgent(BaseAgent):
         """
         Subscribe to the necessary topics for channel simulation.
         """
-        self.kernel.message_bus.subscribe(self.inflow_topic, self)
+        self.kernel.message_bus.subscribe(self, self.inflow_topic)
 
     def execute(self, current_time: float):
         """
