@@ -2,25 +2,20 @@ import sys
 import os
 import yaml
 
-# Add the project root to the Python path to allow for absolute imports
+# Add the project root and the src directory to the Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-sys.path.insert(0, project_root)
-
-# Also add the src directory for the SDK
 src_path = os.path.join(project_root, 'water_system_sdk', 'src')
+sys.path.insert(0, project_root)
 sys.path.insert(0, src_path)
 
-from scenarios.launcher import Launcher
+from chs_sdk.core.launcher import Launcher
 
 def main():
     """
-    Main function to load config and run the launcher for the simple control loop case.
+    Main function to load the config and run the scenario.
     """
-    # Get the directory of the current script
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-
-    # Construct the path to the config file
-    config_path = os.path.join(script_dir, 'config.yaml')
+    # Construct the absolute path to the config file
+    config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')
 
     try:
         with open(config_path, 'r') as f:
@@ -32,10 +27,7 @@ def main():
         print(f"Error parsing YAML file: {e}")
         return
 
-    # Change the current working directory to the project root
-    # to ensure that relative paths for logs/results are correct.
-    os.chdir(project_root)
-
+    # Instantiate and run the launcher
     launcher = Launcher()
     launcher.run(scenario_config)
 

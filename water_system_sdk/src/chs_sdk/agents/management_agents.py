@@ -2,6 +2,9 @@ from typing import List, Dict
 from ..utils.logger import log
 from .base_agent import BaseAgent
 from .message import Message
+import csv
+import os
+import json
 
 # --- Constants for topic names ---
 TOPIC_CMD_LIFECYCLE_RESTART = "cmd.lifecycle.restart"
@@ -109,19 +112,31 @@ class MonitoringAgent(BaseAgent):
 
 class DataLoggerAgent(BaseAgent):
     """
-    A simple agent that logs all messages it receives to the console.
+    An agent that logs all messages it receives to a CSV file.
     """
     def __init__(self, agent_id: str, kernel: 'AgentKernel', **config):
         super().__init__(agent_id, kernel, **config)
-        self.topics_to_log = config.get("topics_to_log", ["#"]) # Default to all topics
+        self.topics_to_log = config.get("topics_to_log", ["#"])
+        self.output_file = config.get("output_file", "simulation_log.csv")
+        self._file_handle = None
+        self._csv_writer = None
+        self._header_written = False
 
     def setup(self):
         """
-        Subscribe to the specified topics.
+        Subscribe to topics and open the output file.
         """
+        # Ensure the directory for the output file exists
+        output_dir = os.path.dirname(self.output_file)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+
+        self._file_handle = open(self.output_file, 'w', newline='')
+        self._csv_writer = csv.writer(self._file_handle)
+
         for topic in self.topics_to_log:
             self.kernel.message_bus.subscribe(self, topic)
-        log.info(f"DataLoggerAgent '{self.agent_id}' is active and logging topics: {self.topics_to_log}")
+        log.info(f"DataLoggerAgent '{self.agent_id}' is logging {self.topics_to_log} to '{self.output_file}'")
 
     def execute(self, current_time: float):
         """
@@ -131,9 +146,38 @@ class DataLoggerAgent(BaseAgent):
 
     def on_message(self, message: Message):
         """
-        Prints the received message to the console.
+        Writes the received message to the CSV file.
+        Flattens the payload for better CSV readability.
         """
-        print(f"[Logger] Time: {self.kernel.current_time:.2f} | Topic: {message.topic} | Sender: {message.sender_id} | Payload: {message.payload}")
+        if not self._csv_writer:
+            return
+
+        # Flatten the payload if it's a dictionary
+        if isinstance(message.payload, dict):
+            flat_payload = {f"payload_{k}": v for k, v in message.payload.items()}
+        else:
+            flat_payload = {"payload_value": message.payload}
+
+        row_data = {
+            "time": self.kernel.current_time,
+            "topic": message.topic,
+            "sender_id": message.sender_id,
+            **flat_payload
+        }
+
+        if not self._header_written:
+            self._csv_writer.writerow(row_data.keys())
+            self._header_written = True
+
+        self._csv_writer.writerow(row_data.values())
+
+    def shutdown(self):
+        """
+        Closes the file handle upon simulation shutdown.
+        """
+        if self._file_handle:
+            self._file_handle.close()
+            log.info(f"DataLoggerAgent '{self.agent_id}' closed log file '{self.output_file}'.")
 
 
 class DataCaptureAgent(BaseAgent):

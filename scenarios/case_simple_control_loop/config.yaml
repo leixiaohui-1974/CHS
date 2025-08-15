@@ -1,67 +1,55 @@
-# scenarios/case_simple_control_loop/config.yaml
+# Configuration for a simple closed-loop PID control scenario
+# This version uses a CSV file for inflow and has tuned PID gains.
 
 simulation_settings:
-  duration: 200
+  duration: 300 # Increased duration to see stabilization
   time_step: 1.0
 
 agent_society:
-  # 1. InflowAgent (Disturbance Source)
-  - id: "inflow_agent"
+  # 1. Disturbance Agent: Provides a constant inflow from a CSV file
+  - id: "inflow_source"
     class: "chs_sdk.agents.disturbance_agents.InflowAgent"
     params:
-      topic: "data.inflow/tank_agent/flow"
-      rainfall_pattern: [15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                         15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                         15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                         15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                         15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
-                         5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                         5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                         5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                         5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-                         5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
+      topic: "data.inflow.main_tank"
+      rainfall_file: "scenarios/case_simple_control_loop/inflow_data.csv"
 
-  # 2. TankAgent (Controlled Object)
-  - id: "tank_agent"
+  # 2. Body Agent: The water tank being controlled
+  - id: "main_tank"
     class: "chs_sdk.agents.body_agents.TankAgent"
     params:
-      area: 50.0
+      area: 100.0
       initial_level: 2.0
       max_level: 20.0
       subscribes_to:
-        - "data.inflow/tank_agent/flow"
-        - "state/valve/valve_agent"
-      publishes_to: "tank/tank_agent/state"
+        - "data.inflow.main_tank"
+        - "state/valve/release_valve"
+      publishes_to: "tank.state"
 
-  # 3. PIDAgent (Controller)
+  # 3. Control Agent: The new PID controller (with extremely conservative gains)
   - id: "pid_controller"
     class: "chs_sdk.agents.control_agents.PIDAgent"
     params:
-      Kp: 1.2
-      Ki: 0.15
-      Kd: 0.05
+      Kp: 0.1
+      Ki: 0.001
+      Kd: 0.2
       set_point: 10.0
-      subscribes_to:
-        - "command/pid/dummy"
-        - "tank/tank_agent/state"
-      publishes_to: "control/valve_agent/opening"
-      output_min: 0
-      output_max: 100
+      input_topic: "tank.state"
+      output_topic: "valve.command"
+      output_min: 0.0
+      output_max: 1.0
 
-  # 4. ValveAgent (Actuator)
-  - id: "valve_agent"
+  # 4. Actuator Agent: The valve that releases water
+  - id: "release_valve"
     class: "chs_sdk.agents.body_agents.ValveAgent"
     params:
-      cv: 20.0
-      subscribes_to: "control/valve_agent/opening"
+      cv: 10.0
+      subscribes_to: ["valve.command"]
 
-  # 5. DataLoggerAgent (Result Recorder)
+  # 5. Management Agent: Logs the state of the tank and controller
   - id: "datalogger"
     class: "chs_sdk.agents.management_agents.DataLoggerAgent"
     params:
-      log_file: "results/simple_control_loop_log.csv"
-      subscribed_topics:
-        - "tank/tank_agent/state"
-        - "control/valve_agent/opening"
-        - "state/valve/valve_agent"
-        - "data.inflow/tank_agent/flow"
+      output_file: "simulation_results.csv"
+      topics_to_log:
+        - "tank.state"
+        - "valve.command"
