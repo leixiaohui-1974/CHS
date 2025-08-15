@@ -1,7 +1,9 @@
 from .base_agent import BaseAgent
 from .message import Message
 from water_system_sdk.src.water_system_simulator.modeling.storage_models import ReservoirModel
-from water_system_sdk.src.water_system_simulator.modeling.control_structure_models import GateModel, PumpStationModel
+from water_system_sdk.src.water_system_simulator.modeling.control_structure_models import GateModel, PumpStationModel, HydropowerStationModel
+from water_system_sdk.src.water_system_simulator.modeling.pipeline_model import PipelineModel
+from water_system_sdk.src.water_system_simulator.modeling.hydrodynamics.routing_models import MuskingumModel
 
 
 class TankAgent(BaseAgent):
@@ -16,9 +18,9 @@ class TankAgent(BaseAgent):
         """
         Subscribe to the necessary topics.
         """
-        self.kernel.message_bus.subscribe(f"tank/{self.agent_id}/inflow", self)
-        self.kernel.message_bus.subscribe(f"tank/{self.agent_id}/release_outflow", self)
-        self.kernel.message_bus.subscribe(f"tank/{self.agent_id}/demand_outflow", self)
+        self.kernel.message_bus.subscribe(self, f"tank/{self.agent_id}/inflow")
+        self.kernel.message_bus.subscribe(self, f"tank/{self.agent_id}/release_outflow")
+        self.kernel.message_bus.subscribe(self, f"tank/{self.agent_id}/demand_outflow")
 
     def execute(self, current_time: float):
         """
@@ -65,9 +67,9 @@ class GateAgent(BaseAgent):
         """
         Subscribe to the necessary topics for gate operation.
         """
-        self.kernel.message_bus.subscribe(self.upstream_topic, self)
-        self.kernel.message_bus.subscribe(self.downstream_topic, self)
-        self.kernel.message_bus.subscribe(self.opening_topic, self)
+        self.kernel.message_bus.subscribe(self, self.upstream_topic)
+        self.kernel.message_bus.subscribe(self, self.downstream_topic)
+        self.kernel.message_bus.subscribe(self, self.opening_topic)
 
     def execute(self, current_time: float):
         """
@@ -114,9 +116,9 @@ class ValveAgent(BaseAgent):
         """
         Subscribe to the necessary topics for valve operation.
         """
-        self.kernel.message_bus.subscribe(self.upstream_topic, self)
-        self.kernel.message_bus.subscribe(self.downstream_topic, self)
-        self.kernel.message_bus.subscribe(self.opening_topic, self)
+        self.kernel.message_bus.subscribe(self, self.upstream_topic)
+        self.kernel.message_bus.subscribe(self, self.downstream_topic)
+        self.kernel.message_bus.subscribe(self, self.opening_topic)
 
     def execute(self, current_time: float):
         """
@@ -283,11 +285,154 @@ class PumpAgent(BaseAgent):
         """
         Subscribe to the necessary topics for pump operation.
         """
-        self.kernel.message_bus.subscribe(self.inlet_pressure_topic, self)
-        self.kernel.message_bus.subscribe(self.outlet_pressure_topic, self)
-        self.kernel.message_bus.subscribe(self.num_pumps_on_topic, self)
+        self.kernel.message_bus.subscribe(self, self.inlet_pressure_topic)
+        self.kernel.message_bus.subscribe(self, self.outlet_pressure_topic)
+        self.kernel.message_bus.subscribe(self, self.num_pumps_on_topic)
         # Subscribe to command topics
-        self.kernel.message_bus.subscribe("cmd.pump.start", self)
-        self.kernel.message_bus.subscribe("cmd.pump.stop", self)
-        self.kernel.message_bus.subscribe("cmd.pump.fault", self)
-        self.kernel.message_bus.subscribe("cmd.pump.reset", self)
+        self.kernel.message_bus.subscribe(self, "cmd.pump.start")
+        self.kernel.message_bus.subscribe(self, "cmd.pump.stop")
+        self.kernel.message_bus.subscribe(self, "cmd.pump.fault")
+        self.kernel.message_bus.subscribe(self, "cmd.pump.reset")
+
+
+class HydropowerStationAgent(BaseAgent):
+    """
+    An agent that encapsulates a hydropower station model.
+    It is a composite agent that coordinates internal models.
+    """
+    def __init__(self, agent_id, kernel, max_flow_area, discharge_coeff, efficiency,
+                 upstream_topic, downstream_topic, vane_opening_topic, state_topic,
+                 release_topic=None, **kwargs):
+        super().__init__(agent_id, kernel, **kwargs)
+        self.model = HydropowerStationModel(
+            max_flow_area=max_flow_area,
+            discharge_coeff=discharge_coeff,
+            efficiency=efficiency
+        )
+        self.upstream_topic = upstream_topic
+        self.downstream_topic = downstream_topic
+        self.vane_opening_topic = vane_opening_topic
+        self.state_topic = state_topic
+        self.release_topic = release_topic
+
+        self.upstream_level = 0.0
+        self.downstream_level = 0.0
+        self.vane_opening = 0.0
+
+    def setup(self):
+        """
+        Subscribe to the necessary topics for hydropower station operation.
+        """
+        self.kernel.message_bus.subscribe(self, self.upstream_topic)
+        self.kernel.message_bus.subscribe(self, self.downstream_topic)
+        self.kernel.message_bus.subscribe(self, self.vane_opening_topic)
+
+    def execute(self, current_time: float):
+        """
+        Runs one step of the hydropower station simulation.
+        Publishes its full state and also the release flow if a topic is provided.
+        """
+        self.model.step(self.upstream_level, self.downstream_level, self.vane_opening)
+        state = self.model.get_state()
+        self._publish(self.state_topic, state)
+
+        # Also publish the release flow to a dedicated topic if configured
+        if self.release_topic:
+            self._publish(self.release_topic, {"value": state.get("flow", 0.0)})
+
+    def on_message(self, message: Message):
+        """
+        Handles incoming messages to update the station's inputs.
+        """
+        if message.topic == self.upstream_topic:
+            self.upstream_level = message.payload.get("level", 0.0)
+        elif message.topic == self.downstream_topic:
+            # Allow for different payload structures
+            self.downstream_level = message.payload.get("level", message.payload.get("value", 0.0))
+        elif message.topic == self.vane_opening_topic:
+            self.vane_opening = message.payload.get("value", 0.0)
+
+
+class PipeAgent(BaseAgent):
+    """
+    An agent that encapsulates a pressurized pipe model.
+    """
+    def __init__(self, agent_id, kernel, length, diameter, friction_factor,
+                 inlet_pressure_topic, outlet_pressure_topic, state_topic, **kwargs):
+        super().__init__(agent_id, kernel, **kwargs)
+        self.model = PipelineModel(
+            length=length,
+            diameter=diameter,
+            friction_factor=friction_factor
+        )
+        self.inlet_pressure_topic = inlet_pressure_topic
+        self.outlet_pressure_topic = outlet_pressure_topic
+        self.state_topic = state_topic
+
+        self.inlet_pressure = 0.0
+        self.outlet_pressure = 0.0
+
+    def setup(self):
+        """
+        Subscribe to the necessary topics for pipe simulation.
+        """
+        self.kernel.message_bus.subscribe(self, self.inlet_pressure_topic)
+        self.kernel.message_bus.subscribe(self, self.outlet_pressure_topic)
+
+    def execute(self, current_time: float):
+        """
+        Runs one step of the pipe simulation.
+        """
+        time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
+        self.model.step(self.inlet_pressure, self.outlet_pressure, time_step)
+        self._publish(self.state_topic, self.model.get_state())
+
+    def on_message(self, message: Message):
+        """
+        Handles incoming messages to update the pipe's boundary conditions.
+        """
+        if message.topic == self.inlet_pressure_topic:
+            self.inlet_pressure = message.payload.get("pressure", 0.0)
+        elif message.topic == self.outlet_pressure_topic:
+            self.outlet_pressure = message.payload.get("pressure", 0.0)
+
+
+class ChannelAgent(BaseAgent):
+    """
+    An agent that represents a river or channel reach, using a routing model.
+    """
+    def __init__(self, agent_id, kernel, K, x, initial_outflow,
+                 inflow_topic, state_topic, **kwargs):
+        super().__init__(agent_id, kernel, **kwargs)
+        time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
+        self.model = MuskingumModel(
+            K=K,
+            x=x,
+            dt=time_step,
+            initial_outflow=initial_outflow
+        )
+        self.inflow_topic = inflow_topic
+        self.state_topic = state_topic
+        self.current_inflow = initial_outflow
+
+    def setup(self):
+        """
+        Subscribe to the necessary topics for channel simulation.
+        """
+        self.kernel.message_bus.subscribe(self, self.inflow_topic)
+
+    def execute(self, current_time: float):
+        """
+        Runs one step of the channel routing simulation.
+        """
+        self.model.step(self.current_inflow)
+        self._publish(self.state_topic, self.model.get_state())
+
+    def on_message(self, message: Message):
+        """
+        Handles incoming messages to update the channel's inflow.
+        """
+        if message.topic == self.inflow_topic:
+            # The inflow can come from various sources (e.g., gate, another channel)
+            # We look for 'flow' or 'output' keys in the payload.
+            self.current_inflow = message.payload.get("flow", message.payload.get("output", 0.0))

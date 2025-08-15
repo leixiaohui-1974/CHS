@@ -76,7 +76,11 @@ class InMemoryMessageBus(BaseMessageBus):
             if not messages_to_dispatch:
                 continue
 
-            subscribers = self._subscriptions.get(topic, [])
+            # Get subscribers for the specific topic AND wildcard subscribers
+            specific_subscribers = self._subscriptions.get(topic, [])
+            wildcard_subscribers = self._subscriptions.get("#", [])
+            subscribers = list(set(specific_subscribers + wildcard_subscribers)) # Use set to avoid duplicates
+
             if not subscribers:
                 log.warning(f"No subscribers for topic '{topic}', {len(messages_to_dispatch)} messages discarded.")
                 continue

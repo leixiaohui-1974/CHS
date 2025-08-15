@@ -21,7 +21,7 @@ class PIDAgent(BaseAgent):
         """
         Subscribe to the necessary topics.
         """
-        self.kernel.message_bus.subscribe(self.input_topic, self)
+        self.kernel.message_bus.subscribe(self, self.input_topic)
 
     def execute(self, current_time: float):
         """
@@ -77,9 +77,9 @@ class MPCAgent(BaseAgent):
         """
         Subscribe to the necessary topics.
         """
-        self.kernel.message_bus.subscribe(self.state_topic, self)
+        self.kernel.message_bus.subscribe(self, self.state_topic)
         if self.disturbance_topic:
-            self.kernel.message_bus.subscribe(self.disturbance_topic, self)
+            self.kernel.message_bus.subscribe(self, self.disturbance_topic)
 
     def execute(self, current_time: float):
         """

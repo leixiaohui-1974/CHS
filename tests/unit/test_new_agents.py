@@ -5,10 +5,11 @@ from unittest.mock import MagicMock, ANY
 from chs_sdk.agents.base_agent import BaseAgent
 from chs_sdk.agents.message import Message
 from chs_sdk.agents.control_agents import PIDAgent, MPCAgent
-from chs_sdk.agents.body_agents import TankAgent, GateAgent, ValveAgent
+from chs_sdk.agents.body_agents import TankAgent, GateAgent, ValveAgent, HydropowerStationAgent, PipeAgent, ChannelAgent
 
 # Old model imports for creating agent instances
 from water_system_sdk.src.water_system_simulator.modeling.storage_models import ReservoirModel
+from water_system_sdk.src.water_system_simulator.modeling.hydrodynamics.routing_models import MuskingumModel
 
 class TestNewAgentImplementation(unittest.TestCase):
 
@@ -172,6 +173,165 @@ class TestNewAgentImplementation(unittest.TestCase):
         sent_message = args[0]
         self.assertEqual(sent_message.topic, 'valve/opening')
         self.assertEqual(sent_message.payload['value'], 0.75)
+
+    def test_hydropower_station_agent(self):
+        """
+        Test the implementation of the HydropowerStationAgent.
+        """
+        hydro_agent = HydropowerStationAgent(
+            agent_id='hydro1',
+            kernel=self.mock_kernel,
+            max_flow_area=10.0,
+            discharge_coeff=0.9,
+            efficiency=0.85,
+            upstream_topic='reservoir/level',
+            downstream_topic='river/level',
+            vane_opening_topic='control/vane',
+            state_topic='hydro/state',
+            release_topic='hydro/release'
+        )
+        hydro_agent.setup()
+
+        # Verify subscriptions
+        self.assertEqual(self.mock_kernel.message_bus.subscribe.call_count, 3)
+        self.mock_kernel.message_bus.subscribe.assert_any_call('reservoir/level', hydro_agent)
+        self.mock_kernel.message_bus.subscribe.assert_any_call('river/level', hydro_agent)
+        self.mock_kernel.message_bus.subscribe.assert_any_call('control/vane', hydro_agent)
+
+        # Simulate receiving messages
+        hydro_agent.on_message(Message(topic='reservoir/level', sender_id='r1', payload={'level': 100.0}))
+        hydro_agent.on_message(Message(topic='river/level', sender_id='c1', payload={'level': 80.0}))
+        hydro_agent.on_message(Message(topic='control/vane', sender_id='p1', payload={'value': 0.7}))
+
+        self.assertEqual(hydro_agent.upstream_level, 100.0)
+        self.assertEqual(hydro_agent.downstream_level, 80.0)
+        self.assertEqual(hydro_agent.vane_opening, 0.7)
+
+        # Execute and check for published state
+        hydro_agent.execute(current_time=0)
+
+        # Should publish twice: once for its state, once for the release
+        self.assertEqual(self.mock_kernel.message_bus.publish.call_count, 2)
+
+        # Check the main state publication
+        state_call = self.mock_kernel.message_bus.publish.call_args_list[0]
+        sent_message_state = state_call[0][0]
+        self.assertEqual(sent_message_state.topic, 'hydro/state')
+        self.assertIn('flow', sent_message_state.payload)
+        self.assertIn('power', sent_message_state.payload)
+        self.assertGreater(sent_message_state.payload['flow'], 0)
+        self.assertGreater(sent_message_state.payload['power'], 0)
+
+        # Check the release flow publication
+        release_call = self.mock_kernel.message_bus.publish.call_args_list[1]
+        sent_message_release = release_call[0][0]
+        self.assertEqual(sent_message_release.topic, 'hydro/release')
+        self.assertIn('value', sent_message_release.payload)
+        self.assertEqual(sent_message_release.payload['value'], sent_message_state.payload['flow'])
+
+    def test_pipe_agent(self):
+        """
+        Test the implementation of the PipeAgent.
+        """
+        pipe_agent = PipeAgent(
+            agent_id='pipe1',
+            kernel=self.mock_kernel,
+            length=1000.0,
+            diameter=0.5,
+            friction_factor=0.02,
+            inlet_pressure_topic='node1/pressure',
+            outlet_pressure_topic='node2/pressure',
+            state_topic='pipe/state'
+        )
+        pipe_agent.setup()
+
+        # Verify subscriptions
+        self.assertEqual(self.mock_kernel.message_bus.subscribe.call_count, 2)
+        self.mock_kernel.message_bus.subscribe.assert_any_call('node1/pressure', pipe_agent)
+        self.mock_kernel.message_bus.subscribe.assert_any_call('node2/pressure', pipe_agent)
+
+        # Simulate receiving messages
+        pipe_agent.on_message(Message(topic='node1/pressure', sender_id='n1', payload={'pressure': 50.0}))
+        pipe_agent.on_message(Message(topic='node2/pressure', sender_id='n2', payload={'pressure': 40.0}))
+
+        self.assertEqual(pipe_agent.inlet_pressure, 50.0)
+        self.assertEqual(pipe_agent.outlet_pressure, 40.0)
+
+        # Execute and check for published state
+        pipe_agent.execute(current_time=0)
+        self.mock_kernel.message_bus.publish.assert_called_once_with(ANY)
+        args, kwargs = self.mock_kernel.message_bus.publish.call_args
+        sent_message = args[0]
+
+        self.assertEqual(sent_message.topic, 'pipe/state')
+        self.assertIn('flow', sent_message.payload)
+        self.assertGreater(sent_message.payload['flow'], 0)
+
+    def test_muskingum_model_logic(self):
+        """
+        Test the core logic of the MuskingumModel directly.
+        """
+        # Parameters chosen for simple coefficients
+        K = 3600  # 1 hour
+        x = 0.2
+        dt = 7200 # 2 hours
+        # Denominator = 2*K*(1-x) + dt = 2*3600*0.8 + 7200 = 5760 + 7200 = 12960
+        # C1 = (dt - 2*K*x) / Denom = (7200 - 2*3600*0.2) / 12960 = (7200 - 1440) / 12960 = 5760 / 12960 = 4/9
+        # C2 = (dt + 2*K*x) / Denom = (7200 + 1440) / 12960 = 8640 / 12960 = 2/3
+        # C3 = (2*K*(1-x) - dt) / Denom = (5760 - 7200) / 12960 = -1440 / 12960 = -1/9
+        # O2 = (4/9)I2 + (2/3)I1 - (1/9)O1
+        model = MuskingumModel(K=K, x=x, dt=dt, initial_outflow=10.0)
+
+        self.assertAlmostEqual(model.C1, 4/9)
+        self.assertAlmostEqual(model.C2, 2/3)
+        self.assertAlmostEqual(model.C3, -1/9)
+
+        # Step 1: Inflow changes from 10 to 20
+        # O1 = 10, I1 = 10, I2 = 20
+        # O2 = (4/9)*20 + (2/3)*10 - (1/9)*10 = 8.888 + 6.666 - 1.111 = 14.444
+        outflow = model.step(inflow=20.0)
+        self.assertAlmostEqual(outflow, 14.444, places=3)
+        self.assertEqual(outflow, model.outflow)
+
+        # Step 2: Inflow stays at 20
+        # O2 = 14.444, I2 = 20, I3 = 20
+        # O3 = (4/9)*20 + (2/3)*20 - (1/9)*14.444 = 8.888 + 13.333 - 1.604 = 20.617
+        outflow = model.step(inflow=20.0)
+        self.assertAlmostEqual(outflow, 20.617, places=3)
+
+    def test_channel_agent(self):
+        """
+        Test the implementation of the ChannelAgent.
+        """
+        channel_agent = ChannelAgent(
+            agent_id='channel1',
+            kernel=self.mock_kernel,
+            K=3600,
+            x=0.2,
+            initial_outflow=10.0,
+            inflow_topic='gate/flow',
+            state_topic='channel/state'
+        )
+        channel_agent.setup()
+
+        # Verify subscription
+        self.mock_kernel.message_bus.subscribe.assert_called_once_with('gate/flow', channel_agent)
+
+        # Simulate receiving message
+        channel_agent.on_message(Message(topic='gate/flow', sender_id='g1', payload={'flow': 20.0}))
+        self.assertEqual(channel_agent.current_inflow, 20.0)
+
+        # Execute and check for published state
+        channel_agent.execute(current_time=0)
+        self.mock_kernel.message_bus.publish.assert_called_once_with(ANY)
+        args, kwargs = self.mock_kernel.message_bus.publish.call_args
+        sent_message = args[0]
+
+        self.assertEqual(sent_message.topic, 'channel/state')
+        self.assertIn('outflow', sent_message.payload)
+        # Based on the model test above, with dt=1.0 (from mock_kernel) the value will be different
+        # but we can at least check that it's a valid number.
+        self.assertIsInstance(sent_message.payload['outflow'], float)
 
 
 if __name__ == '__main__':

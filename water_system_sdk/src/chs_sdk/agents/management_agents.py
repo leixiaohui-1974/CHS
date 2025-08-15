@@ -104,3 +104,32 @@ class MonitoringAgent(BaseAgent):
 
     def shutdown(self):
         log.info(f"MonitoringAgent '{self.agent_id}' shutting down.")
+
+
+class DataLoggerAgent(BaseAgent):
+    """
+    A simple agent that logs all messages it receives to the console.
+    """
+    def __init__(self, agent_id: str, kernel: 'AgentKernel', **config):
+        super().__init__(agent_id, kernel, **config)
+        self.topics_to_log = config.get("topics_to_log", ["#"]) # Default to all topics
+
+    def setup(self):
+        """
+        Subscribe to the specified topics.
+        """
+        for topic in self.topics_to_log:
+            self.kernel.message_bus.subscribe(self, topic)
+        log.info(f"DataLoggerAgent '{self.agent_id}' is active and logging topics: {self.topics_to_log}")
+
+    def execute(self, current_time: float):
+        """
+        The DataLoggerAgent is purely reactive.
+        """
+        pass
+
+    def on_message(self, message: Message):
+        """
+        Prints the received message to the console.
+        """
+        print(f"[Logger] Time: {self.kernel.current_time:.2f} | Topic: {message.topic} | Sender: {message.sender_id} | Payload: {message.payload}")
