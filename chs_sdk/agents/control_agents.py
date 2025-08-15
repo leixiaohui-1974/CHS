@@ -42,39 +42,62 @@ class PIDAgent(BaseAgent):
             self.current_value = message.payload.get("level", 0)
 
 
+import numpy as np
+import cvxpy as cp
+from water_system_sdk.src.water_system_simulator.modeling.base_model import BaseModel
+
 class MPCAgent(BaseAgent):
     """
-    An agent that encapsulates an MPC controller.
-    This is a placeholder for future implementation.
+    An agent that encapsulates a Model Predictive Control (MPC) controller.
     """
-    def __init__(self, agent_id, message_bus, model, horizon, input_topic, output_topic):
-        super().__init__(agent_id, message_bus)
-        # The MPC controller from the SDK is more complex to initialize.
-        # This is a simplified placeholder.
-        # self.controller = MPCController(model=model, horizon=horizon)
-        self.input_topic = input_topic
-        self.output_topic = output_topic
-        self.subscribe(self.input_topic)
-        self.current_state = None
-        print("Warning: MPCAgent is a placeholder and not fully implemented.")
+    def __init__(self, agent_id, kernel, prediction_model: BaseModel,
+                 prediction_horizon: int, control_horizon: int, set_point: float,
+                 q_weight: float, r_weight: float, u_min: float, u_max: float,
+                 state_topic: str, disturbance_topic: str, output_topic: str, **kwargs):
+        super().__init__(agent_id, kernel, **kwargs)
 
-    def execute(self, dt=1.0):
+        self.controller = MPCController(
+            prediction_model=prediction_model,
+            prediction_horizon=prediction_horizon,
+            control_horizon=control_horizon,
+            set_point=set_point,
+            q_weight=q_weight,
+            r_weight=r_weight,
+            u_min=u_min,
+            u_max=u_max
+        )
+        self.state_topic = state_topic
+        self.disturbance_topic = disturbance_topic
+        self.output_topic = output_topic
+
+        self.current_state = 0.0
+        self.disturbance_forecast = np.array([])
+
+    def setup(self):
+        """
+        Subscribe to the necessary topics.
+        """
+        self.kernel.message_bus.subscribe(self.state_topic, self)
+        if self.disturbance_topic:
+            self.kernel.message_bus.subscribe(self.disturbance_topic, self)
+
+    def execute(self, current_time: float):
         """
         Runs one step of the MPC control calculation.
         """
-        # Placeholder logic
-        if self.current_state is not None:
-            # In a real implementation, you would call the MPC controller's step method.
-            # control_action = self.controller.step(self.current_state)
-            control_action = 0 # Dummy action
-            self.publish(self.output_topic, {"value": control_action})
-            print(f"MPC Agent {self.agent_id} would have computed a control action.")
-
+        control_action = self.controller.step(
+            current_state=self.current_state,
+            disturbance_forecast=self.disturbance_forecast
+        )
+        self._publish(self.output_topic, {"value": control_action})
 
     def on_message(self, message: Message):
         """
         Handles incoming messages to update the MPC controller's state.
         """
-        if message.topic == self.input_topic:
-            self.current_state = message.payload # MPC might need the full state dictionary
-            print(f"MPC Agent {self.agent_id} received state: {self.current_state}")
+        if message.topic == self.state_topic:
+            # Assuming the state message has a 'level' or 'output' key
+            self.current_state = message.payload.get("level", message.payload.get("output", 0.0))
+        elif message.topic == self.disturbance_topic:
+            # Assuming the disturbance message has a 'forecast' key
+            self.disturbance_forecast = np.array(message.payload.get("forecast", []))

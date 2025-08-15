@@ -44,76 +44,143 @@ class GateAgent(BaseAgent):
     """
     An agent that encapsulates a gate model.
     """
-    def __init__(self, agent_id, message_bus, num_gates, gate_width, discharge_coeff):
-        super().__init__(agent_id, message_bus)
-        self.model = GateModel(num_gates=num_gates, gate_width=gate_width, discharge_coeff=discharge_coeff)
-        self.upstream_level = 0
-        self.downstream_level = 0
-        self.gate_opening = 0
-        self.subscribe(f"tank/{agent_id.replace('gate', 'tank')}/state") # a bit of a hack
-        self.subscribe(f"gate/{self.agent_id}/downstream_level")
-        self.subscribe(f"gate/{self.agent_id}/opening")
+    def __init__(self, agent_id, kernel, num_gates, gate_width, discharge_coeff,
+                 upstream_topic, downstream_topic, opening_topic, state_topic, **kwargs):
+        super().__init__(agent_id, kernel, **kwargs)
+        self.model = GateModel(
+            num_gates=num_gates,
+            gate_width=gate_width,
+            discharge_coeff=discharge_coeff
+        )
+        self.upstream_topic = upstream_topic
+        self.downstream_topic = downstream_topic
+        self.opening_topic = opening_topic
+        self.state_topic = state_topic
 
+        self.upstream_level = 0.0
+        self.downstream_level = 0.0
+        self.gate_opening = 0.0
 
-    def execute(self, dt=1.0):
+    def setup(self):
+        """
+        Subscribe to the necessary topics for gate operation.
+        """
+        self.kernel.message_bus.subscribe(self.upstream_topic, self)
+        self.kernel.message_bus.subscribe(self.downstream_topic, self)
+        self.kernel.message_bus.subscribe(self.opening_topic, self)
+
+    def execute(self, current_time: float):
         """
         Runs one step of the gate simulation.
         """
         self.model.step(self.upstream_level, self.downstream_level, self.gate_opening)
-        self.publish(f"gate/{self.agent_id}/state", self.model.get_state())
+        self._publish(self.state_topic, self.model.get_state())
 
     def on_message(self, message: Message):
         """
         Handles incoming messages to update the gate's inputs.
         """
-        if message.topic == f"tank/{self.agent_id.replace('gate', 'tank')}/state":
-            self.upstream_level = message.payload.get("level", 0)
-        elif message.topic == f"gate/{self.agent_id}/downstream_level":
-            self.downstream_level = message.payload.get("value", 0)
-        elif message.topic == f"gate/{self.agent_id}/opening":
-            self.gate_opening = message.payload.get("value", 0)
+        if message.topic == self.upstream_topic:
+            self.upstream_level = message.payload.get("level", message.payload.get("output", 0.0))
+        elif message.topic == self.downstream_topic:
+            self.downstream_level = message.payload.get("level", message.payload.get("output", 0.0))
+        elif message.topic == self.opening_topic:
+            self.gate_opening = message.payload.get("value", 0.0)
 
 
-class ValveAgent(GateAgent):
+class ValveAgent(BaseAgent):
     """
-    An agent that encapsulates a valve model.
-    For now, it uses the GateModel as a stand-in.
+    An agent that encapsulates a valve, modeled using the GateModel logic.
+    It operates on its own topics for inputs and outputs.
     """
-    pass
+    def __init__(self, agent_id, kernel, num_gates, gate_width, discharge_coeff,
+                 upstream_topic, downstream_topic, opening_topic, state_topic, **kwargs):
+        super().__init__(agent_id, kernel, **kwargs)
+        self.model = GateModel(
+            num_gates=num_gates,
+            gate_width=gate_width,
+            discharge_coeff=discharge_coeff
+        )
+        self.upstream_topic = upstream_topic
+        self.downstream_topic = downstream_topic
+        self.opening_topic = opening_topic
+        self.state_topic = state_topic
+
+        self.upstream_level = 0.0
+        self.downstream_level = 0.0
+        self.gate_opening = 0.0
+
+    def setup(self):
+        """
+        Subscribe to the necessary topics for valve operation.
+        """
+        self.kernel.message_bus.subscribe(self.upstream_topic, self)
+        self.kernel.message_bus.subscribe(self.downstream_topic, self)
+        self.kernel.message_bus.subscribe(self.opening_topic, self)
+
+    def execute(self, current_time: float):
+        """
+        Runs one step of the valve simulation.
+        """
+        self.model.step(self.upstream_level, self.downstream_level, self.gate_opening)
+        self._publish(self.state_topic, self.model.get_state())
+
+    def on_message(self, message: Message):
+        """
+        Handles incoming messages to update the valve's inputs.
+        """
+        if message.topic == self.upstream_topic:
+            self.upstream_level = message.payload.get("level", message.payload.get("output", 0.0))
+        elif message.topic == self.downstream_topic:
+            self.downstream_level = message.payload.get("level", message.payload.get("output", 0.0))
+        elif message.topic == self.opening_topic:
+            self.gate_opening = message.payload.get("value", 0.0)
 
 
 class PumpAgent(BaseAgent):
     """
     An agent that encapsulates a pump station model.
     """
-    def __init__(self, agent_id, message_bus, num_pumps_total, curve_coeffs, initial_num_pumps_on=1):
-        super().__init__(agent_id, message_bus)
+    def __init__(self, agent_id, kernel, num_pumps_total, curve_coeffs,
+                 inlet_pressure_topic, outlet_pressure_topic, num_pumps_on_topic, state_topic,
+                 initial_num_pumps_on=1, **kwargs):
+        super().__init__(agent_id, kernel, **kwargs)
         self.model = PumpStationModel(
             num_pumps_total=num_pumps_total,
             curve_coeffs=curve_coeffs,
             initial_num_pumps_on=initial_num_pumps_on
         )
-        self.inlet_pressure = 0
-        self.outlet_pressure = 0
-        self.num_pumps_on = initial_num_pumps_on
-        self.subscribe(f"pump/{self.agent_id}/inlet_pressure")
-        self.subscribe(f"pump/{self.agent_id}/outlet_pressure")
-        self.subscribe(f"pump/{self.agent_id}/num_pumps_on")
+        self.inlet_pressure_topic = inlet_pressure_topic
+        self.outlet_pressure_topic = outlet_pressure_topic
+        self.num_pumps_on_topic = num_pumps_on_topic
+        self.state_topic = state_topic
 
-    def execute(self, dt=1.0):
+        self.inlet_pressure = 0.0
+        self.outlet_pressure = 0.0
+        self.num_pumps_on = initial_num_pumps_on
+
+    def setup(self):
+        """
+        Subscribe to the necessary topics for pump operation.
+        """
+        self.kernel.message_bus.subscribe(self.inlet_pressure_topic, self)
+        self.kernel.message_bus.subscribe(self.outlet_pressure_topic, self)
+        self.kernel.message_bus.subscribe(self.num_pumps_on_topic, self)
+
+    def execute(self, current_time: float):
         """
         Runs one step of the pump station simulation.
         """
         self.model.step(self.inlet_pressure, self.outlet_pressure, self.num_pumps_on)
-        self.publish(f"pump/{self.agent_id}/state", self.model.get_state())
+        self._publish(self.state_topic, self.model.get_state())
 
     def on_message(self, message: Message):
         """
         Handles incoming messages to update the pump's inputs.
         """
-        if message.topic == f"pump/{self.agent_id}/inlet_pressure":
-            self.inlet_pressure = message.payload.get("value", 0)
-        elif message.topic == f"pump/{self.agent_id}/outlet_pressure":
-            self.outlet_pressure = message.payload.get("value", 0)
-        elif message.topic == f"pump/{self.agent_id}/num_pumps_on":
+        if message.topic == self.inlet_pressure_topic:
+            self.inlet_pressure = message.payload.get("value", 0.0)
+        elif message.topic == self.outlet_pressure_topic:
+            self.outlet_pressure = message.payload.get("value", 0.0)
+        elif message.topic == self.num_pumps_on_topic:
             self.num_pumps_on = message.payload.get("value", 1)
