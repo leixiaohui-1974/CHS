@@ -1,40 +1,100 @@
+import numpy as np
 from .base_agent import BaseAgent
-from .message import Message
-from water_system_sdk.src.water_system_simulator.modeling.storage_models import ReservoirModel
-from water_system_sdk.src.water_system_simulator.modeling.control_structure_models import GateModel, PumpStationModel, HydropowerStationModel
-from water_system_sdk.src.water_system_simulator.modeling.pipeline_model import PipelineModel
-from water_system_sdk.src.water_system_simulator.modeling.hydrodynamics.routing_models import MuskingumModel
+from .message import Message, MeasurementPayload
+from water_system_simulator.modeling.storage_models import ReservoirModel
+from water_system_simulator.modeling.control_structure_models import GateModel, PumpStationModel, HydropowerStationModel
+from water_system_simulator.modeling.pipeline_model import PipelineModel
+from water_system_simulator.modeling.hydrodynamics.routing_models import MuskingumModel
+
+try:
+    # Use a full path import to be robust
+    from chs_sdk.components.control.kalman_filter import KalmanFilter
+except (ImportError, ModuleNotFoundError):
+    # This allows the module to be used even if the KalmanFilter component is not available.
+    KalmanFilter = None
 
 
 class TankAgent(BaseAgent):
     """
-    An agent that encapsulates a water tank (reservoir) model.
+    An agent that encapsulates a water tank (reservoir) model, with optional
+    Kalman Filter for data assimilation.
     """
     def __init__(self, agent_id, kernel, area, initial_level, max_level=20.0, **kwargs):
         super().__init__(agent_id, kernel, **kwargs)
         self.model = ReservoirModel(area=area, initial_level=initial_level, max_level=max_level)
 
+        if self.config.get("enable_kalman_filter", False) and KalmanFilter is not None:
+            kf_config = self.config.get("kalman_filter", {})
+
+            # Default matrices for a 1D system (e.g., water level)
+            F = np.array(kf_config.get("F", [[1.0]]))
+            H = np.array(kf_config.get("H", [[1.0]]))
+            Q = np.array(kf_config.get("Q", [[0.001]])) # Process noise
+            R = np.array(kf_config.get("R", [[0.1]]))   # Measurement noise
+
+            # Use initial_level for the initial state estimate, accessing it correctly
+            initial_state_estimate = [self.model.state.level]
+            x0 = np.array(kf_config.get("x0", initial_state_estimate))
+            P0 = np.array(kf_config.get("P0", [[1.0]])) # Initial uncertainty
+
+            self.filter = KalmanFilter(F=F, H=H, Q=Q, R=R, x0=x0, P0=P0)
+            print(f"TankAgent {self.agent_id} initialized with Kalman Filter.")
+
     def setup(self):
         """
-        Subscribe to the necessary topics.
+        Subscribe to the necessary topics for control and data assimilation.
         """
         self.kernel.message_bus.subscribe(self, f"tank/{self.agent_id}/inflow")
         self.kernel.message_bus.subscribe(self, f"tank/{self.agent_id}/release_outflow")
         self.kernel.message_bus.subscribe(self, f"tank/{self.agent_id}/demand_outflow")
+        if self.filter:
+            measurement_topic = f"measurement/level/{self.agent_id}"
+            self.kernel.message_bus.subscribe(self, measurement_topic)
+            print(f"TankAgent {self.agent_id} subscribed to {measurement_topic}")
 
     def execute(self, current_time: float):
         """
-        Runs one step of the reservoir simulation.
+        Runs one step of the reservoir simulation, applying data assimilation if enabled.
         """
         time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
+
+        # Run the physical model step first to get its own prediction
         self.model.step(time_step)
-        self._publish(f"tank/{self.agent_id}/state", self.model.get_state())
+
+        if self.filter:
+            # The filter's state is x_{k-1|k-1}. Predict to get x_k|k-1.
+            self.filter.predict()
+
+            # The 'update' step happens asynchronously in on_message when a measurement arrives.
+            # After update, the filter state is x_k|k (the best estimate).
+
+            # Now, correct the model's state with the filter's best estimate.
+            corrected_level = self.filter.get_state()[0]
+            self.model.state.level = corrected_level
+
+            # Publish the corrected, high-fidelity state
+            state_to_publish = self.model.get_state()
+            self._publish(f"tank/{self.agent_id}/state", state_to_publish)
+        else:
+            # Original behavior: publish the raw model state
+            self._publish(f"tank/{self.agent_id}/state", self.model.get_state())
 
     def on_message(self, message: Message):
         """
-        Handles incoming messages to update the tank's inputs.
+        Handles incoming messages for control inputs and measurement data.
         """
-        if message.topic == f"tank/{self.agent_id}/inflow":
+        measurement_topic = f"measurement/level/{self.agent_id}"
+
+        if self.filter and message.topic == measurement_topic:
+            payload_data = message.payload
+            if isinstance(payload_data, dict):
+                measurement_value = payload_data.get('value')
+                if measurement_value is not None:
+                    self._assimilate(measurement_value)
+            # If payload is already a MeasurementPayload object, pydantic handles it.
+            # This part is simplified assuming dict payload for now.
+
+        elif message.topic == f"tank/{self.agent_id}/inflow":
             self.model.input.inflow = message.payload.get("value", 0)
         elif message.topic == f"tank/{self.agent_id}/release_outflow":
             self.model.input.release_outflow = message.payload.get("value", 0)

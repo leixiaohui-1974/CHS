@@ -1,0 +1,35 @@
+simulation_settings:
+  duration: 20
+  time_step: 1.0
+
+agent_society:
+  - id: sensor_file_adapter
+    class: chs_sdk.agents.perception_agents.FileAdapterAgent
+    params:
+      filepath: "scenarios/case_twin_assimilation/noisy_sensor_data.csv"
+      topic_template: "measurement/level/tank1"
+      payload_columns:
+        - "level"
+      rename_map:
+        level: "value"
+
+  - id: tank1
+    class: chs_sdk.agents.body_agents.TankAgent
+    params:
+      area: 100.0
+      initial_level: 5.0
+      enable_kalman_filter: True
+      kalman_filter:
+        F: [[1.0]]
+        H: [[1.0]]
+        Q: [[0.01]]
+        R: [[0.2]]
+        P0: [[1.0]]
+
+  - id: logger
+    class: chs_sdk.agents.management_agents.DataLoggerAgent
+    params:
+      topics_to_log:
+        - "measurement/level/tank1"
+        - "tank/tank1/state"
+      output_path: "scenarios/case_twin_assimilation/log.csv"

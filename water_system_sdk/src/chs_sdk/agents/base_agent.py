@@ -20,6 +20,7 @@ class BaseAgent(ABC):
         self.config = config
         self.status: AgentStatus = AgentStatus.INITIALIZING
         self.state_machine: Optional[StateMachine] = None
+        self.filter = None
 
     def setup(self):
         """
@@ -57,6 +58,14 @@ class BaseAgent(ABC):
         Use this for cleanup tasks.
         """
         pass
+
+    def _assimilate(self, measurement: float):
+        """
+        Updates the agent's state using a measurement via the Kalman filter.
+        """
+        if self.filter:
+            import numpy as np
+            self.filter.update(np.array([measurement]))
 
     def _publish(self, topic: str, payload: Any):
         """
