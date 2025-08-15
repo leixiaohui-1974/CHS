@@ -1,108 +1,102 @@
 from .base_agent import BaseAgent
-from .message import Message, MacroCommandMessage
-from water_system_sdk.src.water_system_simulator.control.pid_controller import PIDController
-from water_system_sdk.src.water_system_simulator.control.mpc_controller import MPCController
-
+from .message import Message
+from ..utils.logger import log
 
 class PIDAgent(BaseAgent):
     """
-    An agent that encapsulates a PID controller.
-    It can receive dynamic setpoint updates from a macro command topic.
+    A standalone agent that implements a PID controller.
+    The entire PID logic is contained within this agent.
+    It waits for an initial measurement before starting control calculations.
     """
-    def __init__(self, agent_id, kernel, Kp, Ki, Kd,
-                 subscribes_to: list, publishes_to: str,
-                 set_point=0.0, output_min=None, output_max=None, **kwargs):
+    def __init__(self, agent_id, kernel, Kp, Ki, Kd, set_point,
+                 input_topic, output_topic,
+                 output_min=None, output_max=None, **kwargs):
+        """
+        Initializes the PIDAgent.
+        """
         super().__init__(agent_id, kernel, **kwargs)
-        self.controller = PIDController(Kp=Kp, Ki=Ki, Kd=Kd, set_point=set_point,
-                                        output_min=output_min, output_max=output_max)
-        self.subscribes_to = subscribes_to
-        self.publishes_to = publishes_to
-        self.current_value = 0
-        self.macro_command_topic = None
-        self.sensor_topic = None
+        self.Kp = Kp
+        self.Ki = Ki
+        self.Kd = Kd
+        self.set_point = set_point
+        self.input_topic = input_topic
+        self.output_topic = output_topic
+        self.output_min = output_min
+        self.output_max = output_max
 
-        # New attributes for handling trajectories
-        self.setpoint_trajectory = None
-        self.current_trajectory_step = 0
+        # Internal state variables
+        self._integral = 0.0
+        self._previous_error = 0.0
+        self._current_value = 0.0
+        self.initialized = False # Flag to wait for first measurement
 
     def setup(self):
         """
-        Subscribe to the necessary topics.
+        Subscribe to the input topic to receive process variable updates.
         """
-        if not isinstance(self.subscribes_to, list) or len(self.subscribes_to) < 2:
-            raise ValueError("PIDAgent 'subscribes_to' must be a list of at least two topics.")
-
-        self.macro_command_topic = self.subscribes_to[0]
-        self.sensor_topic = self.subscribes_to[1]
-
-        self.kernel.message_bus.subscribe(self, self.macro_command_topic)
-        self.kernel.message_bus.subscribe(self, self.sensor_topic)
-
-    def execute(self, current_time: float):
-        """
-        Runs one step of the PID control calculation.
-        Uses a setpoint from a trajectory if available.
-        """
-        if self.setpoint_trajectory and self.current_trajectory_step < len(self.setpoint_trajectory):
-            current_setpoint = self.setpoint_trajectory[self.current_trajectory_step]
-            self.controller.set_point = current_setpoint
-            self.current_trajectory_step += 1
-        else:
-            # Fallback to the default setpoint if no trajectory
-            current_setpoint = self.config.get('setpoint', 0)
-            self.controller.set_point = current_setpoint
-
-        time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
-        control_action = self.controller.step(time_step, self.current_value)
-        self._publish(self.publishes_to, {"value": control_action})
+        self.kernel.message_bus.subscribe(self, self.input_topic)
 
     def on_message(self, message: Message):
         """
-        Handles incoming messages to update the PID controller's input or setpoint.
+        Handles an incoming measurement message.
+        Initializes the controller on the first valid message.
         """
-        if message.topic == self.sensor_topic:
-            self.current_value = message.payload.get("level", 0)
-        elif message.topic == self.macro_command_topic:
-            try:
-                # The payload should be a dict that can be parsed into a MacroCommandMessage
-                macro_command = MacroCommandMessage(**message.payload)
-                print(f"PIDAgent ({self.agent_id}) received macro command: {macro_command}")
-                self._translate_macro_command(macro_command)
-            except Exception as e:
-                print(f"ERROR: PIDAgent {self.agent_id} failed to parse MacroCommandMessage: {e}")
+        if message.topic == self.input_topic:
+            new_value = message.payload.get("level", message.payload.get("value"))
+            if new_value is not None:
+                self._current_value = new_value
+                if not self.initialized:
+                    # Use the first measurement to initialize the previous_error
+                    # to prevent a large derivative kick on the first run.
+                    self._previous_error = self.set_point - self._current_value
+                    self.initialized = True
+                    log.info(f"PIDAgent '{self.agent_id}' initialized with first measurement: {self._current_value}")
 
-    def _translate_macro_command(self, command: MacroCommandMessage):
+    def execute(self, current_time: float):
         """
-        Translates a macro command into a concrete setpoint trajectory.
-        This is a simplified linear interpolation implementation.
+        Calculates the control output based on the PID algorithm, but only after
+        it has been initialized with a measurement.
         """
-        current_setpoint = self.controller.set_point
-        target_setpoint = command.target_value
+        # Guard clause: Do not run the controller until initialized.
+        if not self.initialized:
+            return
 
-        # Ensure kernel and time_step are available
-        if not hasattr(self.kernel, 'time_step') or self.kernel.time_step <= 0:
-             print(f"ERROR: PIDAgent {self.agent_id} cannot generate trajectory without a valid kernel time_step.")
-             self.setpoint_trajectory = [target_setpoint]
-             return
+        dt = self.kernel.time_step
+        if dt <= 0:
+            return
 
-        duration_steps = int(command.duration_hours * 3600 / self.kernel.time_step)
+        error = self.set_point - self._current_value
 
-        if duration_steps > 0:
-            self.setpoint_trajectory = [
-                current_setpoint + (target_setpoint - current_setpoint) * i / duration_steps
-                for i in range(duration_steps + 1)
-            ]
-        else:
-            self.setpoint_trajectory = [target_setpoint]
+        # --- Calculate integral term with anti-windup ---
+        potential_integral = self._integral + error * dt
 
-        self.current_trajectory_step = 0
-        print(f"PIDAgent ({self.agent_id}) generated new setpoint trajectory with {len(self.setpoint_trajectory)} steps.")
+        # --- Calculate derivative term ---
+        derivative = (error - self._previous_error) / dt
 
+        # --- Calculate unbounded output ---
+        output = self.Kp * error + self.Ki * potential_integral + self.Kd * derivative
+
+        # --- Clamp output and apply anti-windup ---
+        clamped_output = output
+        if self.output_max is not None and clamped_output > self.output_max:
+            clamped_output = self.output_max
+        if self.output_min is not None and clamped_output < self.output_min:
+            clamped_output = self.output_min
+
+        if output == clamped_output:
+             self._integral = potential_integral
+
+        # --- Update state for the next time step ---
+        self._previous_error = error
+
+        # --- Publish the control action ---
+        self._publish(self.output_topic, {"value": clamped_output})
 
 
 import numpy as np
 import cvxpy as cp
 from water_system_sdk.src.water_system_simulator.modeling.base_model import BaseModel
+from water_system_sdk.src.water_system_simulator.control.mpc_controller import MPCController
 
 class MPCAgent(BaseAgent):
     """
@@ -135,9 +129,9 @@ class MPCAgent(BaseAgent):
         """
         Subscribe to the necessary topics.
         """
-        self.kernel.message_bus.subscribe(self.state_topic, self)
+        self.kernel.message_bus.subscribe(self, self.state_topic)
         if self.disturbance_topic:
-            self.kernel.message_bus.subscribe(self.disturbance_topic, self)
+            self.kernel.message_bus.subscribe(self, self.disturbance_topic)
 
     def execute(self, current_time: float):
         """

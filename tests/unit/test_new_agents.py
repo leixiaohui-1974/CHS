@@ -30,16 +30,15 @@ class TestNewAgentImplementation(unittest.TestCase):
             kernel=self.mock_kernel,
             Kp=1.0, Ki=0.1, Kd=0.01,
             set_point=5.0,
-            subscribes_to=['cmd/macro', 'tank/level'],
-            publishes_to='valve/opening'
+            input_topic='tank/level',
+            output_topic='valve/opening'
         )
         pid_agent.setup()
-        self.assertEqual(self.mock_kernel.message_bus.subscribe.call_count, 2)
-        self.mock_kernel.message_bus.subscribe.assert_any_call(pid_agent, 'cmd/macro')
-        self.mock_kernel.message_bus.subscribe.assert_any_call(pid_agent, 'tank/level')
+        self.mock_kernel.message_bus.subscribe.assert_called_once_with(pid_agent, 'tank/level')
 
         # Simulate receiving a message and then executing
-        pid_agent.current_value = 4.5
+        # The new agent waits for a message to be initialized
+        pid_agent.on_message(Message(topic='tank/level', sender_id='t1', payload={'level': 4.5}))
         pid_agent.execute(current_time=0)
 
         # Check if the agent published a message

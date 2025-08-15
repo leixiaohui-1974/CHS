@@ -30,17 +30,26 @@ class DemandAgent(BaseAgent):
 
 class InflowAgent(BaseAgent):
     """
-    An agent that simulates inflow (e.g., rainfall) based on a predefined pattern.
+    An agent that simulates inflow (e.g., rainfall) based on a data pattern,
+    which can be provided as a list or from a CSV file.
     """
-    def __init__(self, agent_id, kernel, rainfall_pattern, topic, **kwargs):
+    def __init__(self, agent_id, kernel, topic, rainfall_pattern=None, rainfall_file=None, **kwargs):
+        """
+        Initializes the InflowAgent.
+
+        Args:
+            topic (str): The topic to publish the inflow data to.
+            rainfall_pattern (list, optional): A list of inflow values.
+            rainfall_file (str, optional): Path to a CSV file with inflow data.
+        """
         super().__init__(agent_id, kernel, **kwargs)
-        self.model = RainfallModel(rainfall_pattern)
+        self.model = RainfallModel(rainfall_pattern=rainfall_pattern, rainfall_file=rainfall_file)
         self.topic = topic
         self.time_step = 0
 
     def execute(self, current_time: float):
         """
-        Publishes the next inflow value from the rainfall pattern.
+        Publishes the next inflow value from the model.
         """
         inflow = self.model.get_rainfall(self.time_step)
         self._publish(self.topic, {"value": inflow})
