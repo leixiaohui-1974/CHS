@@ -20,3 +20,12 @@ class MeasurementPayload(BaseModel):
     value: float
     quality: Optional[str] = 'good'
     timestamp: float = Field(default_factory=time.time)
+
+class MacroCommandMessage(BaseModel):
+    """
+    Defines a high-level command from a dispatching agent to a control agent.
+    """
+    target_variable: str
+    target_value: float
+    duration_hours: float
+    strategy: str = "default"

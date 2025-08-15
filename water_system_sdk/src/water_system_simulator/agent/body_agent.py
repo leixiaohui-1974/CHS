@@ -2,8 +2,10 @@ from __future__ import annotations
 from typing import Dict, Any, List
 from .base_agent import BaseEmbodiedAgent
 from ..modeling.base_model import BaseModel
+from scipy.optimize import fsolve
+import numpy as np
 
-class BodySimulationAgent(BaseEmbodiedAgent):
+class BodyAgent(BaseEmbodiedAgent):
     """
     The core of the new architecture, the "Agent Factory".
 
@@ -25,7 +27,7 @@ class BodySimulationAgent(BaseEmbodiedAgent):
                  actuators: Dict[str, BaseModel],
                  **kwargs):
         """
-        Initializes the BodySimulationAgent.
+        Initializes the BodyAgent.
 
         Args:
             core_physics_model: The model representing the core physics of the entity.
@@ -36,19 +38,51 @@ class BodySimulationAgent(BaseEmbodiedAgent):
         self.core_physics_model = core_physics_model
         self.sensors = sensors
         self.actuators = actuators
-        # TODO: Add data assimilation module (e.g., Kalman Filter) for live twin mode.
 
     def step(self, dt: float, **kwargs):
         """
-        In this new architecture, the BodySimulationAgent's step is active.
-        It drives the internal physics model. The orchestration of sensor reading
-        and actuator commanding will still be managed by the SimulationManager
-        to ensure data flows correctly between agents.
+        Drives the internal physics model based on the current mode.
         """
-        if self.core_physics_model:
-            # The 'kwargs' might contain actuator commands forwarded by the SimManager
+        if not self.core_physics_model:
+            return
+
+        if self.mode == 'dynamic':
+            # Standard time-stepping simulation
             self.core_physics_model.step(dt=dt, **kwargs)
+        elif self.mode == 'steady_state':
+            # Solve for the steady-state equilibrium
+            self.solve_steady_state(**kwargs)
+        elif self.mode == 'transient':
+            # Placeholder for transient simulation (e.g., water hammer)
+            print("WARNING: Transient mode is not yet implemented.")
+            pass
         # TODO: Implement data assimilation logic here for live twin mode.
+
+    def solve_steady_state(self, **kwargs):
+        """
+        Calculates the steady-state of the system using a root-finding algorithm.
+        """
+        if not hasattr(self.core_physics_model, 'get_state_vector') or \
+           not hasattr(self.core_physics_model, 'get_derivatives'):
+            print("ERROR: Steady-state solver requires the model to have 'get_state_vector' and 'get_derivatives' methods.")
+            return
+
+        initial_guess = self.core_physics_model.get_state_vector()
+
+        # The function to find the root of: derivatives should be zero
+        def objective_function(state_vector):
+            # The model needs a way to set its internal state from this vector
+            self.core_physics_model.set_state_from_vector(state_vector)
+            # We want the derivatives to be zero at steady state
+            return self.core_physics_model.get_derivatives(0, state_vector, **kwargs)
+
+        try:
+            steady_state_vector = fsolve(objective_function, initial_guess)
+            # Once solved, update the model's state to this equilibrium point
+            self.core_physics_model.set_state_from_vector(steady_state_vector)
+            print(f"INFO: Steady-state found and set for {self.name}.")
+        except Exception as e:
+            print(f"ERROR: Failed to find steady-state for {self.name}: {e}")
 
     def characterize_dynamics(self) -> Dict[str, Any]:
         """
@@ -103,7 +137,7 @@ class BodySimulationAgent(BaseEmbodiedAgent):
         """
         Assembles a complete simulation configuration for an in-loop test.
 
-        This method takes the parent BodySimulationAgent (self), a generated
+        This method takes the parent BodyAgent (self), a generated
         control agent, and a set of disturbances, and packages them into a
         valid configuration dictionary that can be run by the SimulationManager.
 
@@ -119,7 +153,7 @@ class BodySimulationAgent(BaseEmbodiedAgent):
         body_agent_name = self.name
         components = {
             body_agent_name: {
-                "type": "BodySimulationAgent",
+                "type": "BodyAgent",
                 # The properties will be the same as this instance
             }
         }

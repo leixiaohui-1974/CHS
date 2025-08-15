@@ -45,38 +45,55 @@ class TestAgentIntegration(unittest.TestCase):
 
         # 1. Create agents
         inflow_pattern = [10, 10, 10, 10, 10, 5, 5, 5, 5, 5]
+        from unittest.mock import MagicMock
+        mock_kernel = MagicMock()
+        mock_kernel.message_bus = bus
+        mock_kernel.time_step = 1.0
+
         inflow_agent = InflowAgent(
             agent_id="inflow_1",
-            message_bus=bus,
+            kernel=mock_kernel,
             rainfall_pattern=inflow_pattern,
             topic="tank/tank_1/inflow"
         )
 
         tank_agent = TankAgent(
             agent_id="tank_1",
-            message_bus=bus,
+            kernel=mock_kernel,
             area=1000,
             initial_level=5.0
         )
         # The tank's state (level) is published to this topic
         pid_agent = PIDAgent(
             agent_id="pid_1",
-            message_bus=bus,
+            kernel=mock_kernel,
             Kp=-0.5, Ki=-0.1, Kd=-0.01,
             set_point=10.0, # Target water level
             input_topic="tank/tank_1/state",
-            output_topic="gate/gate_1/opening"
+            output_topic="gate/gate_1/opening",
+            output_min=0,
+            output_max=1
         )
 
         gate_agent = GateAgent(
             agent_id="gate_1",
-            message_bus=bus,
+            kernel=mock_kernel,
             num_gates=1,
             gate_width=2,
-            discharge_coeff=0.6
+            discharge_coeff=0.6,
+            upstream_topic="tank/tank_1/state",
+            downstream_topic="dummy_downstream",
+            opening_topic="gate/gate_1/opening",
+            state_topic="gate/gate_1/state"
         )
+        # Call setup on all agents to register subscriptions
+        inflow_agent.setup()
+        tank_agent.setup()
+        pid_agent.setup()
+        gate_agent.setup()
+
         # The gate's calculated flow will act as the tank's release outflow
-        gate_agent.subscribe("tank/tank_1/state") # for upstream_level
+        bus.subscribe("tank/tank_1/state", gate_agent) # for upstream_level
 
         # Manually connect gate outflow to tank outflow
         # In a real system, a dedicated agent or a configuration would handle this.
@@ -96,14 +113,22 @@ class TestAgentIntegration(unittest.TestCase):
         for t in range(10):
             print(f"\n--- Time Step {t} ---")
 
-            # Agents perform their actions
-            inflow_agent.execute()
-            tank_agent.execute()
-            pid_agent.execute()
-            gate_agent.execute()
+            # The order of execution and dispatch is critical in a manual loop.
+            # 1. Inflow agent generates inflow for the tank.
+            inflow_agent.execute(t)
+            bus.dispatch() # Deliver the inflow message.
 
-            # Dispatch all messages published in this step
-            bus.dispatch()
+            # 2. PID agent calculates opening based on the *previous* step's tank level.
+            pid_agent.execute(t)
+            bus.dispatch() # Deliver the opening command to the gate.
+
+            # 3. Gate agent calculates flow based on the opening command and *previous* tank level.
+            gate_agent.execute(t)
+            bus.dispatch() # Deliver the gate's flow state.
+
+            # 4. Tank agent's outflow is updated by the connector, then it calculates its new level.
+            tank_agent.execute(t)
+            bus.dispatch() # Deliver the tank's new state for the next loop.
 
             print(f"Tank Level: {tank_agent.model.state.level:.2f}")
             print(f"PID Output (Gate Opening): {pid_agent.controller.state.output:.2f}")

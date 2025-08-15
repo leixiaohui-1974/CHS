@@ -44,12 +44,12 @@ class TankAgent(BaseAgent):
         """
         Subscribe to the necessary topics for control and data assimilation.
         """
-        self.kernel.message_bus.subscribe(self, f"tank/{self.agent_id}/inflow")
-        self.kernel.message_bus.subscribe(self, f"tank/{self.agent_id}/release_outflow")
-        self.kernel.message_bus.subscribe(self, f"tank/{self.agent_id}/demand_outflow")
+        self.kernel.message_bus.subscribe(f"tank/{self.agent_id}/inflow", self)
+        self.kernel.message_bus.subscribe(f"tank/{self.agent_id}/release_outflow", self)
+        self.kernel.message_bus.subscribe(f"tank/{self.agent_id}/demand_outflow", self)
         if self.filter:
             measurement_topic = f"measurement/level/{self.agent_id}"
-            self.kernel.message_bus.subscribe(self, measurement_topic)
+            self.kernel.message_bus.subscribe(measurement_topic, self)
             print(f"TankAgent {self.agent_id} subscribed to {measurement_topic}")
 
     def execute(self, current_time: float):
@@ -127,9 +127,9 @@ class GateAgent(BaseAgent):
         """
         Subscribe to the necessary topics for gate operation.
         """
-        self.kernel.message_bus.subscribe(self, self.upstream_topic)
-        self.kernel.message_bus.subscribe(self, self.downstream_topic)
-        self.kernel.message_bus.subscribe(self, self.opening_topic)
+        self.kernel.message_bus.subscribe(self.upstream_topic, self)
+        self.kernel.message_bus.subscribe(self.downstream_topic, self)
+        self.kernel.message_bus.subscribe(self.opening_topic, self)
 
     def execute(self, current_time: float):
         """
@@ -176,9 +176,9 @@ class ValveAgent(BaseAgent):
         """
         Subscribe to the necessary topics for valve operation.
         """
-        self.kernel.message_bus.subscribe(self, self.upstream_topic)
-        self.kernel.message_bus.subscribe(self, self.downstream_topic)
-        self.kernel.message_bus.subscribe(self, self.opening_topic)
+        self.kernel.message_bus.subscribe(self.upstream_topic, self)
+        self.kernel.message_bus.subscribe(self.downstream_topic, self)
+        self.kernel.message_bus.subscribe(self.opening_topic, self)
 
     def execute(self, current_time: float):
         """
@@ -345,14 +345,14 @@ class PumpAgent(BaseAgent):
         """
         Subscribe to the necessary topics for pump operation.
         """
-        self.kernel.message_bus.subscribe(self, self.inlet_pressure_topic)
-        self.kernel.message_bus.subscribe(self, self.outlet_pressure_topic)
-        self.kernel.message_bus.subscribe(self, self.num_pumps_on_topic)
+        self.kernel.message_bus.subscribe(self.inlet_pressure_topic, self)
+        self.kernel.message_bus.subscribe(self.outlet_pressure_topic, self)
+        self.kernel.message_bus.subscribe(self.num_pumps_on_topic, self)
         # Subscribe to command topics
-        self.kernel.message_bus.subscribe(self, "cmd.pump.start")
-        self.kernel.message_bus.subscribe(self, "cmd.pump.stop")
-        self.kernel.message_bus.subscribe(self, "cmd.pump.fault")
-        self.kernel.message_bus.subscribe(self, "cmd.pump.reset")
+        self.kernel.message_bus.subscribe("cmd.pump.start", self)
+        self.kernel.message_bus.subscribe("cmd.pump.stop", self)
+        self.kernel.message_bus.subscribe("cmd.pump.fault", self)
+        self.kernel.message_bus.subscribe("cmd.pump.reset", self)
 
 
 class HydropowerStationAgent(BaseAgent):
@@ -383,9 +383,9 @@ class HydropowerStationAgent(BaseAgent):
         """
         Subscribe to the necessary topics for hydropower station operation.
         """
-        self.kernel.message_bus.subscribe(self, self.upstream_topic)
-        self.kernel.message_bus.subscribe(self, self.downstream_topic)
-        self.kernel.message_bus.subscribe(self, self.vane_opening_topic)
+        self.kernel.message_bus.subscribe(self.upstream_topic, self)
+        self.kernel.message_bus.subscribe(self.downstream_topic, self)
+        self.kernel.message_bus.subscribe(self.vane_opening_topic, self)
 
     def execute(self, current_time: float):
         """
@@ -436,8 +436,8 @@ class PipeAgent(BaseAgent):
         """
         Subscribe to the necessary topics for pipe simulation.
         """
-        self.kernel.message_bus.subscribe(self, self.inlet_pressure_topic)
-        self.kernel.message_bus.subscribe(self, self.outlet_pressure_topic)
+        self.kernel.message_bus.subscribe(self.inlet_pressure_topic, self)
+        self.kernel.message_bus.subscribe(self.outlet_pressure_topic, self)
 
     def execute(self, current_time: float):
         """
@@ -479,7 +479,7 @@ class ChannelAgent(BaseAgent):
         """
         Subscribe to the necessary topics for channel simulation.
         """
-        self.kernel.message_bus.subscribe(self, self.inflow_topic)
+        self.kernel.message_bus.subscribe(self.inflow_topic, self)
 
     def execute(self, current_time: float):
         """

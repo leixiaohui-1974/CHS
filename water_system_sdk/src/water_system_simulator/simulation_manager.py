@@ -136,9 +136,10 @@ class ComponentRegistry:
         "BaseAgent": "water_system_simulator.agent.base_agent.BaseAgent",
         "BaseEmbodiedAgent": "water_system_simulator.agent.base_agent.BaseEmbodiedAgent",
         "BaseDisturbanceAgent": "water_system_simulator.agent.base_agent.BaseDisturbanceAgent",
-        "BodySimulationAgent": "water_system_simulator.agent.body_simulation_agent.BodySimulationAgent",
-        "ControlEmbodiedAgent": "water_system_simulator.agent.control_agent.ControlEmbodiedAgent",
-        "SensingEmbodiedAgent": "water_system_simulator.agent.sensing_agent.SensingEmbodiedAgent",
+        "BodyAgent": "water_system_simulator.agent.body_agent.BodyAgent",
+        "ControlAgent": "water_system_simulator.agent.control_agent.ControlAgent",
+        "PerceptionAgent": "water_system_simulator.agent.perception_agent.PerceptionAgent",
+        "DispatchAgent": "water_system_simulator.agent.dispatch_agent.DispatchAgent",
         "CentralManagementAgent": "water_system_simulator.agent.central_management_agent.CentralManagementAgent",
     }
 
