@@ -6,14 +6,14 @@ simulation_settings:
 
 agent_society:
   # ==================================================
-  # 1. The Strategic Dispatch Brain (Centralized MPC)
+  # 1. 战略调度大脑 (集中式 MPC)
   # ==================================================
   - id: central_dispatch_brain
     class: water_system_simulator.agent.dispatch_agent.DispatchAgent
     params:
       mode: 'centralized_mpc'
-      # This agent makes high-level decisions for the entire system
-      # It subscribes to key system states and publishes macro commands
+      # 该智能体为整个系统做出高层决策
+      # 它订阅关键系统状态并发布宏观指令
       subscribes_to:
         - data.level.tank_1
         - data.level.tank_2
@@ -21,10 +21,9 @@ agent_society:
       publishes_to:
         - cmd.macro.control_tank_1
         - cmd.macro.control_tank_2
-      control_agents: ["pid_controller_1", "pid_controller_2"]
 
   # ==================================================
-  # 2. The Tactical Execution Units (Local PID Controllers)
+  # 2. 战术执行单元 (现地 PID 控制器)
   # ==================================================
   - id: pid_controller_1
     class: chs_sdk.agents.control_agents.PIDAgent
@@ -32,12 +31,9 @@ agent_society:
       Kp: 1.2
       Ki: 0.1
       Kd: 0.05
-      # This agent receives macro commands and translates them to local setpoints
-      # It subscribes to its macro command and its local measurement
-      subscribes_to:
-        - cmd.macro.control_tank_1
-        - data.level.tank_1
-      publishes_to: cmd.opening.valve_1
+      set_point: 5.0
+      input_topic: "data.level.tank_1"
+      output_topic: "cmd.opening.valve_1"
 
   - id: pid_controller_2
     class: chs_sdk.agents.control_agents.PIDAgent
@@ -45,27 +41,25 @@ agent_society:
       Kp: 1.0
       Ki: 0.12
       Kd: 0.04
-      subscribes_to:
-        - cmd.macro.control_tank_2
-        - data.level.tank_2
-      publishes_to: cmd.opening.valve_2
+      set_point: 4.5
+      input_topic: "data.level.tank_2"
+      output_topic: "cmd.opening.valve_2"
 
   # ==================================================
-  # 3. The Digital Twin of the Physical System (Body Agents)
+  # 3. 物理系统的数字孪生 (本体智能体)
   # ==================================================
   - id: main_inflow_source
     class: chs_sdk.agents.disturbance_agents.InflowAgent
     params:
-      # This agent simulates the main water source for the system
-      topic: data.inflow.main_river
-      rainfall_pattern: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+      topic: "data.inflow.main_river"
+      rainfall_pattern: [10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0]
 
   - id: storage_tank_1
     class: chs_sdk.agents.body_agents.TankAgent
     params:
       area: 100.0
       initial_level: 5.0
-      # This tank's level is affected by the main inflow and its outlet valve
+      # 该水箱的水位受主要入流及其出口阀门的影响
       subscribes_to:
         - data.inflow.main_river
         - state/valve/outlet_valve_1
@@ -75,7 +69,7 @@ agent_society:
     class: chs_sdk.agents.body_agents.ValveAgent
     params:
       cv: 0.5
-      # This valve's opening is controlled by its corresponding PID controller
+      # 该阀门的开度由其对应的PID控制器控制
       subscribes_to:
         - cmd.opening.valve_1
 
