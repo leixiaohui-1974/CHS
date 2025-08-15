@@ -1,0 +1,30 @@
+# scenarios/case_invalid_config/config.yaml
+# This file contains deliberate errors to test the ScenarioValidator.
+
+simulation_settings:
+  duration: 10
+  time_step: 1.0
+
+agent_society:
+  # Error 1: Non-existent class path
+  - id: "agent_with_bad_class"
+    class: "chs_sdk.agents.non_existent.BogusAgent"
+    params: {}
+
+  # Error 2: Missing required parameter 'area'
+  - id: "tank_with_missing_param"
+    class: "chs_sdk.agents.body_agents.TankAgent"
+    params:
+      # 'area' is missing
+      initial_level: 5.0
+      subscribes_to:
+        - "a-dangling-topic" # Warning 1: Dangling subscription
+
+  - id: "pid_controller_1"
+    class: "chs_sdk.agents.control_agents.PIDAgent"
+    params:
+      Kp: 1.0
+      Ki: 1.0
+      Kd: 1.0
+      subscribes_to: ["cmd/pid", "state/tank"]
+      publishes_to: "control/valve"
