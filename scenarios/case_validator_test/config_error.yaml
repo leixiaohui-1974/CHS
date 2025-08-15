@@ -1,0 +1,32 @@
+# scenarios/case_validator_test/config_error.yaml
+# This file contains deliberate errors to test the ScenarioValidator.
+
+simulation_settings:
+  duration: 100
+  time_step: 1.0
+
+agent_society:
+  # Error 1: This agent has an invalid class path.
+  - id: "agent_with_bad_class"
+    class: "chs_sdk.agents.non_existent.BogusAgent"
+    params:
+      foo: "bar"
+
+  # Error 2: This TankAgent is missing the required 'area' parameter.
+  - id: "agent_with_missing_param"
+    class: "chs_sdk.agents.body_agents.TankAgent"
+    params:
+      # 'area' is missing.
+      initial_level: 5.0
+
+  # Error 3: This agent subscribes to a topic that is never published.
+  - id: "agent_with_dangling_subscription"
+    class: "chs_sdk.agents.control_agents.PIDAgent"
+    params:
+      Kp: 1.0
+      Ki: 0.1
+      Kd: 0.01
+      set_point: 10.0
+      # This topic is not published by any agent in this configuration.
+      subscribes_to: ["command/dummy", "some/dangling/topic"]
+      publishes_to: "control/output"

@@ -1,0 +1,67 @@
+# scenarios/case_simple_control_loop/config.yaml
+
+simulation_settings:
+  duration: 200
+  time_step: 1.0
+
+agent_society:
+  # 1. InflowAgent (Disturbance Source)
+  - id: "inflow_agent"
+    class: "chs_sdk.agents.disturbance_agents.InflowAgent"
+    params:
+      topic: "data.inflow/tank_agent/flow"
+      rainfall_pattern: [15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                         15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                         15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                         15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                         15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+                         5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                         5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                         5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                         5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
+                         5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
+
+  # 2. TankAgent (Controlled Object)
+  - id: "tank_agent"
+    class: "chs_sdk.agents.body_agents.TankAgent"
+    params:
+      area: 50.0
+      initial_level: 2.0
+      max_level: 20.0
+      subscribes_to:
+        - "data.inflow/tank_agent/flow"
+        - "state/valve/valve_agent"
+      publishes_to: "tank/tank_agent/state"
+
+  # 3. PIDAgent (Controller)
+  - id: "pid_controller"
+    class: "chs_sdk.agents.control_agents.PIDAgent"
+    params:
+      Kp: 1.2
+      Ki: 0.15
+      Kd: 0.05
+      set_point: 10.0
+      subscribes_to:
+        - "command/pid/dummy"
+        - "tank/tank_agent/state"
+      publishes_to: "control/valve_agent/opening"
+      output_min: 0
+      output_max: 100
+
+  # 4. ValveAgent (Actuator)
+  - id: "valve_agent"
+    class: "chs_sdk.agents.body_agents.ValveAgent"
+    params:
+      cv: 20.0
+      subscribes_to: "control/valve_agent/opening"
+
+  # 5. DataLoggerAgent (Result Recorder)
+  - id: "datalogger"
+    class: "chs_sdk.agents.management_agents.DataLoggerAgent"
+    params:
+      log_file: "results/simple_control_loop_log.csv"
+      subscribed_topics:
+        - "tank/tank_agent/state"
+        - "control/valve_agent/opening"
+        - "state/valve/valve_agent"
+        - "data.inflow/tank_agent/flow"

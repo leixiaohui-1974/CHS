@@ -1,0 +1,34 @@
+simulation_settings:
+  duration: 10
+  time_step: 1.0
+
+agent_society:
+  # 1. This agent simulates a real, noisy sensor
+  - id: real_sensor_simulator
+    class: "chs_sdk.agents.perception_agents.FileAdapterAgent"
+    params:
+      filepath: "scenarios/case_data_assimilation/noisy_level_data.csv"
+      topic_template: "measurement.level.tank_1" # Topic for "real" measurements
+      payload_columns: ["level"]
+      rename_map:
+        level: "value"
+
+  # 2. This is the Digital Twin, with Kalman Filter enabled
+  - id: digital_twin_tank
+    class: "chs_sdk.agents.body_agents.TankAgent"
+    params:
+      area: 10.0
+      initial_level: 5.0
+      enable_kalman_filter: true # Crucial: Enable the filter
+      subscribes_to:
+        - "measurement.level.tank_1" # It listens to the real sensor
+      publishes_to: "twin.level.tank_1" # It publishes its own, filtered state
+
+  # 3. This agent logs both real and twin data for comparison
+  - id: data_logger
+    class: "chs_sdk.agents.management_agents.DataLoggerAgent"
+    params:
+      log_file: "simulation_results.csv"
+      subscribed_topics:
+        - "measurement.level.tank_1"
+        - "twin.level.tank_1"
