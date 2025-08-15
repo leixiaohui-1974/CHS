@@ -40,17 +40,9 @@ class Launcher:
                 params = agent_config.get("params", {})
                 agent_id = agent_config["id"]
 
-                # Instantiate the agent
-                # The kernel is now the primary way for agents to interact
-                # with the system, including the message bus.
-                params['agent_id'] = agent_id
-                params['kernel'] = kernel
-
-                agent_instance = agent_class(**params)
-
-                # Add agent to the kernel
-                kernel.add_agent(agent_instance)
-                print(f"Successfully instantiated and added agent: {agent_id}")
+                # The kernel is now responsible for instantiation
+                kernel.add_agent(agent_class, agent_id, **params)
+                print(f"Successfully added agent '{agent_id}' to kernel.")
 
             except (ImportError, AttributeError, KeyError, TypeError) as e:
                 print(f"Error loading agent '{agent_config.get('id', 'N/A')}': {e}")
