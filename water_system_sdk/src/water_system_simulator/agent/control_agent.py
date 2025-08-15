@@ -63,8 +63,10 @@ class ControlAgent(BaseEmbodiedAgent):
             # If no trajectory, maintain current setpoint (or a default)
             setpoint = self.algorithm.setpoint
 
+        # Update the setpoint in the algorithm
+        self.algorithm.set_point = setpoint
         # Calculate control command
-        self.current_command = self.algorithm.step(dt, current_state.get(self.name), setpoint)
+        self.current_command = self.algorithm.step(dt, current_state.get(self.name))
 
         # The command would be sent to an actuator in a real system.
         # For now, we just store it.

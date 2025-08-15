@@ -39,6 +39,19 @@ class BodyAgent(BaseEmbodiedAgent):
         self.sensors = sensors
         self.actuators = actuators
 
+    def get_state_vector(self):
+        """
+        Returns the state vector of the core physics model.
+        """
+        if hasattr(self.core_physics_model, 'get_state_vector'):
+            return self.core_physics_model.get_state_vector()
+        # Fallback for models that might not have this method
+        if hasattr(self.core_physics_model, 'state'):
+             # This is a simple heuristic, might need to be more robust
+            return np.array(list(self.core_physics_model.state.values()))
+        return np.array([])
+
+
     def step(self, dt: float, **kwargs):
         """
         Drives the internal physics model based on the current mode.

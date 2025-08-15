@@ -1,10 +1,12 @@
 import os
 import sys
 
-# Add the project root to the Python path to allow for absolute imports
-# This is necessary because the launcher is run from within the scenarios directory
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-sys.path.insert(0, project_root)
+# Adjust the Python path to include the source directory of the SDK
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+SRC_DIR = os.path.join(ROOT_DIR, 'water_system_sdk', 'src')
+sys.path.insert(0, SRC_DIR)
+sys.path.insert(0, ROOT_DIR)
+
 
 from scenarios.launcher import main as launcher_main
 

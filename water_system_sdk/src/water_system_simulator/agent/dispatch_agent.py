@@ -1,17 +1,24 @@
-from .base_agent import CentralManagementAgent
+from chs_sdk.agents.base_agent import BaseAgent
 from chs_sdk.agents.message import Message, MacroCommandMessage
 import numpy as np
 
-class DispatchAgent(CentralManagementAgent):
+class DispatchAgent(BaseAgent):
     """
     The strategic "brain" of the water system. It performs long-term
     optimization and responds to emergencies.
     """
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, agent_id, kernel, **kwargs):
+        super().__init__(agent_id, kernel, **kwargs)
         self.system_model = None # A high-level model of the entire system
         self.optimization_horizon_hours = 24
         self.control_agents = kwargs.get("control_agents", [])
+
+    def setup(self):
+        """
+        The DispatchAgent may need to subscribe to high-level topics
+        or perform initial model loading here in the future.
+        """
+        pass
 
     def on_message(self, message: Message):
         """
@@ -21,6 +28,12 @@ class DispatchAgent(CentralManagementAgent):
             self.process_awareness_update(message.payload)
         elif "alarm" in message.topic:
             self.trigger_emergency_response(message.payload)
+
+    def execute(self, current_time: float):
+        """
+        The main execution loop for the DispatchAgent.
+        """
+        self.step(dt=self.kernel.time_step, simulation_time=current_time)
 
     def run_long_term_optimization(self):
         """
@@ -79,7 +92,18 @@ class DispatchAgent(CentralManagementAgent):
         # For simulation purposes, let's assume it runs its optimization once.
         if kwargs.get("simulation_time", 0) % 3600 == 0: # Run once per hour
             macro_commands = self.run_long_term_optimization()
-            # In a real system, these commands would be dispatched over a message bus.
             print(f"DEBUG: Dispatching commands: {macro_commands}")
+            for command_info in macro_commands:
+                recipient = command_info["recipient"]
+                command = command_info["command"]
+                # Infer topic from publishes_to list based on agent name
+                try:
+                    # e.g., pid_controller_1 -> cmd.macro.control_tank_1
+                    agent_index = self.control_agents.index(recipient)
+                    topic = self.config.get("publishes_to", [])[agent_index]
+                    self._publish(topic, command.dict())
+                    print(f"INFO: DispatchAgent published command to {recipient} on topic {topic}")
+                except (ValueError, IndexError) as e:
+                    print(f"ERROR: Could not find topic for recipient {recipient}: {e}")
 
-        print(f"INFO: DispatchAgent {self.name} is stepping.")
+        print(f"INFO: DispatchAgent {self.agent_id} is stepping.")

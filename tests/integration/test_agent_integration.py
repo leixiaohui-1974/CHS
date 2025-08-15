@@ -20,7 +20,7 @@ class SimpleMessageBus:
         self.subscriptions = defaultdict(list)
         self.message_queue = []
 
-    def subscribe(self, topic, agent):
+    def subscribe(self, agent, topic):
         self.subscriptions[topic].append(agent)
 
     def publish(self, message: Message):
@@ -93,7 +93,7 @@ class TestAgentIntegration(unittest.TestCase):
         gate_agent.setup()
 
         # The gate's calculated flow will act as the tank's release outflow
-        bus.subscribe("tank/tank_1/state", gate_agent) # for upstream_level
+        bus.subscribe(gate_agent, "tank/tank_1/state") # for upstream_level
 
         # Manually connect gate outflow to tank outflow
         # In a real system, a dedicated agent or a configuration would handle this.
@@ -103,7 +103,7 @@ class TestAgentIntegration(unittest.TestCase):
                     flow = message.payload.get("flow", 0)
                     tank_agent.model.input.release_outflow = flow
 
-        bus.subscribe("gate/gate_1/state", GateToTankConnector())
+        bus.subscribe(GateToTankConnector(), "gate/gate_1/state")
 
 
         # 2. Simulation Loop

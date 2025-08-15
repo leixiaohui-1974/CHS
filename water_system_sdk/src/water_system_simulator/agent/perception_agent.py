@@ -28,7 +28,7 @@ class PerceptionAgent(BaseEmbodiedAgent):
             return processed_data
         return message.payload
 
-    def execute_offline_identification(self, data, strategy='steady_state'):
+    def execute_offline_identification(self, data, strategy='steady_state', initial_guess=None, bounds=None):
         """
         Executes an offline system identification task.
         """
@@ -38,12 +38,16 @@ class PerceptionAgent(BaseEmbodiedAgent):
             'data': data,
             'model_type': strategy,
             'dt': 1,
-            'initial_guess': [0.1, 0.1],
-            'bounds': [(0, 1), (0, 1)]
+            'initial_guess': initial_guess if initial_guess is not None else [0.1, 0.1],
+            'bounds': bounds if bounds is not None else [(0, 1), (0, 1)]
         }
         result = workflow.run(context)
-        self.latest_model_parameters = result.get("identified_parameters")
-        return self.latest_model_parameters
+        if result.get("status") == "success":
+            self.latest_model_parameters = result.get("identified_parameters")
+            return self.latest_model_parameters
+        else:
+            print(f"ERROR in PerceptionAgent: SystemIDWorkflow failed: {result.get('error')}")
+            return None
 
     def execute_online_identification(self, new_data_point):
         """
