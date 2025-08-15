@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Any, TYPE_CHECKING
+
+from .agent_status import AgentStatus
 from .message import Message
 
 if TYPE_CHECKING:
     from .agent_kernel import AgentKernel
+
 
 class BaseAgent(ABC):
     """
@@ -13,6 +16,7 @@ class BaseAgent(ABC):
         self.agent_id = agent_id
         self.kernel = kernel
         self.config = config
+        self.status: AgentStatus = AgentStatus.INITIALIZING
 
     def setup(self):
         """
