@@ -1,0 +1,47 @@
+# scenarios/case_single_tank_pid/config.yaml
+
+simulation_settings:
+  duration: 100  # Total simulation time in seconds
+  time_step: 1.0 # Simulation time step in seconds
+
+agent_society:
+  # 1. Inflow Agent (Simulates inflow from a pattern)
+  # This agent publishes inflow data to the topic that the TankAgent expects.
+  - id: "inflow_agent_1"
+    class: "chs_sdk.agents.disturbance_agents.InflowAgent"
+    params:
+      topic: "tank/tank_agent_1/inflow" # Publishes to the tank's inflow topic
+      # A simple pattern: constant inflow of 10 for the first 50s, then 0
+      rainfall_pattern: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+                         10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+                         10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+                         10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+                         10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+  # 2. Tank Agent (The main physical component)
+  # This agent subscribes to inflow and outflow topics based on its ID.
+  - id: "tank_agent_1"
+    class: "chs_sdk.agents.body_agents.TankAgent"
+    params:
+      area: 100.0
+      initial_level: 5.0
+      max_level: 20.0
+
+  # 3. PID Agent (The controller)
+  # This agent reads the tank's state and controls its release outflow.
+  - id: "pid_agent_1"
+    class: "chs_sdk.agents.control_agents.PIDAgent"
+    params:
+      Kp: 0.5
+      Ki: 0.1
+      Kd: 0.01
+      set_point: 10.0 # Target water level
+      input_topic: "tank/tank_agent_1/state" # Subscribes to the tank's state
+      output_topic: "tank/tank_agent_1/release_outflow" # Controls the tank's outflow
+      output_min: 0
+      output_max: 20
