@@ -1,6 +1,9 @@
 Flask
 Flask-SQLAlchemy
 Flask-Migrate
+mlflow
+optuna
+requests
 loguru
 pydantic
 stable-baselines3
