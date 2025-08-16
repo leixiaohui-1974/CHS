@@ -1,73 +1,122 @@
 import numpy as np
 from typing import Optional
 from .base_model import BaseModel
+from .actuator_models import ActuatorBase
 
-class GateModel(BaseModel):
+class GateBase(ActuatorBase):
     """
-    Represents a station with multiple identical sluice gates.
-    Calculates flow based on gate opening and upstream/downstream water levels.
+    Base class for gate models.
     """
-    def __init__(self, num_gates: int, gate_width: float, discharge_coeff: float, **kwargs):
-        """
-        Initializes the Gate model.
-
-        Args:
-            num_gates (int): The number of identical gates in the station.
-            gate_width (float): The width of a single gate (m).
-            discharge_coeff (float): The discharge coefficient for the gates (dimensionless).
-        """
-        super().__init__(**kwargs)
-        self.num_gates = num_gates
+    def __init__(self, gate_width: float, discharge_coeff: float, initial_opening: float = 0.0, **kwargs):
+        super().__init__(initial_position=initial_opening, **kwargs)
         self.gate_width = gate_width
         self.discharge_coeff = discharge_coeff
         self.g = 9.81
         self.flow = 0.0
         self.output = self.flow
 
-    def step(self, upstream_level: float, downstream_level: float, gate_opening: float, **kwargs):
+    def set_opening(self, height: float):
         """
-        Calculates the total flow for the next time step, considering both
-        free-flow and submerged-flow conditions.
-
-        Args:
-            upstream_level (float): The water level upstream of the gate (m).
-            downstream_level (float): The water level downstream of the gate (m).
-            gate_opening (float): The height of the gate opening (m).
+        Set the target opening height of the gate.
         """
-        gate_opening = np.clip(gate_opening, 0, np.inf)
+        self.set_target(height)
 
-        # No flow if gate is closed, or upstream level is not higher than downstream.
-        if gate_opening <= 0 or upstream_level <= downstream_level:
+    def step(self, upstream_level: float, downstream_level: float, dt: float, **kwargs):
+        """
+        Updates the gate's state and calculates flow.
+        Must be implemented by subclasses.
+        """
+        raise NotImplementedError
+
+    def get_current_opening(self) -> float:
+        """Returns the current opening height."""
+        return self.get_current_position()
+
+
+class SluiceGate(GateBase):
+    """
+    Represents a vertical sluice gate, automatically switching between
+    free-flow and submerged-flow discharge equations.
+    """
+    def step(self, upstream_level: float, downstream_level: float, dt: float, **kwargs):
+        """
+        Calculates flow based on upstream/downstream levels and gate opening.
+        """
+        # Update actuator position first
+        self.update(dt)
+        gate_opening = self.get_current_position()
+        gate_opening = max(0, gate_opening)
+
+        # Ensure upstream level is above the channel bottom (assumed 0)
+        h1 = max(0, upstream_level)
+        h2 = max(0, downstream_level)
+
+        if gate_opening <= 0 or h1 <= h2:
             self.flow = 0.0
             self.output = self.flow
             return self.output
 
-        # Determine the effective head based on flow conditions.
-        # A common heuristic is to consider the flow submerged if the downstream
-        # water level is higher than the gate opening.
-        is_submerged = downstream_level > gate_opening
-
-        if is_submerged:
-            # Submerged flow: head is the difference between levels.
-            effective_head = upstream_level - downstream_level
-        else:
-            # Free flow: head is the upstream water level.
-            # This matches the original simplified formula.
-            effective_head = upstream_level
-
-        # Final check on head and calculation
-        if effective_head <= 0:
-            self.flow = 0.0
-        else:
-            area_per_gate = self.gate_width * gate_opening
-            flow_per_gate = self.discharge_coeff * area_per_gate * np.sqrt(2 * self.g * effective_head)
-            self.flow = flow_per_gate * self.num_gates
+        # Determine if flow is free or submerged
+        # A common criterion is to compare downstream depth to the gate opening
+        if h2 > gate_opening: # Submerged orifice flow
+            head_diff = h1 - h2
+            if head_diff <= 0:
+                self.flow = 0.0
+            else:
+                area = self.gate_width * gate_opening
+                self.flow = self.discharge_coeff * area * np.sqrt(2 * self.g * head_diff)
+        else: # Free weir flow
+            area = self.gate_width * gate_opening
+            # Using the formula for a rectangular sharp-crested weir under a sluice
+            # Q = C_d * b * a * sqrt(2 * g * h1)
+            self.flow = self.discharge_coeff * area * np.sqrt(2 * self.g * h1)
 
         self.output = self.flow
         return self.output
 
-    def get_state(self):
-        return {"flow": self.flow, "output": self.output}
+
+class RadialGate(GateBase):
+    """
+    Represents a radial (or Tainter) gate.
+    Uses a specific discharge formula for this gate type.
+    """
+    def __init__(self, gate_width: float, discharge_coeff: float, pivot_height: float, trunnion_radius: float, initial_opening: float = 0.0, **kwargs):
+        super().__init__(gate_width=gate_width, discharge_coeff=discharge_coeff, initial_opening=initial_opening, **kwargs)
+        self.pivot_height = pivot_height # Height of the pivot above the channel floor
+        self.trunnion_radius = trunnion_radius # Radius of the gate's arc
+
+    def step(self, upstream_level: float, downstream_level: float, dt: float, **kwargs):
+        """
+        Calculates flow for a radial gate.
+        Note: The formula can be complex. This is a common simplification.
+        The 'opening' is interpreted as the angle in radians for this gate type.
+        """
+        # Update actuator position first
+        self.update(dt)
+        gate_opening_angle = self.get_current_position() # Here, position is angle in radians
+        gate_opening_angle = max(0, gate_opening_angle)
+
+        h1 = max(0, upstream_level)
+
+        if gate_opening_angle <= 0 or h1 <= downstream_level:
+            self.flow = 0.0
+            self.output = self.flow
+            return self.output
+
+        # The formula for radial gates is often given as Q = C_d * W * h_gate * sqrt(2*g*H_eff)
+        # where h_gate is the vertical opening, which depends on the angle.
+        # h_gate = r * (1 - cos(theta)) - this is incorrect, it's just h_gate = r * sin(theta)
+        # A better model uses effective opening height based on angle
+        h_gate = self.trunnion_radius * np.sin(gate_opening_angle)
+
+        if h_gate <= 0:
+            self.flow = 0.0
+        else:
+            # Effective head is approximately the upstream water level for free flow
+            self.flow = self.discharge_coeff * self.gate_width * h_gate * np.sqrt(2 * self.g * h1)
+
+        self.output = self.flow
+        return self.output
 
 class PumpStationModel(BaseModel):
     """

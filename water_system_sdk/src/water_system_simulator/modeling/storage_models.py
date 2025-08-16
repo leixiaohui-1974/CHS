@@ -36,38 +36,89 @@ class FirstOrderInertiaInput(Input):
     inflow: float
 
 
-class ReservoirModel(BaseModel):
+from typing import Union, Callable
+
+class LinearTank(BaseModel):
     """
-    A simple reservoir model based on mass balance.
+    A simple tank/reservoir model assuming a constant surface area (linear level-volume relationship).
+    Renamed from ReservoirModel.
     """
-    def __init__(self, area, initial_level, max_level=20.0, **kwargs):
+    def __init__(self, area: float, initial_level: float, max_level: float = 999.0, min_level: float = 0.0, **kwargs):
         super().__init__(**kwargs)
         self.area = area
         self.max_level = max_level
-        self.state: ReservoirState = ReservoirState(level=initial_level)
+        self.min_level = min_level
+        self.level = initial_level
+        self.output = self.level
         self.input: ReservoirInput = ReservoirInput(inflow=0.0, release_outflow=0.0, demand_outflow=0.0)
-        self.output = self.state.level # Set initial output
 
-    def step(self, dt, **kwargs):
+    def step(self, dt: float, **kwargs):
         """
-        Updates the water level in the reservoir.
+        Updates the water level based on mass balance.
         """
-        print(f"Reservoir {self.name}: inflow={self.input.inflow}, release={self.input.release_outflow}, demand={self.input.demand_outflow}")
         total_outflow = self.input.release_outflow + self.input.demand_outflow
-        dh = (self.input.inflow - total_outflow) / self.area * dt
-        print(f"Reservoir {self.name}: dt={dt}, dh={dh}")
-        level = self.state.level + dh
+        net_inflow = self.input.inflow - total_outflow
+        dh = (net_inflow / self.area) * dt if self.area > 0 else 0
 
-        if level > self.max_level:
-            level = self.max_level
-        elif level < 0:
-            level = 0
+        self.level += dh
+        self.level = np.clip(self.level, self.min_level, self.max_level)
 
-        self.state.level = level
-        self.output = level
+        self.output = self.level
+        return self.output
 
     def get_state(self):
-        return asdict(self.state)
+        return {"level": self.level, "volume": self.level * self.area}
+
+
+class NonlinearTank(BaseModel):
+    """
+    A nonlinear tank/reservoir model that uses a level-volume or level-area curve.
+    """
+    def __init__(self,
+                 level_to_volume: Union[Callable[[float], float], np.ndarray],
+                 initial_level: float,
+                 max_level: float = 999.0,
+                 min_level: float = 0.0,
+                 **kwargs):
+        super().__init__(**kwargs)
+        self.max_level = max_level
+        self.min_level = min_level
+        self.input: ReservoirInput = ReservoirInput(inflow=0.0, release_outflow=0.0, demand_outflow=0.0)
+
+        if isinstance(level_to_volume, np.ndarray) and level_to_volume.ndim == 2 and level_to_volume.shape[0] == 2:
+            # Assumes a 2xN array: [[level1, level2...], [vol1, vol2...]]
+            self._levels = level_to_volume[0]
+            self._volumes = level_to_volume[1]
+            self.get_volume = lambda level: np.interp(level, self._levels, self._volumes)
+            self.get_level = lambda volume: np.interp(volume, self._volumes, self._levels)
+        else:
+            raise ValueError("level_to_volume must be a 2xN NumPy array where row 0 is levels and row 1 is volumes.")
+
+        self.volume = self.get_volume(initial_level)
+        self.level = initial_level
+        self.output = self.level
+
+
+    def step(self, dt: float, **kwargs):
+        """
+        Updates the volume and level based on mass balance.
+        """
+        total_outflow = self.input.release_outflow + self.input.demand_outflow
+        net_inflow = self.input.inflow - total_outflow
+        self.volume += net_inflow * dt
+
+        # Clip volume based on min/max levels
+        min_volume = self.get_volume(self.min_level)
+        max_volume = self.get_volume(self.max_level)
+        self.volume = np.clip(self.volume, min_volume, max_volume)
+
+        # Update level from the new volume
+        self.level = self.get_level(self.volume)
+        self.output = self.level
+        return self.output
+
+    def get_state(self):
+        return {"level": self.level, "volume": self.volume}
 
 class MuskingumChannelModel(BaseModel):
     """
