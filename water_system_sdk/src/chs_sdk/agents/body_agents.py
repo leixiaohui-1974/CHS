@@ -1,12 +1,12 @@
 import numpy as np
-from .base_agent import BaseAgent
+from .base import BaseAgent
 from .message import Message, MeasurementPayload
-from water_system_simulator.modeling.storage_models import ReservoirModel
-from water_system_simulator.modeling.control_structure_models import GateModel, PumpStationModel, HydropowerStationModel
-from water_system_simulator.modeling.pipeline_model import PipelineModel
-from water_system_simulator.modeling.hydrodynamics.routing_models import MuskingumModel
-from water_system_simulator.modeling.st_venant_model import StVenantModel
-from water_system_simulator.hydrodynamics.node import InflowBoundary, LevelBoundary
+from chs_sdk.legacy.modeling.storage_models import LinearTank as ReservoirModel
+from chs_sdk.legacy.modeling.control_structure_models import SluiceGate as GateModel, PumpStationModel, HydropowerStationModel
+from chs_sdk.legacy.modeling.pipeline_model import PipelineModel
+from chs_sdk.legacy.modeling.hydrodynamics.routing_models import MuskingumModel
+from chs_sdk.legacy.modeling.st_venant_model import StVenantModel
+from chs_sdk.legacy.hydrodynamics.node import InflowBoundary, LevelBoundary
 
 try:
     # Use a full path import to be robust
@@ -25,6 +25,12 @@ class TankAgent(BaseAgent):
         super().__init__(agent_id, kernel, **kwargs)
         self.model = ReservoirModel(area=area, initial_level=initial_level, max_level=max_level)
 
+        self.inflow_topic = self.config.get("inflow_topic")
+        self.release_outflow_topic = self.config.get("release_outflow_topic")
+        self.demand_outflow_topic = self.config.get("demand_outflow_topic")
+        self.state_topic = self.config.get("state_topic", f"state/{self.agent_id}")
+        self.measurement_topic = self.config.get("measurement_topic")
+
         if self.config.get("enable_kalman_filter", False) and KalmanFilter is not None:
             kf_config = self.config.get("kalman_filter", {})
 
@@ -35,7 +41,7 @@ class TankAgent(BaseAgent):
             R = np.array(kf_config.get("R", [[0.1]]))   # Measurement noise
 
             # Use initial_level for the initial state estimate, accessing it correctly
-            initial_state_estimate = [self.model.state.level]
+            initial_state_estimate = [self.model.level]
             x0 = np.array(kf_config.get("x0", initial_state_estimate))
             P0 = np.array(kf_config.get("P0", [[1.0]])) # Initial uncertainty
 
@@ -46,23 +52,20 @@ class TankAgent(BaseAgent):
         """
         Subscribe to the necessary topics for control and data assimilation.
         """
-        # Let's prioritize the explicit subscriptions
-        subscribed_topics = self.config.get("subscribes_to", [])
-        if not subscribed_topics and self.filter:
-            # If no subscriptions are provided, default to the conventional topic
-            subscribed_topics.append(f"measurement.level.{self.agent_id}")
-
-        for topic in subscribed_topics:
-            self.kernel.message_bus.subscribe(self, topic)
-            print(f"TankAgent {self.agent_id} subscribed to {topic}")
+        if self.inflow_topic:
+            self.kernel.message_bus.subscribe(self, self.inflow_topic)
+        if self.release_outflow_topic:
+            self.kernel.message_bus.subscribe(self, self.release_outflow_topic)
+        if self.demand_outflow_topic:
+            self.kernel.message_bus.subscribe(self, self.demand_outflow_topic)
+        if self.measurement_topic:
+            self.kernel.message_bus.subscribe(self, self.measurement_topic)
 
     def execute(self, current_time: float):
         """
         Runs one step of the reservoir simulation, applying data assimilation if enabled.
         """
         time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
-        publishes_to = self.config.get("publishes_to", f"tank/{self.agent_id}/state")
-
 
         # Run the physical model step first to get its own prediction
         self.model.step(time_step)
@@ -76,14 +79,12 @@ class TankAgent(BaseAgent):
 
             # Now, correct the model's state with the filter's best estimate.
             corrected_level = self.filter.get_state()[0]
-            self.model.state.level = corrected_level
+            self.model.level = corrected_level
 
-            # Publish the corrected, high-fidelity state
-            state_to_publish = self.model.get_state()
-            self._publish(publishes_to, state_to_publish)
-        else:
-            # Original behavior: publish the raw model state
-            self._publish(publishes_to, self.model.get_state())
+        # Publish the corrected, high-fidelity state
+        state_to_publish = self.model.get_state()
+        self._publish(self.state_topic, state_to_publish)
+
 
     def on_message(self, message: Message):
         """
@@ -92,19 +93,16 @@ class TankAgent(BaseAgent):
         topic = message.topic
         payload = message.payload
 
-        # The measurement topic can be customized now, so we check against the subscribed topics
-        measurement_topics = self.config.get("subscribes_to", [])
-        if self.filter and topic in measurement_topics:
+        if self.filter and topic == self.measurement_topic:
             if isinstance(payload, dict):
                 measurement_value = payload.get('value')
                 if measurement_value is not None:
                     self._assimilate(measurement_value)
-
-        elif topic.startswith("data.inflow"):
+        elif topic == self.inflow_topic:
             self.model.input.inflow = payload.get("value", 0)
-        elif topic.startswith("state/valve/"):
+        elif topic == self.release_outflow_topic:
             self.model.input.release_outflow = payload.get("flow", 0)
-        elif topic.startswith("demand/"):
+        elif topic == self.demand_outflow_topic:
             self.model.input.demand_outflow = payload.get("value", 0)
 
 

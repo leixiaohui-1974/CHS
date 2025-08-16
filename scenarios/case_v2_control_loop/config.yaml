@@ -1,0 +1,43 @@
+simulation_settings:
+  duration_seconds: 30
+  time_step: 1.0
+
+agent_society:
+  - id: inflow_v2
+    class: chs_sdk.agents.disturbance_agents.InflowAgent
+    params:
+      topic: "inflow/tank_v2"
+      rainfall_pattern: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+
+  - id: tank_v2
+    class: chs_sdk.agents.body_agents.TankAgent
+    params:
+      area: 100.0
+      initial_level: 5.0
+      max_level: 20.0
+      inflow_topic: "inflow/tank_v2"
+      release_outflow_topic: "state/valve_v2"
+      state_topic: "state/tank_v2"
+
+  - id: pid_controller_v2
+    class: chs_sdk.agents.control_agents.PIDAgent
+    params:
+      set_point: 10.0
+      Kp: 0.5
+      Ki: 0.1
+      Kd: 0.01
+      input_topic: "state/tank_v2"
+      output_topic: "control/valve_v2/opening"
+
+  - id: valve_v2
+    class: chs_sdk.agents.body_agents.ValveAgent
+    params:
+      cv: 2.0
+      subscribes_to: "control/valve_v2/opening"
+      publishes_to: "state/valve_v2"
+
+  - id: logger_v2
+    class: chs_sdk.agents.management_agents.DataLoggerAgent
+    params:
+      topics_to_log: ["state/tank_v2"]
+      log_file_path: "simulation_results.csv"

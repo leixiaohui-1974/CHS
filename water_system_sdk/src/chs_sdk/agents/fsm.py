@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Dict, Optional
 
 if TYPE_CHECKING:
-    from .base_agent import BaseAgent
+    from .base import BaseAgent
 
 
 class State(ABC):

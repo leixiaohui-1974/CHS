@@ -1,6 +1,6 @@
-from .base_agent import BaseAgent
+from .base import BaseAgent
 from .message import Message
-from water_system_sdk.src.water_system_simulator.disturbances.disturbance_models import WaterConsumptionModel, RainfallModel
+from chs_sdk.legacy.disturbances.disturbance_models import WaterConsumptionModel, RainfallModel
 
 
 class DemandAgent(BaseAgent):

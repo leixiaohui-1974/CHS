@@ -1,17 +1,4 @@
-import sys
-import os
-
-# Adjust the Python path to include the source directory of the SDK
-# The root of the repository.
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-# The source directory containing the 'chs_sdk' package.
-SRC_DIR = os.path.join(ROOT_DIR, 'water_system_sdk', 'src')
-sys.path.insert(0, SRC_DIR)
-
-# Also add the root directory to the path to allow finding the 'scenarios' module
-sys.path.insert(0, ROOT_DIR)
-
-from water_system_sdk.src.chs_sdk.workflows.utils.simulation_evaluator import evaluate_control_performance
+from chs_sdk.workflows.utils.simulation_evaluator import evaluate_control_performance
 
 def main():
     """
@@ -22,7 +9,7 @@ def main():
     # 1. Define the system model to be controlled
     # This represents a water tank with a specific surface area.
     system_model = {
-        'class': 'TankAgent',
+        'class': 'chs_sdk.agents.body_agents.TankAgent',
         'params': {
             'area': 100.0,
             'initial_level': 10.0, # Start at the setpoint

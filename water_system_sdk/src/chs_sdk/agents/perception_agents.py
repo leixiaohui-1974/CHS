@@ -1,5 +1,5 @@
 import pandas as pd
-from .base_agent import BaseAgent
+from .base import BaseAgent
 from .message import Message
 
 

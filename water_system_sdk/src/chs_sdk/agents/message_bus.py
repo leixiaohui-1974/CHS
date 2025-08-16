@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from typing import List, Dict
 
-from .base_agent import BaseAgent
+from .base import BaseAgent
 from .message import Message
 
 

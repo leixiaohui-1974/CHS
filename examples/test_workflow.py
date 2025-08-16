@@ -1,13 +1,4 @@
-import sys
-import os
 import pprint
-
-# Adjust the Python path to include the source directory of the SDK
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-SRC_DIR = os.path.join(ROOT_DIR, 'water_system_sdk', 'src')
-sys.path.insert(0, SRC_DIR)
-sys.path.insert(0, ROOT_DIR)
-
 from chs_sdk.workflows.control_tuning_workflow import ControlTuningWorkflow
 
 def main():
@@ -19,7 +10,7 @@ def main():
     # 1. Define the context for the workflow
     context = {
         'system_model': {
-            'class': 'TankAgent',
+            'class': 'chs_sdk.agents.body_agents.TankAgent',
             'params': {
                 'area': 100.0,
                 'initial_level': 10.0,

@@ -2,9 +2,9 @@ import time
 from typing import Dict, List, Type
 
 from ..utils.logger import log
-from .agent_status import AgentStatus
-from .base_agent import BaseAgent
-from .message_bus import BaseMessageBus, InMemoryMessageBus
+from ..agents.agent_status import AgentStatus
+from ..agents.base import BaseAgent
+from ..agents.message_bus import BaseMessageBus, InMemoryMessageBus
 
 
 class AgentKernel:
