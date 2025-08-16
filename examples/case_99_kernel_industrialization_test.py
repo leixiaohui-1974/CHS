@@ -1,6 +1,6 @@
 import time
 import pprint
-from chs_sdk.agents.agent_kernel import AgentKernel
+from chs_sdk.core.host import AgentKernel
 from chs_sdk.agents.base_agent import BaseAgent
 from chs_sdk.agents.message import Message
 from chs_sdk.agents.management_agents import (

@@ -3,7 +3,7 @@ import argparse
 import importlib
 from typing import Dict, Any
 
-from chs_sdk.agents.agent_kernel import AgentKernel
+from chs_sdk.core.host import AgentKernel
 from chs_sdk.agents.message_bus import InMemoryMessageBus
 
 class Launcher:

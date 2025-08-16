@@ -1,60 +1,76 @@
-from typing import Any, Dict, Optional
-import time
+from abc import ABC, abstractmethod
+from typing import Any, TYPE_CHECKING, Optional
+
+from .agent_status import AgentStatus
+from .message import Message
+from .fsm import StateMachine, State
+
+if TYPE_CHECKING:
+    from ..core.host import AgentKernel
 
 
-class Message:
+class BaseAgent(ABC):
     """
-    Represents a message passed between agents on the message bus.
+    Abstract base class for all agents in the CHS platform.
+    Now with state machine capabilities.
     """
-    def __init__(self, topic: str, sender_id: str, payload: Dict[str, Any]):
-        self.topic = topic
-        self.sender_id = sender_id
-        self.payload = payload
-        self.timestamp = time.time()
-
-    def __repr__(self):
-        return f"Message(topic='{self.topic}', sender_id='{self.sender_id}', payload={self.payload})"
-
-
-class BaseAgent:
-    """
-    The base class for all agents in the CHS-SDK.
-    It defines the core interface for agent interaction with the message bus.
-    """
-    def __init__(self, agent_id: str, message_bus: Optional[Any] = None):
+    def __init__(self, agent_id: str, kernel: 'AgentKernel', **config):
         self.agent_id = agent_id
-        self.message_bus = message_bus
+        self.kernel = kernel
+        self.config = config
+        self.status: AgentStatus = AgentStatus.INITIALIZING
+        self.state_machine: Optional[StateMachine] = None
+        self.filter = None
 
-    def execute(self):
+    def setup(self):
         """
-        The main logic loop of the agent. This method is called periodically.
-        It should contain the agent's primary function, such as running a model,
-        performing a calculation, or sensing the environment.
+        Called once after the agent is initialized.
+        Use this for one-time setup tasks.
         """
-        raise NotImplementedError
+        pass
+
+    def execute(self, current_time: float):
+        """
+        The main execution loop for the agent.
+        This method delegates execution to the current state of the state machine.
+        """
+        if self.state_machine:
+            self.state_machine.execute(current_time)
 
     def on_message(self, message: Message):
         """
-        A callback method that is triggered when an agent receives a message
-        it has subscribed to.
+        Called by the kernel when the agent receives a message.
+        The message is passed to the current state for handling.
         """
-        raise NotImplementedError
+        if self.state_machine and hasattr(self.state_machine.current_state, 'on_message'):
+            self.state_machine.current_state.on_message(message)
 
-    def publish(self, topic: str, payload: Dict[str, Any]):
+    def transition_to(self, state_name: str):
         """
-        Publishes a message to a specific topic on the message bus.
+        A convenience method to transition the agent's state machine to a new state.
         """
-        if self.message_bus:
+        if self.state_machine:
+            self.state_machine.transition_to(state_name)
+
+    def shutdown(self):
+        """
+        Called once when the simulation is shutting down.
+        Use this for cleanup tasks.
+        """
+        pass
+
+    def _assimilate(self, measurement: float):
+        """
+        Updates the agent's state using a measurement via the Kalman filter.
+        """
+        if self.filter:
+            import numpy as np
+            self.filter.update(np.array([measurement]))
+
+    def _publish(self, topic: str, payload: Any):
+        """
+        A convenience method for publishing a message to the message bus.
+        """
+        if self.kernel and self.kernel.message_bus:
             message = Message(topic=topic, sender_id=self.agent_id, payload=payload)
-            self.message_bus.publish(message)
-        else:
-            print(f"Warning: Agent {self.agent_id} tried to publish but has no message bus.")
-
-    def subscribe(self, topic: str):
-        """
-        Subscribes the agent to a specific topic on the message bus.
-        """
-        if self.message_bus:
-            self.message_bus.subscribe(topic, self)
-        else:
-            print(f"Warning: Agent {self.agent_id} tried to subscribe but has no message bus.")
+            self.kernel.message_bus.publish(message)

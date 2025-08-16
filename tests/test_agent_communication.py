@@ -1,6 +1,6 @@
 import pytest
-from chs_sdk.agents.agent_kernel import AgentKernel
-from chs_sdk.agents.base_agent import BaseAgent
+from chs_sdk.core.host import AgentKernel
+from chs_sdk.agents.base import BaseAgent
 from chs_sdk.agents.message import Message
 
 class PingAgent(BaseAgent):

@@ -1,4 +1,4 @@
-from .base_agent import BaseAgent
+from .base import BaseAgent
 from .message import Message
 from ..utils.logger import log
 
@@ -95,8 +95,8 @@ class PIDAgent(BaseAgent):
 
 import numpy as np
 import cvxpy as cp
-from water_system_sdk.src.water_system_simulator.modeling.base_model import BaseModel
-from water_system_sdk.src.water_system_simulator.control.mpc_controller import MPCController
+from chs_sdk.legacy.modeling.base_model import BaseModel
+from chs_sdk.legacy.control.mpc_controller import MPCController
 
 class MPCAgent(BaseAgent):
     """

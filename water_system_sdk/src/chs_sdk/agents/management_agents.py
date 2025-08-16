@@ -1,6 +1,6 @@
 from typing import List, Dict
 from ..utils.logger import log
-from .base_agent import BaseAgent
+from .base import BaseAgent
 from .message import Message
 import csv
 import os
