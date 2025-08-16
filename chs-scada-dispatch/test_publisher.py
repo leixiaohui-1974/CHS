@@ -8,7 +8,7 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Configuration ---
-BROKER_ADDRESS = "localhost"
+BROKER_ADDRESS = "127.0.0.1"
 PORT = 1883
 CLIENT_ID = "test_publisher_mvp"
 
