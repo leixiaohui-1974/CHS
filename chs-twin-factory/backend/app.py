@@ -18,8 +18,15 @@ from rule_based_agent import RuleBasedAgent
 # --- V2 SDK Imports ---
 from flask import send_from_directory
 from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import BaseCallback
 from gym_wrapper import create_chs_env
 import datetime
+import mlflow
+import mlflow.pytorch
+import optuna
+import shutil
+import uuid
+import requests
 
 # --- Flask App Initialization ---
 app = Flask(__name__)
@@ -28,6 +35,9 @@ instance_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'instanc
 os.makedirs(instance_path, exist_ok=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(instance_path, "projects.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['MLFLOW_TRACKING_URI'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mlruns')
+mlflow.set_tracking_uri(app.config['MLFLOW_TRACKING_URI'])
+
 
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
@@ -102,6 +112,35 @@ def create_project():
 
     return jsonify({"status": "success", "project": project.to_dict()}), 201
 
+class MLflowCallback(BaseCallback):
+    """
+    A custom callback for logging metrics to MLflow.
+    """
+    def __init__(self, verbose=0):
+        super(MLflowCallback, self).__init__(verbose)
+        self.rollout_count = 0
+
+    def _on_rollout_end(self) -> None:
+        """
+        This event is triggered after a rollout.
+        """
+        self.rollout_count += 1
+        # Metrics are logged manually, e.g., using self.logger
+        # Here we can log the mean reward
+        if "rollout/ep_rew_mean" in self.model.logger.name_to_value:
+            mean_reward = self.model.logger.name_to_value["rollout/ep_rew_mean"]
+            mlflow.log_metric("rollout_ep_rew_mean", mean_reward, step=self.rollout_count)
+
+    def _on_step(self) -> bool:
+        """
+        This method will be called by the model after each call to `env.step()`.
+        """
+        # Log training loss
+        if 'train/loss' in self.model.logger.name_to_value:
+            loss = self.model.logger.name_to_value['train/loss']
+            mlflow.log_metric("loss", loss, step=self.num_timesteps)
+        return True
+
 @app.route('/api/projects/<int:project_id>/train', methods=['POST'])
 def train_project_model(project_id):
     project = Project.query.get_or_404(project_id)
@@ -109,42 +148,180 @@ def train_project_model(project_id):
     if not data:
         return jsonify({"status": "error", "message": "Invalid request body"}), 400
 
-    algorithm = data.get('algorithm', 'PPO')
-    total_timesteps = data.get('total_timesteps', 10000) # A smaller default for quick tests
+    params = {
+        'algorithm': data.get('algorithm', 'PPO'),
+        'total_timesteps': data.get('total_timesteps', 10000),
+        'learning_rate': data.get('learning_rate', 0.0003) # Example of a new hyperparameter
+    }
 
-    if algorithm != 'PPO':
-        return jsonify({"status": "error", "message": f"Algorithm {algorithm} not supported"}), 400
+    if params['algorithm'] != 'PPO':
+        return jsonify({"status": "error", "message": f"Algorithm {params['algorithm']} not supported"}), 400
+
+    mlflow.set_experiment(project.name)
 
     try:
-        # 1. Create the Gym environment
-        env = create_chs_env(project.scenario_json)
+        with mlflow.start_run() as run:
+            # Log parameters
+            mlflow.log_params(params)
+            app.logger.info(f"Starting training for project {project_id} with MLflow run ID: {run.info.run_id}")
 
-        # 2. Initialize the SB3 model
-        model = PPO('MlpPolicy', env, verbose=1)
+            # 1. Create the Gym environment
+            env = create_chs_env(project.scenario_json)
 
-        # 3. Train the model (this is a blocking call)
-        model.learn(total_timesteps=total_timesteps)
+            # 2. Initialize the SB3 model
+            model = PPO('MlpPolicy', env, verbose=1, learning_rate=params['learning_rate'])
 
-        # 4. Save the trained model
+            # 3. Train the model with MLflow callback
+            mlflow_callback = MLflowCallback()
+            model.learn(total_timesteps=params['total_timesteps'], callback=mlflow_callback)
+
+            # 4. Save the trained model
+            timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            model_filename = f"project_{project_id}_{run.info.run_id[:8]}_{timestamp}.zip"
+            model_save_path = os.path.join(MODELS_DIR, model_filename)
+            model.save(model_save_path)
+
+            # Log model as an artifact
+            mlflow.log_artifact(model_save_path, artifact_path="model")
+
+            # 5. Save model metadata to the database
+            trained_model = TrainedModel(
+                project_id=project.id,
+                algorithm=params['algorithm'],
+                total_timesteps=params['total_timesteps'],
+                model_path=model_filename # Store relative path
+            )
+            db.session.add(trained_model)
+            db.session.commit()
+
+            return jsonify({
+                "status": "success",
+                "message": "Training complete",
+                "model": trained_model.to_dict(),
+                "mlflow_run_id": run.info.run_id
+            })
+
+    except Exception as e:
+        app.logger.error(f"An error occurred during training for project {project_id}: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/projects/<int:project_id>/optimize', methods=['POST'])
+def optimize_project_model(project_id):
+    project = Project.query.get_or_404(project_id)
+    data = request.get_json()
+    if not data:
+        return jsonify({"status": "error", "message": "Invalid request body"}), 400
+
+    n_trials = data.get('n_trials', 20)
+    total_timesteps_per_trial = data.get('total_timesteps_per_trial', 5000)
+    # The hyperparameter space can be passed from the frontend
+    # For now, we define a default one.
+    default_space = {
+        "learning_rate": {"type": "loguniform", "low": 1e-5, "high": 1e-1}
+    }
+    hyperparameter_space = data.get('hyperparameter_space', default_space)
+
+    # Create a temporary directory for this optimization run
+    opt_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'optuna_runs', str(uuid.uuid4()))
+    os.makedirs(opt_dir, exist_ok=True)
+
+    def objective(trial: optuna.Trial) -> float:
+        try:
+            trial_params = {}
+            # Suggest hyperparameters based on the space definition
+            for name, space in hyperparameter_space.items():
+                if space['type'] == 'loguniform':
+                    trial_params[name] = trial.suggest_loguniform(name, space['low'], space['high'])
+                elif space['type'] == 'uniform':
+                    trial_params[name] = trial.suggest_uniform(name, space['low'], space['high'])
+                elif space['type'] == 'categorical':
+                    trial_params[name] = trial.suggest_categorical(name, space['choices'])
+                # Add more types as needed
+
+            # Create a unique directory for this trial's logs
+            trial_log_dir = os.path.join(opt_dir, f"trial_{trial.number}")
+            os.makedirs(trial_log_dir, exist_ok=True)
+
+            # 1. Create environment and wrap it with a Monitor
+            env = create_chs_env(project.scenario_json, log_dir=trial_log_dir)
+
+            # 2. Create the model
+            model = PPO('MlpPolicy', env, verbose=0, **trial_params)
+
+            # 3. Train the model
+            model.learn(total_timesteps=total_timesteps_per_trial)
+
+            # 4. Save the model
+            model_path = os.path.join(trial_log_dir, "model.zip")
+            model.save(model_path)
+            trial.set_user_attr("model_path", model_path) # Store path in trial
+
+            # 5. Evaluate the model by reading the monitor file
+            monitor_files = [f for f in os.listdir(trial_log_dir) if f.endswith(".monitor.csv")]
+            if not monitor_files:
+                app.logger.warning(f"No monitor file found for trial {trial.number}")
+                return -float('inf') # Return a very bad score
+
+            monitor_df = pd.read_csv(os.path.join(trial_log_dir, monitor_files[0]), skiprows=1)
+            # The last episode's mean reward
+            final_reward = monitor_df['r'].iloc[-10:].mean() if not monitor_df.empty else -float('inf')
+
+            return final_reward
+
+        except Exception as e:
+            app.logger.error(f"Exception in Optuna trial {trial.number}: {e}", exc_info=True)
+            # If a trial fails, Optuna will prune it.
+            # We can return a very low value to signal failure.
+            return -float('inf')
+
+
+    try:
+        # We want to maximize the reward
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=n_trials)
+
+        best_trial = study.best_trial
+        best_params = best_trial.params
+        best_model_path = best_trial.user_attrs.get("model_path")
+
+        if not best_model_path or not os.path.exists(best_model_path):
+             return jsonify({"status": "error", "message": "Could not find the best model file."}), 500
+
+        # Copy the best model to the permanent models directory
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        model_filename = f"project_{project_id}__{timestamp}.zip"
-        model_save_path = os.path.join(MODELS_DIR, model_filename)
-        model.save(model_save_path)
+        final_model_filename = f"project_{project_id}_opt_{timestamp}.zip"
+        final_model_path = os.path.join(MODELS_DIR, final_model_filename)
+        shutil.copy(best_model_path, final_model_path)
 
-        # 5. Save model metadata to the database
+        # Save model metadata to the database
         trained_model = TrainedModel(
             project_id=project.id,
-            algorithm=algorithm,
-            total_timesteps=total_timesteps,
-            model_path=model_filename # Store relative path
+            algorithm="PPO_Optuna", # Indicate that this was an optimized model
+            total_timesteps=total_timesteps_per_trial * n_trials, # Approximate total
+            model_path=final_model_filename
         )
         db.session.add(trained_model)
         db.session.commit()
 
-        return jsonify({"status": "success", "message": "Training complete", "model": trained_model.to_dict()})
+        # Clean up the temporary optimization directory
+        shutil.rmtree(opt_dir)
+
+        return jsonify({
+            "status": "success",
+            "message": "Optimization complete.",
+            "best_trial": {
+                "number": best_trial.number,
+                "value": best_trial.value,
+                "params": best_params
+            },
+            "model": trained_model.to_dict()
+        })
 
     except Exception as e:
-        app.logger.error(f"An error occurred during training for project {project_id}: {e}", exc_info=True)
+        # Clean up in case of failure
+        if os.path.exists(opt_dir):
+            shutil.rmtree(opt_dir)
+        app.logger.error(f"An error occurred during optimization for project {project_id}: {e}", exc_info=True)
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
@@ -159,6 +336,46 @@ def get_project_models(project_id):
 def download_model(model_id):
     model_record = TrainedModel.query.get_or_404(model_id)
     return send_from_directory(MODELS_DIR, model_record.model_path, as_attachment=True)
+
+# --- Deployment Endpoint ---
+CHS_SCADA_DISPATCH_URL = os.environ.get("CHS_SCADA_DISPATCH_URL", "http://chs-scada-dispatch:8080/api/v1")
+
+@app.route('/api/agents/<int:agent_model_id>/deploy', methods=['POST'])
+def deploy_agent(agent_model_id):
+    model_record = TrainedModel.query.get_or_404(agent_model_id)
+    data = request.get_json()
+    if not data or 'target_device_id' not in data:
+        return jsonify({"status": "error", "message": "Missing 'target_device_id' in request body"}), 400
+
+    target_device_id = data['target_device_id']
+    model_path = os.path.join(MODELS_DIR, model_record.model_path)
+
+    if not os.path.exists(model_path):
+        return jsonify({"status": "error", "message": "Model file not found on server"}), 404
+
+    try:
+        with open(model_path, 'rb') as f:
+            files = {'agent_package': (model_record.model_path, f, 'application/zip')}
+            deploy_url = f"{CHS_SCADA_DISPATCH_URL}/devices/{target_device_id}/deploy_agent"
+
+            app.logger.info(f"Deploying agent {agent_model_id} to device {target_device_id} at {deploy_url}")
+
+            response = requests.post(deploy_url, files=files, timeout=30) # 30-second timeout
+            response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+
+            return jsonify({
+                "status": "success",
+                "message": f"Agent {agent_model_id} successfully deployed to device {target_device_id}.",
+                "dispatch_response": response.json()
+            }), response.status_code
+
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Failed to deploy agent to dispatch service: {e}")
+        return jsonify({"status": "error", "message": f"Failed to connect to dispatch service: {str(e)}"}), 503
+    except Exception as e:
+        app.logger.error(f"An unexpected error occurred during deployment: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route('/api/projects', methods=['GET'])
 def get_projects():

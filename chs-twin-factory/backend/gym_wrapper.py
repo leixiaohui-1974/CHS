@@ -109,9 +109,14 @@ class ChsEnv(gym.Env):
         pass
 
 
-def create_chs_env(scenario_json: str) -> gym.Env:
+from stable_baselines3.common.monitor import Monitor
+
+
+def create_chs_env(scenario_json: str, log_dir: str = None) -> gym.Env:
     """
     Factory function to create an instance of the ChsEnv.
     """
     env = ChsEnv(scenario_json)
+    # Wrap the environment with a Monitor to log statistics
+    env = Monitor(env, filename=log_dir)
     return env
