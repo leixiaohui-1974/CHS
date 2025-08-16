@@ -3,4 +3,6 @@ Flask-SQLAlchemy
 Flask-Migrate
 loguru
 pydantic
+stable-baselines3
+gymnasium
 -e ../../water_system_sdk
