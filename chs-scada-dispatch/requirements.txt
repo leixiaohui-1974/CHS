@@ -1,0 +1,6 @@
+Flask
+paho-mqtt
+influxdb-client[ciso]
+flask-socketio
+python-dotenv
+PyYAML

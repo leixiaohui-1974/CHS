@@ -1,0 +1,6 @@
+numpy
+paho-mqtt
+pymodbus
+python-dotenv
+requests
+psutil
