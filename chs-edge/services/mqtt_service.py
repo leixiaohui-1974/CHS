@@ -6,6 +6,7 @@ import logging
 import requests
 import os
 from engine.executor import Executor
+from services.health_monitor import HealthMonitor
 
 class MqttService:
     """
@@ -27,19 +28,36 @@ class MqttService:
         self.command_topic = f"chs/edge/{self.device_id}/command"
         self.state_topic = f"chs/edge/{self.device_id}/state"
         self.notify_topic = f"chs/edge/{self.device_id}/notify"
+        self.health_topic = f"chs/edge/{self.device_id}/health"
+
+        self.health_monitor = HealthMonitor(executor)
+        self._stop_event = threading.Event()
+        self._health_thread = None
 
         self.client = mqtt.Client(client_id=f"chs_edge_{self.device_id}")
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
+        self.client.on_disconnect = self.on_disconnect
 
     def on_connect(self, client, userdata, flags, rc):
         """Callback for when the client connects to the broker."""
         if rc == 0:
-            logging.info("Connected to MQTT Broker!")
+            logging.info("Connected to MQTT Broker! Resuming normal operation.")
             self.client.subscribe(self.command_topic)
             logging.info(f"Subscribed to topic: {self.command_topic}")
+            # Notify the executor that the connection is restored
+            if hasattr(self.executor, 'exit_fallback_mode'):
+                self.executor.exit_fallback_mode()
         else:
             logging.error(f"Failed to connect, return code {rc}")
+
+    def on_disconnect(self, client, userdata, rc):
+        """Callback for when the client disconnects from the broker."""
+        if rc != 0:
+            logging.warning(f"Unexpected MQTT disconnection. Return code: {rc}. Entering fallback mode.")
+            # Notify the executor that the connection is lost
+            if hasattr(self.executor, 'enter_fallback_mode'):
+                self.executor.enter_fallback_mode()
 
     def on_message(self, client, userdata, msg):
         """Callback for when a command is received."""
@@ -113,17 +131,41 @@ class MqttService:
         except Exception as e:
             logging.error(f"Failed to publish notification: {e}")
 
+    def publish_health_status(self):
+        """Periodically collects and publishes health status."""
+        while not self._stop_event.is_set():
+            if self.client.is_connected():
+                health_data = self.health_monitor.get_health_status()
+                payload = json.dumps(health_data)
+                self.client.publish(self.health_topic, payload)
+                logging.info(f"Published health data to {self.health_topic}: {payload}")
+            # Wait for the next interval or until stop is signaled
+            self._stop_event.wait(60)
+
     def run(self):
-        """Connects to the MQTT broker and starts the service."""
+        """Connects to the MQTT broker and starts all services."""
         try:
             self.client.connect(self.broker_address, self.port, 60)
             self.client.loop_start()
-            logging.info("MQTT service started.")
+
+            # Start the health reporter thread
+            self._stop_event.clear()
+            self._health_thread = threading.Thread(target=self.publish_health_status, name="HealthReporter")
+            self._health_thread.daemon = True
+            self._health_thread.start()
+
+            logging.info("MQTT service and Health Reporter started.")
         except Exception as e:
             logging.error(f"An error occurred while starting MQTT service: {e}")
 
     def stop(self):
-        """Stops the MQTT service."""
+        """Stops all services and disconnects from MQTT."""
+        logging.info("Stopping MQTT service and Health Reporter...")
+        # Signal the health reporter thread to stop
+        self._stop_event.set()
+        if self._health_thread:
+            self._health_thread.join(timeout=5) # Wait for the thread to finish
+
         self.client.loop_stop()
         self.client.disconnect()
         logging.info("MQTT service stopped.")
