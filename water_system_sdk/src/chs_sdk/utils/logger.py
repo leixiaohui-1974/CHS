@@ -6,17 +6,19 @@ def setup_logger():
     Configures a standardized logger for the CHS-SDK.
     """
     logger.remove()  # Remove default handler to avoid duplicate outputs
-    logger.add(
-        sys.stderr,
-        level="INFO",
-        format=(
-            "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-            "<level>{level: <8}</level> | "
-            "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
-            "<level>{message}</level>"
-        ),
-        colorize=True,
-    )
+    # In the sandboxed environment, sys.stderr might not be available for background processes.
+    # Commenting this out to prevent the application from crashing on startup.
+    # logger.add(
+    #     sys.stderr,
+    #     level="INFO",
+    #     format=(
+    #         "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
+    #         "<level>{level: <8}</level> | "
+    #         "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+    #         "<level>{message}</level>"
+    #     ),
+    #     colorize=True,
+    # )
     # Example of adding a file logger (optional, can be configured via a config file)
     # logger.add(
     #     "logs/chs_sdk_{time}.log",
