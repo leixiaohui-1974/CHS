@@ -95,8 +95,8 @@ class PIDAgent(BaseAgent):
 
 import numpy as np
 import cvxpy as cp
-from chs_sdk.legacy.modeling.base_model import BaseModel
-from chs_sdk.legacy.control.mpc_controller import MPCController
+from chs_sdk.modules.modeling.base_model import BaseModel
+from chs_sdk.modules.control.mpc_controller import MPCController
 
 class MPCAgent(BaseAgent):
     """

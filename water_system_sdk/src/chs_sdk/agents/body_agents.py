@@ -1,12 +1,12 @@
 import numpy as np
 from .base import BaseAgent
 from .message import Message, MeasurementPayload
-from chs_sdk.legacy.modeling.storage_models import LinearTank as ReservoirModel
-from chs_sdk.legacy.modeling.control_structure_models import SluiceGate as GateModel, PumpStationModel, HydropowerStationModel
-from chs_sdk.legacy.modeling.pipeline_model import PipelineModel
-from chs_sdk.legacy.modeling.hydrodynamics.routing_models import MuskingumModel
-from chs_sdk.legacy.modeling.st_venant_model import StVenantModel
-from chs_sdk.legacy.hydrodynamics.node import InflowBoundary, LevelBoundary
+from chs_sdk.modules.modeling.storage_models import LinearTank as ReservoirModel
+from chs_sdk.modules.modeling.control_structure_models import SluiceGate as GateModel, PumpStationModel, HydropowerStationModel
+from chs_sdk.modules.modeling.pipeline_model import PipelineModel
+from chs_sdk.modules.modeling.hydrodynamics.routing_models import MuskingumModel
+from chs_sdk.modules.modeling.st_venant_model import StVenantModel
+from chs_sdk.modules.hydrodynamics.node import InflowBoundary, LevelBoundary
 
 try:
     # Use a full path import to be robust
@@ -61,26 +61,11 @@ class TankAgent(BaseAgent):
         if self.measurement_topic:
             self.kernel.message_bus.subscribe(self, self.measurement_topic)
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         """
-        Runs one step of the reservoir simulation, applying data assimilation if enabled.
+        For a reactive agent like this, the main work is done in on_message.
+        Execute can be used for periodic tasks, like publishing the state.
         """
-        time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
-
-        # Run the physical model step first to get its own prediction
-        self.model.step(time_step)
-
-        if self.filter:
-            # The filter's state is x_{k-1|k-1}. Predict to get x_k|k-1.
-            self.filter.predict()
-
-            # The 'update' step happens asynchronously in on_message when a measurement arrives.
-            # After update, the filter state is x_k|k (the best estimate).
-
-            # Now, correct the model's state with the filter's best estimate.
-            corrected_level = self.filter.get_state()[0]
-            self.model.level = corrected_level
-
         # Publish the corrected, high-fidelity state
         state_to_publish = self.model.get_state()
         self._publish(self.state_topic, state_to_publish)
@@ -89,17 +74,31 @@ class TankAgent(BaseAgent):
     def on_message(self, message: Message):
         """
         Handles incoming messages for control inputs and measurement data.
+        The model simulation step is triggered here, making the agent reactive.
         """
         topic = message.topic
         payload = message.payload
+        time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
 
         if self.filter and topic == self.measurement_topic:
             if isinstance(payload, dict):
                 measurement_value = payload.get('value')
                 if measurement_value is not None:
                     self._assimilate(measurement_value)
+
         elif topic == self.inflow_topic:
-            self.model.input.inflow = payload.get("value", 0)
+            inflow_value = payload.get("value", 0)
+            self.model.input.inflow = inflow_value
+
+            # Now that we have the input, run the model step
+            self.model.step(dt=time_step)
+
+            # Optional: data assimilation after the step
+            if self.filter:
+                self.filter.predict()
+                corrected_level = self.filter.get_state()[0]
+                self.model.level = corrected_level
+
         elif topic == self.release_outflow_topic:
             self.model.input.release_outflow = payload.get("flow", 0)
         elif topic == self.demand_outflow_topic:
@@ -135,7 +134,7 @@ class GateAgent(BaseAgent):
         self.kernel.message_bus.subscribe(self, self.downstream_topic)
         self.kernel.message_bus.subscribe(self, self.opening_topic)
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         """
         Runs one step of the gate simulation.
         """
@@ -173,7 +172,7 @@ class ValveAgent(BaseAgent):
         """
         self.kernel.message_bus.subscribe(self, self.opening_topic)
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         """
         Runs one step of the valve simulation.
         This is a simplified model: flow = cv * opening.
@@ -224,7 +223,7 @@ class PumpStoppedState(PumpBaseState):
         self.agent.model.num_pumps_on = 0
         print(f"{self.agent.agent_id} entered StoppedState.")
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         # In stopped state, the pump does nothing, just reports its state.
         self.agent.model.step(self.agent.inlet_pressure, self.agent.outlet_pressure, 0)
         self.agent._publish(self.agent.state_topic, {**self.agent.model.get_state(), "status": "stopped"})
@@ -241,7 +240,7 @@ class PumpStartingState(PumpBaseState):
         self.duration = 5  # Simulate a 5-second startup time
         print(f"{self.agent.agent_id} entered StartingState.")
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         elapsed_time = current_time - self.start_time
         if elapsed_time >= self.duration:
             self.agent.transition_to('PumpRunningState')
@@ -273,7 +272,7 @@ class PumpRunningState(PumpBaseState):
         self.agent.model.num_pumps_on = self.agent.target_num_pumps
         print(f"{self.agent.agent_id} entered RunningState.")
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         self.agent.model.step(self.agent.inlet_pressure, self.agent.outlet_pressure, self.agent.num_pumps_on)
         self.agent._publish(self.agent.state_topic, {**self.agent.model.get_state(), "status": "running"})
 
@@ -294,7 +293,7 @@ class PumpFaultState(PumpBaseState):
         self.agent.model.num_pumps_on = 0
         print(f"{self.agent.agent_id} entered FaultState.")
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         self.agent.model.step(self.agent.inlet_pressure, self.agent.outlet_pressure, 0)
         self.agent._publish(self.agent.state_topic, {**self.agent.model.get_state(), "status": "fault"})
 
@@ -381,7 +380,7 @@ class HydropowerStationAgent(BaseAgent):
         self.kernel.message_bus.subscribe(self, self.downstream_topic)
         self.kernel.message_bus.subscribe(self, self.vane_opening_topic)
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         """
         Runs one step of the hydropower station simulation.
         Publishes its full state and also the release flow if a topic is provided.
@@ -433,11 +432,10 @@ class PipeAgent(BaseAgent):
         self.kernel.message_bus.subscribe(self, self.inlet_pressure_topic)
         self.kernel.message_bus.subscribe(self, self.outlet_pressure_topic)
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         """
         Runs one step of the pipe simulation.
         """
-        time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
         self.model.step(self.inlet_pressure, self.outlet_pressure, time_step)
         self._publish(self.state_topic, self.model.get_state())
 
@@ -477,11 +475,10 @@ class RiverAgent(BaseAgent):
         for topic in self.boundary_topics.values():
             self.kernel.message_bus.subscribe(self, topic)
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         """
         Runs one step of the hydrodynamic simulation using the St. Venant solver.
         """
-        time_step = self.kernel.time_step if hasattr(self.kernel, 'time_step') else 1.0
         self.model.step(dt=time_step)
 
         # Publish the full state of the network (all nodes and reaches)
