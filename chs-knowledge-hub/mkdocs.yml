@@ -1,1 +1,24 @@
-site_name: My Docs
+site_name: CHS Knowledge Hub
+theme:
+  name: material
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [../water_system_sdk/src]
+          options:
+            show_root_heading: yes
+            show_source: yes
+  - autorefs
+
+nav:
+  - '首页': 'index.md'
+  - '入门教程': 'sdk_tutorials/getting_started.md'
+  - 'API 参考':
+    - '核心智能体': 'api_reference/core_agents.md'
+    - 'Host': 'api_reference/host.md'
+    - 'Modeling': 'api_reference/modeling.md'
+  - '案例研究': 'case_studies/index.md'
+  - '社区': 'community.md'
