@@ -26,14 +26,51 @@ const SimulationRunner = () => {
   const [simulationData, setSimulationData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [formState, setFormState] = useState({
+    initial_level: 19.5,
+    area_storage_curve_coeff: 2000,
+    width: 5,
+    target_level: 20.0,
+    duration_hours: 72,
+  });
 
-  const runSimulation = async () => {
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
+    setFormState(prevState => ({
+      ...prevState,
+      [name]: parseFloat(value) || 0,
+    }));
+  };
+
+  const runSimulation = async (event) => {
+    event.preventDefault(); // Prevent default form submission
     setLoading(true);
     setError('');
     setSimulationData(null);
+
+    const payload = {
+      scenario_name: "User Defined Test",
+      components: {
+        reservoir: {
+          initial_level: formState.initial_level,
+          area_storage_curve_coeff: formState.area_storage_curve_coeff,
+        },
+        sluice_gate: {
+          width: formState.width,
+          height: 10, // Not used by backend yet, but good to include
+        },
+      },
+      controller: {
+        type: "RuleBasedAgent",
+        target_level: formState.target_level,
+      },
+      simulation_params: {
+        duration_hours: formState.duration_hours,
+      },
+    };
+
     try {
-      // With the proxy in package.json, we can use a relative path
-      const response = await axios.post('/api/run_simulation');
+      const response = await axios.post('/api/run_simulation', payload);
       if (response.data.status === 'success') {
         setSimulationData(response.data.data);
       } else {
@@ -41,16 +78,12 @@ const SimulationRunner = () => {
       }
     } catch (err) {
       if (err.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
         console.error("Error response:", err.response.data);
         setError(`Server Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`);
       } else if (err.request) {
-        // The request was made but no response was received
         console.error("Error request:", err.request);
         setError('No response from server. Is the backend running?');
       } else {
-        // Something happened in setting up the request that triggered an Error
         console.error('Error', err.message);
         setError(`Request Error: ${err.message}`);
       }
@@ -90,7 +123,7 @@ const SimulationRunner = () => {
           text: 'Flow (m³/s)',
         },
         grid: {
-          drawOnChartArea: false, // only draw grid for the first Y axis
+          drawOnChartArea: false,
         },
       },
     },
@@ -123,13 +156,51 @@ const SimulationRunner = () => {
     ],
   } : null;
 
+  // Basic styling for the form
+  const formStyle = { display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '400px', marginBottom: '20px' };
+  const labelStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
+  const inputStyle = { padding: '5px', width: '100px' };
+  const buttonStyle = { padding: '10px 20px', fontSize: '16px', cursor: 'pointer' };
+
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>CHS-Twin-Factory MVP</h1>
-      <button onClick={runSimulation} disabled={loading} style={{ padding: '10px 20px', fontSize: '16px' }}>
-        {loading ? 'Running Simulation...' : 'Run Simulation'}
-      </button>
+      <h1>CHS-Twin-Factory: Dynamic Scenario Builder</h1>
+
+      <form onSubmit={runSimulation} style={formStyle}>
+        <h3>Scenario Editor</h3>
+
+        <div style={labelStyle}>
+          <label htmlFor="initial_level">Initial Water Level (m):</label>
+          <input type="number" id="initial_level" name="initial_level" value={formState.initial_level} onChange={handleInputChange} style={inputStyle} />
+        </div>
+
+        <div style={labelStyle}>
+          <label htmlFor="area_storage_curve_coeff">Reservoir Area (m²):</label>
+          <input type="number" id="area_storage_curve_coeff" name="area_storage_curve_coeff" value={formState.area_storage_curve_coeff} onChange={handleInputChange} style={inputStyle} />
+        </div>
+
+        <div style={labelStyle}>
+          <label htmlFor="width">Sluice Gate Width (m):</label>
+          <input type="number" id="width" name="width" value={formState.width} onChange={handleInputChange} style={inputStyle} />
+        </div>
+
+        <div style={labelStyle}>
+          <label htmlFor="target_level">Target Water Level (m):</label>
+          <input type="number" id="target_level" name="target_level" value={formState.target_level} onChange={handleInputChange} style={inputStyle} />
+        </div>
+
+        <div style={labelStyle}>
+          <label htmlFor="duration_hours">Simulation Duration (hours):</label>
+          <input type="number" id="duration_hours" name="duration_hours" value={formState.duration_hours} onChange={handleInputChange} style={inputStyle} />
+        </div>
+
+        <button type="submit" disabled={loading} style={buttonStyle}>
+          {loading ? 'Running Simulation...' : 'Run Simulation'}
+        </button>
+      </form>
+
       {error && <p style={{ color: 'red' }}>Error: {error}</p>}
+
       <div style={{ marginTop: '20px' }}>
         {chartData && <Line options={chartOptions} data={chartData} />}
       </div>

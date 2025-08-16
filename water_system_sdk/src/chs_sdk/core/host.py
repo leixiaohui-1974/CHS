@@ -98,7 +98,7 @@ class AgentKernel:
                 if agent.status == AgentStatus.RUNNING:
                     try:
                         start_time = time.perf_counter()
-                        agent.execute(self.current_time)
+                        agent.execute(self.current_time, self.time_step)
                         end_time_agent = time.perf_counter()
                         self._performance_probes[agent.agent_id] = end_time_agent - start_time
                     except Exception as e:
@@ -136,7 +136,7 @@ class AgentKernel:
             if agent.status == AgentStatus.RUNNING:
                 try:
                     start_time = time.perf_counter()
-                    agent.execute(self.current_time)
+                    agent.execute(self.current_time, self.time_step)
                     end_time_agent = time.perf_counter()
                     self._performance_probes[agent.agent_id] = end_time_agent - start_time
                 except Exception as e:

@@ -1,2 +1,4 @@
 Flask
+loguru
+pydantic
 -e ../../water_system_sdk
