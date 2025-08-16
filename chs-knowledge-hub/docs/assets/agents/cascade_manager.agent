@@ -1,0 +1,16 @@
+{
+  "agent_name": "Cascade Reservoir Manager",
+  "agent_class": "chs.agent.ManagementAgent",
+  "version": "1.0",
+  "description": "An optimization-based management agent for cascade reservoir co-dispatch.",
+  "hyperparameters": {
+    "optimizer": "linear_programming",
+    "horizon": 24,
+    "time_step": "1H",
+    "max_reservoirs": 5
+  },
+  "model_info": {
+    "type": "optimization_model",
+    "notes": "This is a placeholder agent file. The optimization model formulation and coefficients would be stored here in a real scenario."
+  }
+}
