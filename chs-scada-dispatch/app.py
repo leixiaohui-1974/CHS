@@ -26,22 +26,25 @@ def main():
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     logging.getLogger("werkzeug").setLevel(logging.WARNING) # Quieter Flask logs
+    logging.getLogger("engineio").setLevel(logging.WARNING) # Quieter SocketIO logs
 
     global timeseries_db, mqtt_service, dispatch_engine
 
     try:
         # 3. Initialize services
         logging.info("Initializing services...")
-        timeseries_db = TimeSeriesDB()
-        mqtt_service = MqttService(timeseries_db=timeseries_db, broker_address="127.0.0.1")
+        # InfluxDB URL and broker address can be configured via .env file
+        influx_url = os.getenv("INFLUXDB_URL", "http://localhost:8086")
+        mqtt_broker = os.getenv("MQTT_BROKER_ADDRESS", "127.0.0.1")
 
-        # The websocket service will be initialized after the app
+        timeseries_db = TimeSeriesDB()
+        mqtt_service = MqttService(timeseries_db=timeseries_db, broker_address=mqtt_broker)
         dispatch_engine = CentralExecutor(
             timeseries_db=timeseries_db,
             mqtt_service=mqtt_service
             # websocket_service will be set after initialization
         )
-        logging.info("All services initialized.")
+        logging.info("Core services initialized.")
 
         # 4. Create the Flask app and inject dependencies
         app = create_rest_app(
@@ -50,8 +53,12 @@ def main():
         )
 
         # 5. Initialize WebSocket (SocketIO) and link it to the dispatch engine
-        socketio = init_socketio(app)
-        dispatch_engine.websocket_service = socketio # Provide websocket access to engine
+        # This creates a circular dependency that is resolved at runtime.
+        # Engine needs SocketIO to emit, SocketIO needs Engine to handle callbacks.
+        socketio = init_socketio(app, engine=dispatch_engine)
+        dispatch_engine.websocket_service = socketio # Provide websocket access back to engine
+
+        logging.info("Web services initialized.")
 
         # 6. Register cleanup function to run on exit
         atexit.register(cleanup)
@@ -65,7 +72,7 @@ def main():
         # 8. Run the web server
         port = int(os.getenv("PORT", 5000))
         logging.info(f"Starting Flask-SocketIO server on port {port}...")
-        # allow_unsafe_werkzeug=True is required to run with the development server
+        # allow_unsafe_werkzeug=True is needed for dev server reloader with SocketIO
         socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
 
     except Exception as e:

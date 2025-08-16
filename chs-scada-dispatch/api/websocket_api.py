@@ -1,13 +1,19 @@
 import logging
 from flask_socketio import SocketIO, emit
+from dispatch_engine.central_agent_executor import CentralExecutor
 
+# --- Global Service Instances ---
 socketio = SocketIO()
+dispatch_engine: CentralExecutor = None
 
-def init_socketio(app):
+def init_socketio(app, engine: CentralExecutor):
     """
-    Initializes the SocketIO server with the Flask app.
+    Initializes the SocketIO server and links it to the dispatch engine.
     """
-    socketio.init_app(app, cors_allowed_origins="*")
+    global dispatch_engine
+    dispatch_engine = engine
+
+    socketio.init_app(app, cors_allowed_origins="*", async_mode='threading')
     logging.info("Flask-SocketIO initialized.")
     return socketio
 
@@ -29,18 +35,21 @@ def handle_disconnect():
 @socketio.on('decision_response')
 def handle_decision_response(data):
     """
-    Listens for a decision response from an HMI client.
-    This would be passed back to the CentralExecutor.
+    Listens for a decision response from an HMI client and passes it
+    to the CentralExecutor.
     """
     logging.info(f"Received decision_response from HMI: {data}")
-    # In a full implementation, this would trigger an event or callback
-    # to pass the data back to the CentralExecutor who initiated the request.
-    # For now, we just acknowledge it.
-    emit('response_acknowledged', {'request_id': data.get('request_id')})
+    request_id = data.get("request_id")
+    decision = data.get("decision")
 
-def broadcast_decision_request(request_data):
-    """
-    Broadcasts a request for a human decision to all connected HMI clients.
-    """
-    logging.info(f"Broadcasting decision_request to all HMI clients: {request_data}")
-    socketio.emit('decision_request', request_data)
+    if not all([request_id, isinstance(decision, dict)]):
+        logging.error(f"Invalid decision_response received: {data}")
+        emit('error', {'message': 'Invalid response format. Must include request_id and decision object.'})
+        return
+
+    if dispatch_engine:
+        dispatch_engine.submit_human_decision(request_id, decision)
+        emit('response_acknowledged', {'request_id': request_id})
+    else:
+        logging.error("Dispatch engine not initialized. Cannot process decision.")
+        emit('error', {'message': 'Server error: Dispatch engine not available.'})
