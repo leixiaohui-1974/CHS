@@ -15,10 +15,20 @@ plugins:
 
 nav:
   - '首页': 'index.md'
-  - '入门教程': 'sdk_tutorials/getting_started.md'
+  - '教程':
+    - '入门教程': 'sdk_tutorials/getting_started.md'
+    - '高级教程':
+      - '使用MPC进行预测控制': 'sdk_tutorials/advanced_mpc.md'
+      - '多智能体协同': 'sdk_tutorials/multi_agent_collaboration.md'
+      - '硬件在环(HIL)测试': 'sdk_tutorials/hil_testing.md'
+  - '智能体动物园': 'agent_zoo.md'
+  - '案例研究':
+    - '概述': 'case_studies/index.md'
+    - '梯级水库联合调度': 'case_studies/cascade_reservoir_optimization.md'
   - 'API 参考':
     - '核心智能体': 'api_reference/core_agents.md'
     - 'Host': 'api_reference/host.md'
     - 'Modeling': 'api_reference/modeling.md'
-  - '案例研究': 'case_studies/index.md'
-  - '社区': 'community.md'
+  - '社区':
+    - '社区中心': 'community.md'
+    - '贡献指南': 'contributing.md'
