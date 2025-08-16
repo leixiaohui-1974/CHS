@@ -29,13 +29,13 @@ class BaseAgent(ABC):
         """
         pass
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         """
         The main execution loop for the agent.
         This method delegates execution to the current state of the state machine.
         """
         if self.state_machine:
-            self.state_machine.execute(current_time)
+            self.state_machine.execute(current_time, time_step)
 
     def on_message(self, message: Message):
         """

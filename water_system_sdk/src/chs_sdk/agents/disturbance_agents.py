@@ -1,6 +1,6 @@
 from .base import BaseAgent
 from .message import Message
-from chs_sdk.legacy.disturbances.disturbance_models import WaterConsumptionModel, RainfallModel
+from chs_sdk.modules.disturbances.disturbance_models import WaterConsumptionModel, RainfallModel
 
 
 class DemandAgent(BaseAgent):
@@ -13,7 +13,7 @@ class DemandAgent(BaseAgent):
         self.topic = topic
         self.time_step = 0
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         """
         Publishes the next demand value from the consumption pattern.
         """
@@ -47,7 +47,7 @@ class InflowAgent(BaseAgent):
         self.topic = topic
         self.time_step = 0
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         """
         Publishes the next inflow value from the model.
         """

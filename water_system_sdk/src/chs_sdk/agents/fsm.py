@@ -24,7 +24,7 @@ class State(ABC):
         pass
 
     @abstractmethod
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         """
         Called on each time step while in this state.
         """
@@ -86,9 +86,9 @@ class StateMachine:
         self._current_state = new_state
         self._current_state.on_enter()
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         """
         Executes the current state's logic.
         """
         if self._current_state:
-            self._current_state.execute(current_time)
+            self._current_state.execute(current_time, time_step)
