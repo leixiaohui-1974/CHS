@@ -1,10 +1,10 @@
 import './App.css';
-import SimulationRunner from './components/SimulationRunner';
+import Dashboard from './views/Dashboard';
 
 function App() {
   return (
     <div className="App">
-      <SimulationRunner />
+      <Dashboard />
     </div>
   );
 }
