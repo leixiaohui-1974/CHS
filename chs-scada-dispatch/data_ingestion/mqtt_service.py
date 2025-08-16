@@ -19,6 +19,7 @@ class MqttService:
         self._port = port
         self._subscribe_topic = "chs/edge/+/state"
         self._command_topic_template = "chs/edge/{device_id}/command"
+        self._config_topic_template = "chs/edge/{device_id}/config/update"
 
         # Assign callbacks
         self._client.on_connect = self.on_connect
@@ -67,6 +68,20 @@ class MqttService:
                 logging.error(f"Failed to publish command to topic {topic}. Return code: {result.rc}")
         except Exception as e:
             logging.error(f"An error occurred while publishing command for device {device_id}: {e}")
+
+    def publish_config(self, device_id: str, config_data: Dict[str, Any]):
+        """Publishes a configuration update to a specific device."""
+        try:
+            topic = self._config_topic_template.format(device_id=device_id)
+            payload = json.dumps(config_data)
+            result = self._client.publish(topic, payload, qos=1) # Use QoS 1 for reliability
+
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                logging.info(f"Successfully published config update to topic {topic}: {payload}")
+            else:
+                logging.error(f"Failed to publish config to topic {topic}. Return code: {result.rc}")
+        except Exception as e:
+            logging.error(f"An error occurred while publishing config for device {device_id}: {e}")
 
     def start(self):
         """Connects to the broker and starts the network loop."""
