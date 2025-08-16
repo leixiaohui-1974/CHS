@@ -1,3 +1,9 @@
+---
+tags:
+  - 入门
+  - 案例研究
+---
+
 # 10分钟构建你的第一个虚拟水库
 
 ## 简介
@@ -122,37 +128,90 @@ print("\n仿真完成！")
 
 在这个循环中，`CHSHost`负责协调所有组件，模拟了随时间变化的入库流量下，智能体如何根据水库状态做出反应。
 
-## 步骤 4: 查看“样片” (数据可视化)
+## 步骤 4: 交互式演练与可视化
 
-最后，我们来看看仿真的“样片”——也就是结果。使用`pandas`和`matplotlib`可以轻松地将数据可视化。
+最后，我们来到了最激动人心的部分！您可以在下方的**代码演练场 (Code Playground)** 中修改代码，并“运行”它来观察结果的变化。
 
-```python
-# 创建图表
-fig, ax1 = plt.subplots(figsize=(12, 6))
+这是一个模拟的交互式环境。为了演示，我们预先生成了两种情况的结果图：
+1. 默认情况：`target_level=20.0`
+2. 调整后的情况：`target_level=21.0`
 
-# 绘制水位变化
-ax1.plot(results_df['step'], results_df['water_level'], 'b-', label='Water Level (m)')
-ax1.set_xlabel('Time Step')
-ax1.set_ylabel('Water Level (m)', color='b')
-ax1.tick_params('y', colors='b')
+**您可以尝试将代码中的 `target_level` 的值从 `20.0` 修改为 `21.0`，然后点击“运行仿真”按钮，查看下方图表的变化。**
 
-# 创建第二个y轴，绘制流量变化
-ax2 = ax1.twinx()
-ax2.plot(results_df['step'], results_df['inflow'], 'g--', label='Inflow (m³/s)')
-ax2.plot(results_df['step'], results_df['outflow'], 'r:', label='Outflow (m³/s)')
-ax2.set_ylabel('Flow Rate (m³/s)', color='g')
-ax2.tick_params('y', colors='g')
+<div class="code-playground">
+  <style>
+    .code-playground { border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 1em; }
+    .code-playground-editor { width: 100%; height: 400px; font-family: monospace; font-size: 0.9em; border: none; border-bottom: 1px solid #e0e0e0; padding: 10px; box-sizing: border-box; resize: vertical; }
+    .code-playground-controls { padding: 10px; background-color: #f5f5f5; text-align: right; }
+    .code-playground-button { padding: 8px 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .code-playground-button:hover { background-color: #0056b3; }
+    .code-playground-output-image { display: block; margin: 10px auto; max-width: 100%; }
+    .code-playground-message { color: #6c757d; padding: 10px; text-align: center; font-style: italic; }
+  </style>
 
-# 添加图例和标题
-fig.tight_layout()
-fig.legend(loc='upper left', bbox_to_anchor=(0.1, 0.9))
-plt.title('Virtual Reservoir Simulation Results')
-plt.grid(True)
-plt.show()
+  <textarea id="code-editor-mock" class="code-playground-editor">
+# 这是一个基于规则的MPC控制器的简化示例
+# 您可以修改下面的 'target_level' 参数
 
-print(results_df)
-```
+class MockAgent:
+    def __init__(self, target_level):
+        self.target_level = target_level
+    def get_action(self, level):
+        error = level - self.target_level
+        if error > 0.5: return -2.0
+        elif error < -0.5: return 2.0
+        else: return 0.0
 
-这段代码会生成一张清晰的图表，展示了在整个仿真过程中，水位、入库流量和出库流量的变化情况。
+# --- 修改这里的参数 ---
+agent = MockAgent(target_level=20.0)
+# --------------------
 
-恭喜！你已经成功构建并运行了你的第一个虚拟水库模型。这只是一个开始，CHS-SDK拥有更强大的功能等待你去探索。
+level = 98.0
+history = []
+for t in range(48):
+    action = agent.get_action(level)
+    level += action * 0.5 + 0.5 # 模拟动态
+    history.append({'time': t, 'level': level})
+
+# 下方的代码仅为示意，实际的绘图已预先生成
+import pandas as pd
+import matplotlib.pyplot as plt
+df = pd.DataFrame(history)
+fig, ax = plt.subplots()
+ax.plot(df['time'], df['level'])
+# fig.show() # 在真实环境中会显示图像
+  </textarea>
+  <div class="code-playground-controls">
+    <div id="run-message" class="code-playground-message" style="display: none; float: left; margin-top: 5px;"></div>
+    <button id="run-button-mock" class="code-playground-button">运行仿真</button>
+  </div>
+  <img id="output-image-mock" class="code-playground-output-image" src="../assets/images/result_default.png" alt="Simulation Plot"/>
+</div>
+
+<script>
+  document.getElementById('run-button-mock').addEventListener('click', function() {
+    const code = document.getElementById('code-editor-mock').value;
+    const image = document.getElementById('output-image-mock');
+    const messageDiv = document.getElementById('run-message');
+
+    // 使用正则表达式来匹配 target_level 的赋值，允许有空格和.0
+    const regex21 = /target_level\s*=\s*21(\.0)?/;
+    const regex20 = /target_level\s*=\s*20(\.0)?/;
+
+    if (regex21.test(code)) {
+      image.src = '../assets/images/result_level_21.png';
+      messageDiv.textContent = '已加载 `target_level = 21.0` 的结果。';
+      messageDiv.style.display = 'block';
+    } else if (regex20.test(code)) {
+      image.src = '../assets/images/result_default.png';
+      messageDiv.textContent = '已加载 `target_level = 20.0` 的结果。';
+      messageDiv.style.display = 'block';
+    } else {
+      image.src = '../assets/images/result_default.png'; // 默认显示
+      messageDiv.textContent = '此演示仅支持 `target_level` 为 20.0 或 21.0。';
+      messageDiv.style.display = 'block';
+    }
+  });
+</script>
+
+恭喜！您已经成功构建并运行了您的第一个虚拟水库模型。这只是一个开始，CHS-SDK拥有更强大的功能等待您去探索。

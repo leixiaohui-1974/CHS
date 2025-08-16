@@ -1,0 +1,24 @@
+{
+  "project_name": "Cascade Reservoir Dispatch Optimization",
+  "version": "1.0",
+  "simulation_settings": {
+    "duration_hours": 24,
+    "time_step_seconds": 3600
+  },
+  "components": [
+    {
+      "id": "upstream_reservoir",
+      "type": "Reservoir",
+      "params": { "initial_level": 85.0, "area": 1500.0 }
+    },
+    {
+      "id": "downstream_reservoir",
+      "type": "Reservoir",
+      "params": { "initial_level": 60.0, "area": 1000.0 }
+    }
+  ],
+  "agent_settings": {
+    "agent_file": "cascade_manager.agent",
+    "managed_components": ["upstream_reservoir", "downstream_reservoir"]
+  }
+}
