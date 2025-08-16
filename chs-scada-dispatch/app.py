@@ -10,6 +10,7 @@ from data_processing.event_store import EventStore
 from data_ingestion.mqtt_service import MqttService
 from dispatch_engine.central_agent_executor import CentralExecutor
 from alarm_engine.engine import AlarmEngine
+from audit_log.audit_logger import AuditLogger
 
 # --- Global Service Instances ---
 # These are managed here to ensure they are gracefully shut down on exit.
@@ -18,6 +19,7 @@ event_store: EventStore = None
 mqtt_service: MqttService = None
 dispatch_engine: CentralExecutor = None
 alarm_engine: AlarmEngine = None
+audit_logger: AuditLogger = None
 
 def main():
     """
@@ -32,7 +34,7 @@ def main():
     logging.getLogger("werkzeug").setLevel(logging.WARNING) # Quieter Flask logs
     logging.getLogger("engineio").setLevel(logging.WARNING) # Quieter SocketIO logs
 
-    global timeseries_db, event_store, mqtt_service, dispatch_engine, alarm_engine
+    global timeseries_db, event_store, mqtt_service, dispatch_engine, alarm_engine, audit_logger
 
     try:
         # 3. Initialize services
@@ -40,9 +42,11 @@ def main():
         # InfluxDB URL and broker address can be configured via .env file
         influx_url = os.getenv("INFLUXDB_URL", "http://localhost:8086")
         mqtt_broker = os.getenv("MQTT_BROKER_ADDRESS", "127.0.0.1")
+        audit_log_file = os.getenv("AUDIT_LOG_FILE", "audit.log")
 
         timeseries_db = TimeSeriesDB()
         event_store = EventStore()
+        audit_logger = AuditLogger(log_file_path=audit_log_file)
         mqtt_service = MqttService(timeseries_db=timeseries_db, broker_address=mqtt_broker)
         dispatch_engine = CentralExecutor(
             timeseries_db=timeseries_db,
@@ -59,7 +63,8 @@ def main():
         app = create_rest_app(
             timeseries_db=timeseries_db,
             event_store=event_store,
-            mqtt_service=mqtt_service
+            mqtt_service=mqtt_service,
+            audit_logger=audit_logger
         )
 
         # 5. Initialize WebSocket (SocketIO) and link it to the dispatch engine
