@@ -6,14 +6,18 @@ from dotenv import load_dotenv
 from api.rest_api import create_rest_app
 from api.websocket_api import init_socketio
 from data_processing.timeseries_db import TimeSeriesDB
+from data_processing.event_store import EventStore
 from data_ingestion.mqtt_service import MqttService
 from dispatch_engine.central_agent_executor import CentralExecutor
+from alarm_engine.engine import AlarmEngine
 
 # --- Global Service Instances ---
 # These are managed here to ensure they are gracefully shut down on exit.
 timeseries_db: TimeSeriesDB = None
+event_store: EventStore = None
 mqtt_service: MqttService = None
 dispatch_engine: CentralExecutor = None
+alarm_engine: AlarmEngine = None
 
 def main():
     """
@@ -28,7 +32,7 @@ def main():
     logging.getLogger("werkzeug").setLevel(logging.WARNING) # Quieter Flask logs
     logging.getLogger("engineio").setLevel(logging.WARNING) # Quieter SocketIO logs
 
-    global timeseries_db, mqtt_service, dispatch_engine
+    global timeseries_db, event_store, mqtt_service, dispatch_engine, alarm_engine
 
     try:
         # 3. Initialize services
@@ -38,17 +42,23 @@ def main():
         mqtt_broker = os.getenv("MQTT_BROKER_ADDRESS", "127.0.0.1")
 
         timeseries_db = TimeSeriesDB()
+        event_store = EventStore()
         mqtt_service = MqttService(timeseries_db=timeseries_db, broker_address=mqtt_broker)
         dispatch_engine = CentralExecutor(
             timeseries_db=timeseries_db,
             mqtt_service=mqtt_service
             # websocket_service will be set after initialization
         )
+        alarm_engine = AlarmEngine(
+            timeseries_db=timeseries_db,
+            event_store=event_store
+        )
         logging.info("Core services initialized.")
 
         # 4. Create the Flask app and inject dependencies
         app = create_rest_app(
             timeseries_db=timeseries_db,
+            event_store=event_store,
             mqtt_service=mqtt_service
         )
 
@@ -67,6 +77,7 @@ def main():
         logging.info("Starting background services...")
         mqtt_service.start()
         dispatch_engine.start()
+        alarm_engine.start()
         logging.info("Background services started.")
 
         # 8. Run the web server
@@ -86,12 +97,16 @@ def cleanup():
     Gracefully stops all running services.
     """
     logging.info("Application is shutting down. Cleaning up resources...")
-    global mqtt_service, dispatch_engine, timeseries_db
+    global mqtt_service, dispatch_engine, alarm_engine, timeseries_db, event_store
 
     if dispatch_engine and dispatch_engine.is_running:
         dispatch_engine.stop()
+    if alarm_engine and alarm_engine.is_running:
+        alarm_engine.stop()
     if mqtt_service:
         mqtt_service.stop()
+    if event_store:
+        event_store.close()
     if timeseries_db:
         timeseries_db.close()
 
