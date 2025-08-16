@@ -15,6 +15,12 @@ from chs_sdk.agents.management_agents import DataCaptureAgent
 import threading
 from rule_based_agent import RuleBasedAgent
 
+# --- V2 SDK Imports ---
+from flask import send_from_directory
+from stable_baselines3 import PPO
+from gym_wrapper import create_chs_env
+import datetime
+
 # --- Flask App Initialization ---
 app = Flask(__name__)
 # Determine the absolute path for the instance folder
@@ -26,6 +32,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
+with app.app_context():
+    db.create_all()
 
 # --- Database Models ---
 class Project(db.Model):
@@ -33,6 +41,7 @@ class Project(db.Model):
     name = db.Column(db.String(100), nullable=False)
     scenario_json = db.Column(db.Text, nullable=False)
     simulation_runs = db.relationship('SimulationRun', backref='project', lazy=True, cascade="all, delete-orphan")
+    models = db.relationship('TrainedModel', backref='project', lazy=True, cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
@@ -55,6 +64,27 @@ class SimulationRun(db.Model):
             "results": json.loads(self.results_json)
         }
 
+class TrainedModel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=False)
+    algorithm = db.Column(db.String(50), nullable=False)
+    total_timesteps = db.Column(db.Integer, nullable=False)
+    model_path = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "project_id": self.project_id,
+            "algorithm": self.algorithm,
+            "total_timesteps": self.total_timesteps,
+            "created_at": self.created_at.isoformat()
+        }
+
+# --- Model Storage Setup ---
+MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
+os.makedirs(MODELS_DIR, exist_ok=True)
+
 # --- API Endpoints ---
 
 @app.route('/api/projects', methods=['POST'])
@@ -71,6 +101,64 @@ def create_project():
     db.session.commit()
 
     return jsonify({"status": "success", "project": project.to_dict()}), 201
+
+@app.route('/api/projects/<int:project_id>/train', methods=['POST'])
+def train_project_model(project_id):
+    project = Project.query.get_or_404(project_id)
+    data = request.get_json()
+    if not data:
+        return jsonify({"status": "error", "message": "Invalid request body"}), 400
+
+    algorithm = data.get('algorithm', 'PPO')
+    total_timesteps = data.get('total_timesteps', 10000) # A smaller default for quick tests
+
+    if algorithm != 'PPO':
+        return jsonify({"status": "error", "message": f"Algorithm {algorithm} not supported"}), 400
+
+    try:
+        # 1. Create the Gym environment
+        env = create_chs_env(project.scenario_json)
+
+        # 2. Initialize the SB3 model
+        model = PPO('MlpPolicy', env, verbose=1)
+
+        # 3. Train the model (this is a blocking call)
+        model.learn(total_timesteps=total_timesteps)
+
+        # 4. Save the trained model
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        model_filename = f"project_{project_id}__{timestamp}.zip"
+        model_save_path = os.path.join(MODELS_DIR, model_filename)
+        model.save(model_save_path)
+
+        # 5. Save model metadata to the database
+        trained_model = TrainedModel(
+            project_id=project.id,
+            algorithm=algorithm,
+            total_timesteps=total_timesteps,
+            model_path=model_filename # Store relative path
+        )
+        db.session.add(trained_model)
+        db.session.commit()
+
+        return jsonify({"status": "success", "message": "Training complete", "model": trained_model.to_dict()})
+
+    except Exception as e:
+        app.logger.error(f"An error occurred during training for project {project_id}: {e}", exc_info=True)
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/projects/<int:project_id>/models', methods=['GET'])
+def get_project_models(project_id):
+    project = Project.query.get_or_404(project_id)
+    models = TrainedModel.query.filter_by(project_id=project.id).order_by(TrainedModel.created_at.desc()).all()
+    return jsonify([m.to_dict() for m in models])
+
+
+@app.route('/api/models/<int:model_id>', methods=['GET'])
+def download_model(model_id):
+    model_record = TrainedModel.query.get_or_404(model_id)
+    return send_from_directory(MODELS_DIR, model_record.model_path, as_attachment=True)
 
 @app.route('/api/projects', methods=['GET'])
 def get_projects():
