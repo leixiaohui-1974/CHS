@@ -1,0 +1,11 @@
+- rule_name: "Reservoir High Level Warning"
+  device_id_pattern: "res_*" # 适用于所有水库
+  condition: "values.level > 150.0"
+  severity: "WARNING"
+  message: "水库 {device_id} 水位 {values.level:.2f}m 已超过 150.0m 警戒线！"
+
+- rule_name: "Pump Offline Alert"
+  device_id_pattern: "pump_station_*"
+  condition: "values.pump_status == 0"
+  severity: "CRITICAL"
+  message: "泵站 {device_id} 的水泵已离线！"
