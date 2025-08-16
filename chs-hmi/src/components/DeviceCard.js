@@ -11,7 +11,7 @@ import React from 'react';
  * @param {Array<object>} props.decisionInfo.options - The available decision options.
  * @param {function} props.onDecision - Callback function to handle the user's decision.
  */
-const DeviceCard = ({ deviceId, deviceData, isAwaitingDecision, decisionInfo, onDecision }) => {
+const DeviceCard = ({ deviceId, deviceData, isAwaitingDecision, decisionInfo, onDecision, onSensorClick }) => {
   const cardStyle = {
     border: '1px solid #ccc',
     borderRadius: '8px',
@@ -51,7 +51,14 @@ const DeviceCard = ({ deviceId, deviceData, isAwaitingDecision, decisionInfo, on
   const valueItemStyle = {
     display: 'flex',
     justifyContent: 'space-between',
-    padding: '4px 0',
+    padding: '8px 4px',
+    borderRadius: '4px',
+    transition: 'background-color 0.2s ease',
+    cursor: 'pointer', // Make it look clickable
+  };
+
+  const valueItemHoverStyle = {
+    backgroundColor: '#f0f0f0',
   };
 
   const decisionContainerStyle = {
@@ -116,7 +123,13 @@ const DeviceCard = ({ deviceId, deviceData, isAwaitingDecision, decisionInfo, on
       </div>
       <ul style={valuesListStyle}>
         {values && Object.entries(values).map(([key, value]) => (
-          <li key={key} style={valueItemStyle}>
+          <li
+            key={key}
+            style={valueItemStyle}
+            onClick={() => onSensorClick && onSensorClick(deviceId, key)}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = valueItemHoverStyle.backgroundColor}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
             <span>{key.replace(/_/g, ' ')}:</span>
             <strong>{typeof value === 'number' ? value.toFixed(2) : value}</strong>
           </li>

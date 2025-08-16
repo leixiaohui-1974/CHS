@@ -28,3 +28,47 @@ export const fetchSystemStatus = async () => {
     }
   }
 };
+
+/**
+ * Fetches historical data for a specific device sensor.
+ * @param {string} deviceId - The ID of the device.
+ * @param {string} range - The time range for the history (e.g., '1h', '24h').
+ * @returns {Promise<Object>} A promise that resolves to the historical data.
+ */
+export const fetchDeviceHistory = async (deviceId, range) => {
+  try {
+    const response = await axios.get(`/api/v1/devices/${deviceId}/history`, {
+      params: { range },
+    });
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching history for device ${deviceId}:`, error);
+    if (error.response) {
+      throw new Error(`Backend error: ${error.response.status} ${error.response.data.message || ''}`);
+    } else if (error.request) {
+      throw new Error('Could not connect to the server.');
+    } else {
+      throw new Error(`An unexpected error occurred: ${error.message}`);
+    }
+  }
+};
+
+/**
+ * Fetches the list of system events.
+ * @returns {Promise<Array>} A promise that resolves to an array of event objects.
+ */
+export const fetchEvents = async () => {
+  try {
+    const response = await axios.get('/api/v1/events');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching events:', error);
+    if (error.response) {
+      throw new Error(`Backend error: ${error.response.status} ${error.response.data.message || ''}`);
+    } else if (error.request) {
+      throw new Error('Could not connect to the server.');
+    } else {
+      throw new Error(`An unexpected error occurred: ${error.message}`);
+    }
+  }
+};
