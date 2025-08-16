@@ -199,7 +199,7 @@ class DataCaptureAgent(BaseAgent):
             self.kernel.message_bus.subscribe(self, topic)
         log.info(f"DataCaptureAgent '{self.agent_id}' is active and capturing topics: {self.topics_to_log}")
 
-    def execute(self, current_time: float):
+    def execute(self, current_time: float, time_step: float):
         """
         The DataCaptureAgent is purely reactive.
         """

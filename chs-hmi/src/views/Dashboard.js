@@ -1,69 +1,103 @@
 import React, { useState, useEffect } from 'react';
-import { fetchSystemStatus } from '../services/apiService';
-import DeviceCard from '../components/DeviceCard';
+import { Link } from 'react-router-dom';
+import axios from 'axios';
 
 const Dashboard = () => {
-  const [systemStatus, setSystemStatus] = useState(null);
-  const [error, setError] = useState('');
+    const [projects, setProjects] = useState([]);
+    const [error, setError] = useState('');
 
-  const containerStyle = {
-    display: 'flex',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    padding: '20px',
-  };
+    useEffect(() => {
+        const fetchProjects = async () => {
+            try {
+                const response = await axios.get('/api/projects');
+                setProjects(response.data);
+            } catch (err) {
+                setError('Failed to fetch projects. Is the backend running?');
+                console.error(err);
+            }
+        };
+        fetchProjects();
+    }, []);
 
-  const headerStyle = {
-    width: '100%',
-    textAlign: 'center',
-    marginBottom: '20px',
-  };
-
-  const errorStyle = {
-    color: 'red',
-    width: '100%',
-    textAlign: 'center',
-  };
-
-  useEffect(() => {
-    const getData = async () => {
-      try {
-        const data = await fetchSystemStatus();
-        setSystemStatus(data);
-        setError(''); // Clear any previous errors
-      } catch (err) {
-        setError(err.message);
-        console.error(err); // Also log the full error to the console
-      }
+    const containerStyle = {
+        fontFamily: 'sans-serif',
+        padding: '20px',
+        maxWidth: '800px',
+        margin: '0 auto',
     };
 
-    // Fetch data immediately on component mount
-    getData();
+    const headerStyle = {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottom: '2px solid #eee',
+        paddingBottom: '10px',
+        marginBottom: '20px',
+    };
 
-    // Then set up an interval to fetch data every 5 seconds
-    const intervalId = setInterval(getData, 5000);
+    const projectCardStyle = {
+        border: '1px solid #ddd',
+        borderRadius: '5px',
+        padding: '15px',
+        marginBottom: '15px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    };
 
-    // Clean up the interval when the component unmounts
-    return () => clearInterval(intervalId);
-  }, []); // The empty dependency array ensures this effect runs only once on mount
+    const buttonStyle = {
+        padding: '8px 15px',
+        margin: '0 5px',
+        border: 'none',
+        borderRadius: '3px',
+        cursor: 'pointer',
+        textDecoration: 'none',
+        color: 'white',
+    };
 
-  return (
-    <div>
-      <div style={headerStyle}>
-        <h1>CHS 系统实时状态看板</h1>
-      </div>
-      {error && <p style={errorStyle}>Error: {error}</p>}
-      <div style={containerStyle}>
-        {systemStatus ? (
-          Object.entries(systemStatus).map(([deviceId, deviceData]) => (
-            <DeviceCard key={deviceId} deviceId={deviceId} deviceData={deviceData} />
-          ))
-        ) : (
-          !error && <p>Loading system status...</p>
-        )}
-      </div>
-    </div>
-  );
+    const createBtnStyle = { ...buttonStyle, backgroundColor: '#28a745' };
+    const viewBtnStyle = { ...buttonStyle, backgroundColor: '#007bff' };
+    const editBtnStyle = { ...buttonStyle, backgroundColor: '#ffc107', color: 'black' };
+    const runBtnStyle = { ...buttonStyle, backgroundColor: '#17a2b8' };
+
+    const handleRun = async (projectId) => {
+        try {
+            alert(`Running simulation for project ${projectId}...`);
+            await axios.post(`/api/projects/${projectId}/run`);
+            alert(`Simulation for project ${projectId} completed!`);
+            // Optionally, you could refresh the results or navigate to the results page
+        } catch (err) {
+            alert(`Failed to run simulation for project ${projectId}.`);
+            console.error(err);
+        }
+    };
+
+
+    return (
+        <div style={containerStyle}>
+            <div style={headerStyle}>
+                <h1>Project Dashboard</h1>
+                <Link to="/project/new" style={createBtnStyle}>Create New Project</Link>
+            </div>
+            {error && <p style={{ color: 'red' }}>{error}</p>}
+            <div>
+                {projects.length > 0 ? (
+                    projects.map(project => (
+                        <div key={project.id} style={projectCardStyle}>
+                            <h3>{project.name}</h3>
+                            <div>
+                                <button onClick={() => handleRun(project.id)} style={runBtnStyle}>Run</button>
+                                <Link to={`/project/${project.id}/results`} style={viewBtnStyle}>View Results</Link>
+                                <Link to={`/project/${project.id}/edit`} style={editBtnStyle}>Edit</Link>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    !error && <p>No projects found. Create one to get started!</p>
+                )}
+            </div>
+        </div>
+    );
 };
 
 export default Dashboard;
