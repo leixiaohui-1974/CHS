@@ -1,15 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { fetchSystemStatus, fetchEvents, fetchDeviceHistory, acknowledgeEvent, resolveEvent } from '../services/apiService';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useAuth } from '../context/AuthContext';
+import {
+  fetchSystemStatus,
+  fetchEvents,
+  fetchDeviceHistory,
+  acknowledgeEvent,
+  resolveEvent,
+  fetchDashboardLayouts,
+  saveDashboardLayout,
+} from '../services/apiService';
+import { Responsive, WidthProvider } from 'react-grid-layout';
 import websocketService from '../services/websocketService';
 import DeviceCard from '../components/DeviceCard';
 import EventList from '../components/EventList';
 import Modal from '../components/Modal';
 import HistoricalChart from '../components/HistoricalChart';
-import NavTabs from '../components/NavTabs';
 import TopologyView from '../components/TopologyView';
 import DeviceSettings from '../components/DeviceSettings';
 
-const Dashboard = () => {
+const ResponsiveGridLayout = WidthProvider(Responsive);
+
+const Dashboard = forwardRef(({ isEditMode, activeView, setActiveView }, ref) => {
   // --- STATE ---
   const [systemStatus, setSystemStatus] = useState(null);
   const [error, setError] = useState('');
@@ -25,33 +36,50 @@ const Dashboard = () => {
   });
   const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
   const [resolvingEvent, setResolvingEvent] = useState({ id: null, notes: '' });
-  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'topology', 'settings'
+  const [layouts, setLayouts] = useState(null);
+  const { user } = useAuth();
+
+  const defaultLayouts = {
+    lg: [
+      { i: 'devices', x: 0, y: 0, w: 8, h: 12, minW: 4, minH: 6 },
+      { i: 'events', x: 8, y: 0, w: 4, h: 12, minW: 3, minH: 8 },
+    ],
+  };
+
+  // Expose the saveLayout function to the parent component (Layout)
+  useImperativeHandle(ref, () => ({
+    saveLayout: async () => {
+      try {
+        await saveDashboardLayout(layouts);
+        alert('Layout saved successfully!');
+      } catch (error) {
+        console.error("Failed to save layout:", error);
+        alert(`Error saving layout: ${error.message}`);
+      }
+    },
+  }));
 
   // --- STYLES ---
-  const headerStyle = {
-    width: '100%',
-    textAlign: 'center',
-    marginBottom: '20px',
-  };
-
-  const dashboardContainerStyle = {
-    display: 'flex',
-    flexDirection: 'row',
-    padding: '20px',
-    gap: '20px',
-    alignItems: 'flex-start',
-  };
-
   const devicesContainerStyle = {
     display: 'flex',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    flex: 3,
+    width: '100%',
+    height: '100%',
+    overflow: 'auto',
   };
 
   const eventsContainerStyle = {
-    flex: 1,
-    maxWidth: '450px',
+    width: '100%',
+    height: '100%',
+    overflow: 'auto',
+  };
+
+  const gridItemStyle = {
+    border: isEditMode ? '1px dashed #ccc' : 'none',
+    borderRadius: '4px',
+    padding: '5px',
+    backgroundColor: '#fff',
   };
 
   const errorStyle = {
@@ -128,6 +156,19 @@ const Dashboard = () => {
     }
   }, [isHistoryModalOpen, historyModalContent.deviceId, historyModalContent.sensorKey]);
 
+  useEffect(() => {
+    const loadLayout = async () => {
+      const savedData = await fetchDashboardLayouts();
+      if (savedData && savedData.layouts) {
+        setLayouts(savedData.layouts);
+      } else {
+        setLayouts(defaultLayouts);
+      }
+    };
+    loadLayout();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // --- HANDLERS ---
   const handleDecision = (deviceId, action) => {
     websocketService.sendDecision(deviceId, action);
@@ -139,13 +180,7 @@ const Dashboard = () => {
   };
 
   const handleSensorClick = (deviceId, sensorKey) => {
-    setHistoryModalContent({
-      deviceId,
-      sensorKey,
-      historyData: null,
-      isLoading: true,
-      error: null,
-    });
+    setHistoryModalContent({ deviceId, sensorKey, historyData: null, isLoading: true, error: null });
     setIsHistoryModalOpen(true);
   };
 
@@ -157,11 +192,7 @@ const Dashboard = () => {
   const handleAcknowledgeEvent = async (eventId) => {
     try {
       await acknowledgeEvent(eventId);
-      setEvents(prevEvents =>
-        prevEvents.map(event =>
-          event.id === eventId ? { ...event, status: 'ACKNOWLEDGED' } : event
-        )
-      );
+      setEvents(prevEvents => prevEvents.map(event => event.id === eventId ? { ...event, status: 'ACKNOWLEDGED' } : event));
     } catch (err) {
       setError(`Failed to acknowledge event: ${err.message}`);
     }
@@ -181,11 +212,7 @@ const Dashboard = () => {
     if (!resolvingEvent.id) return;
     try {
       await resolveEvent(resolvingEvent.id, resolvingEvent.notes);
-      setEvents(prevEvents =>
-        prevEvents.map(event =>
-          event.id === resolvingEvent.id ? { ...event, status: 'RESOLVED' } : event
-        )
-      );
+      setEvents(prevEvents => prevEvents.map(event => event.id === resolvingEvent.id ? { ...event, status: 'RESOLVED' } : event));
       handleCloseResolveModal();
     } catch (err) {
       setError(`Failed to resolve event: ${err.message}`);
@@ -198,51 +225,56 @@ const Dashboard = () => {
       case 'topology':
         return <TopologyView />;
       case 'settings':
-        return <DeviceSettings />;
+        return user?.role === 'admin' ? <DeviceSettings /> : <p>Access Denied</p>;
       case 'dashboard':
       default:
         return (
-          <div style={dashboardContainerStyle}>
-            <div style={devicesContainerStyle}>
-              {systemStatus ? (
-                Object.entries(systemStatus).map(([deviceId, deviceData]) => {
-                  const decisionInfo = decisionRequests[deviceId];
-                  return (
+          <ResponsiveGridLayout
+            className="layout"
+            layouts={layouts || defaultLayouts}
+            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 2 }}
+            cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+            rowHeight={30}
+            isDraggable={isEditMode}
+            isResizable={isEditMode}
+            onLayoutChange={(layout, newLayouts) => setLayouts(newLayouts)}
+          >
+            <div key="devices" style={gridItemStyle}>
+              <div style={devicesContainerStyle}>
+                {systemStatus ? (
+                  Object.entries(systemStatus).map(([deviceId, deviceData]) => (
                     <DeviceCard
                       key={deviceId}
                       deviceId={deviceId}
                       deviceData={deviceData}
-                      isAwaitingDecision={!!decisionInfo}
-                      decisionInfo={decisionInfo}
+                      isAwaitingDecision={!!decisionRequests[deviceId]}
+                      decisionInfo={decisionRequests[deviceId]}
                       onDecision={handleDecision}
                       onSensorClick={handleSensorClick}
                     />
-                  );
-                })
-              ) : (
-                !error && <p>Loading system status...</p>
-              )}
+                  ))
+                ) : (
+                  !error && <p>Loading system status...</p>
+                )}
+              </div>
             </div>
-            <div style={eventsContainerStyle}>
-              <EventList
-                events={events}
-                onAcknowledge={handleAcknowledgeEvent}
-                onResolve={handleOpenResolveModal}
-              />
+            <div key="events" style={gridItemStyle}>
+              <div style={eventsContainerStyle}>
+                <EventList
+                  events={events}
+                  onAcknowledge={handleAcknowledgeEvent}
+                  onResolve={handleOpenResolveModal}
+                />
+              </div>
             </div>
-          </div>
+          </ResponsiveGridLayout>
         );
     }
   };
 
   return (
     <div>
-      <div style={headerStyle}>
-        <h1>CHS 运管一体化平台</h1>
-      </div>
-      <NavTabs activeView={activeView} onSelectView={setActiveView} />
-      {error && <p style={errorStyle}>Error: {error}</p>}
-
+      {error && <p style={errorStyle}>{error}</p>}
       {renderActiveView()}
 
       <Modal
@@ -285,6 +317,6 @@ const Dashboard = () => {
       </Modal>
     </div>
   );
-};
+});
 
 export default Dashboard;
