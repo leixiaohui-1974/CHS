@@ -1,0 +1,13 @@
+{
+  "time_step_hours": 1,
+  "data": {
+    "SubBasin1": {
+      "precipitation_mm": [0, 5, 15, 8, 2, 0, 0, 0, 0, 0],
+      "evaporation_mm":   [0.1, 0.1, 0, 0, 0.1, 0.2, 0.2, 0.2, 0.1, 0.1]
+    },
+    "SubBasin2": {
+      "precipitation_mm": [0, 4, 12, 6, 1, 0, 0, 0, 0, 0],
+      "evaporation_mm":   [0.1, 0.1, 0, 0, 0.1, 0.2, 0.2, 0.2, 0.1, 0.1]
+    }
+  }
+}

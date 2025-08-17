@@ -1,0 +1,26 @@
+{
+  "SubBasin1": {
+    "runoff_model": "Xinanjiang",
+    "runoff_parameters": {
+      "K": 0.2,
+      "IM": 0.05,
+      "C": 0.15
+    },
+    "routing_model": "Muskingum",
+    "routing_parameters": {
+      "K": 12,
+      "x": 0.2,
+      "dt": 1.0,
+      "initial_inflow": 5,
+      "initial_outflow": 5
+    }
+  },
+  "SubBasin2": {
+    "runoff_model": "Xinanjiang",
+    "runoff_parameters": {
+      "K": 0.25,
+      "IM": 0.1,
+      "C": 0.1
+    }
+  }
+}

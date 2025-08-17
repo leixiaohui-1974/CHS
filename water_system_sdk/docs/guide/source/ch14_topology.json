@@ -1,0 +1,17 @@
+{
+  "elements": [
+    {
+      "id": "SubBasin1",
+      "type": "sub_basin",
+      "area_km2": 150,
+      "downstream": "SubBasin2"
+    },
+    {
+      "id": "SubBasin2",
+      "type": "sub_basin",
+      "area_km2": 100,
+      "downstream": "outlet"
+    }
+  ],
+  "sinks": ["outlet"]
+}
