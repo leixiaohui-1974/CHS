@@ -1,0 +1,11 @@
+{
+  "elements": [
+    {
+      "id": "UpstreamCatchment",
+      "type": "sub_basin",
+      "area_km2": 500,
+      "downstream": "ReservoirInflow"
+    }
+  ],
+  "sinks": ["ReservoirInflow"]
+}
