@@ -3,9 +3,9 @@ import pandas as pd
 from scipy.optimize import curve_fit, minimize
 from typing import Dict, List, Any, Callable
 
-from water_system_simulator.modeling.integral_plus_delay_model import IntegralPlusDelayModel
-from water_system_simulator.control.kalman_filter import KalmanFilter
-from water_system_simulator.utils.metrics import calculate_nse, calculate_rmse
+from chs_sdk.modeling.integral_plus_delay_model import IntegralPlusDelayModel
+from chs_sdk.control.kalman_filter import KalmanFilter
+from chs_sdk.utils.metrics import calculate_nse, calculate_rmse
 
 
 class IdentificationToolkit:

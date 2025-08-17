@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any, Tuple
 from .gistools import GISTools
 from .hydrological_unit import HydrologicalUnit
 from .routing import identify_river_network, HillslopeRouting, ChannelRouting
-from water_system_simulator.modeling.base_model import BaseModel
+from chs_sdk.modeling.base_model import BaseModel
 
 class DistributedHydrologyModel(BaseModel):
     """

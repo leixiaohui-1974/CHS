@@ -1,8 +1,8 @@
 import pandas as pd
 from typing import Dict, Any
-from water_system_simulator.modeling.base_model import BaseModel
-from water_system_simulator.preprocessing.interpolators import BaseSpatialInterpolator
-from water_system_simulator.preprocessing.structures import RainGauge
+from chs_sdk.modeling.base_model import BaseModel
+from chs_sdk.preprocessing.interpolators import BaseSpatialInterpolator
+from chs_sdk.preprocessing.structures import RainGauge
 
 
 class RainfallProcessor(BaseModel):

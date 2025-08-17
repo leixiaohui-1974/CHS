@@ -2,7 +2,7 @@ import pandas as pd
 from typing import Dict, Any
 
 from chs_sdk.workflows.base_workflow import BaseWorkflow
-from water_system_simulator.tools.identification_toolkit import IdentificationToolkit
+from chs_sdk.tools.identification_toolkit import IdentificationToolkit
 
 
 class SystemIDWorkflow(BaseWorkflow):

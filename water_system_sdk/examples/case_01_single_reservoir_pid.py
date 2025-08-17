@@ -1,68 +1,54 @@
-import sys
-import os
 import matplotlib.pyplot as plt
 
-# Adjust the path to import the SDK
-# This is a common pattern for running examples without installing the package
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# The 'chs_sdk' package has been installed in editable mode.
+# This allows us to import directly from the package, which is the standard
+# and more robust way to use an installed library.
+from chs_sdk.simulation_manager import SimulationManager
+from chs_sdk.simulation_builder import SimulationBuilder
 
-from src.water_system_simulator.simulation_manager import SimulationManager
 
 def main():
     """
     This example demonstrates how to use the SDK to simulate a single
-    reservoir whose water level is controlled by a PID controller.
+    reservoir whose water level is controlled by a PID controller,
+    using the new SimulationBuilder for configuration.
     """
-    print("--- Setting up single reservoir PID control simulation ---")
+    print("--- Setting up single reservoir PID control simulation using SimulationBuilder ---")
 
-    # This configuration dictionary is the "API" for the simulation SDK.
-    # It defines all components, their parameters, and how they are connected.
-    sdk_config = {
-        "simulation_params": {
-            "total_time": 1000,
-            "dt": 1.0
-        },
-        "components": {
-            "main_reservoir": {
-                "type": "ReservoirModel",
-                "params": {
-                    "area": 100.0,
-                    "initial_level": 5.0
-                }
-            },
-            "level_controller": {
-                "type": "PIDController",
-                "params": {
-                    "Kp": 0.5,
-                    "Ki": 0.02,
-                    "Kd": 0.01,
-                    "set_point": 10.0,
-                    "output_min": 0 # Inflow can't be negative
-                }
+    # Use the builder to construct the configuration fluently.
+    # This is more readable and less error-prone than a large dictionary.
+    builder = SimulationBuilder()
+    sdk_config = (builder
+        .set_simulation_params(total_time=1000, dt=1.0)
+        .add_component(
+            name="main_reservoir",
+            component_type="ReservoirModel",
+            params={"area": 100.0, "initial_level": 5.0}
+        )
+        .add_component(
+            name="level_controller",
+            component_type="PIDController",
+            params={
+                "Kp": 0.5, "Ki": 0.02, "Kd": 0.01,
+                "set_point": 10.0, "output_min": 0
             }
-        },
-        "connections": [
-            # The water level of the reservoir is the input to the PID controller
-            {
-                "source": "main_reservoir.state.level",
-                "target": "level_controller.input.error_source"
-            },
-            # The output of the PID controller is the inflow to the reservoir
-            {
-                "source": "level_controller.state.output",
-                "target": "main_reservoir.input.inflow"
-            }
-        ],
-        "execution_order": [
-            "level_controller",
-            "main_reservoir"
-        ],
-        "logger_config": [
+        )
+        .add_connection(
+            source="main_reservoir.state.level",
+            target="level_controller.input.error_source"
+        )
+        .add_connection(
+            source="level_controller.state.output",
+            target="main_reservoir.input.inflow"
+        )
+        .set_execution_order(["level_controller", "main_reservoir"])
+        .configure_logger([
             "main_reservoir.state.level",
             "level_controller.state.output",
-            "level_controller.set_point" # Log the setpoint for plotting
-        ]
-    }
+            "level_controller.set_point"
+        ])
+        .build()
+    )
 
     print("--- Initializing SimulationManager ---")
     manager = SimulationManager(config=sdk_config)

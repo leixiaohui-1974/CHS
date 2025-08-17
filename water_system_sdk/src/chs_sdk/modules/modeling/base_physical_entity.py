@@ -1,6 +1,6 @@
 from typing import Optional
-from water_system_simulator.modeling.base_model import BaseModel
-from water_system_simulator.core.simulation_modes import SimulationMode
+from chs_sdk.modeling.base_model import BaseModel
+from chs_sdk.core.simulation_modes import SimulationMode
 
 class BasePhysicalEntity(BaseModel):
     """

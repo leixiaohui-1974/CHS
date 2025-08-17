@@ -1,6 +1,6 @@
 import pandas as pd
 from abc import abstractmethod
-from water_system_simulator.modeling.base_model import BaseModel
+from chs_sdk.modeling.base_model import BaseModel
 
 class BaseExternalDataAgent(BaseModel):
     """
