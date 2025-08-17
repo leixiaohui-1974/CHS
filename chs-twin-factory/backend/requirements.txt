@@ -1,4 +1,11 @@
 Flask
+Flask-SQLAlchemy
+Flask-Migrate
+mlflow
+optuna
+requests
 loguru
 pydantic
+stable-baselines3
+gymnasium
 -e ../../water_system_sdk

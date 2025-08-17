@@ -4,6 +4,8 @@ theme:
 
 plugins:
   - search
+  - tags
+  - mkdocs-pyscript
   - mkdocstrings:
       handlers:
         python:

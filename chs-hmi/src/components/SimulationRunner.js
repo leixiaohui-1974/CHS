@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Line } from 'react-chartjs-2';
 import {
@@ -23,75 +24,124 @@ ChartJS.register(
 );
 
 const SimulationRunner = () => {
-  const [simulationData, setSimulationData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [formState, setFormState] = useState({
-    initial_level: 19.5,
-    area_storage_curve_coeff: 2000,
-    width: 5,
-    target_level: 20.0,
-    duration_hours: 72,
-  });
+    const [simulationData, setSimulationData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [formState, setFormState] = useState({
+        name: '',
+        initial_level: 19.5,
+        area_storage_curve_coeff: 2000,
+        width: 5,
+        target_level: 20.0,
+        duration_hours: 1,
+    });
 
-  const handleInputChange = (event) => {
-    const { name, value } = event.target;
-    setFormState(prevState => ({
-      ...prevState,
-      [name]: parseFloat(value) || 0,
-    }));
-  };
+    const { id } = useParams(); // Get project ID from URL
+    const navigate = useNavigate();
+    const isEditing = Boolean(id);
 
-  const runSimulation = async (event) => {
-    event.preventDefault(); // Prevent default form submission
-    setLoading(true);
-    setError('');
-    setSimulationData(null);
+    useEffect(() => {
+        if (isEditing) {
+            setLoading(true);
+            axios.get(`/api/projects/${id}`)
+                .then(response => {
+                    const project = response.data;
+                    setFormState({
+                        name: project.name,
+                        initial_level: project.scenario.components.reservoir.initial_level,
+                        area_storage_curve_coeff: project.scenario.components.reservoir.area_storage_curve_coeff,
+                        width: project.scenario.components.sluice_gate.width,
+                        target_level: project.scenario.controller.target_level,
+                        duration_hours: project.scenario.simulation_params.duration_hours,
+                    });
+                    setLoading(false);
+                })
+                .catch(err => {
+                    setError('Failed to load project data.');
+                    setLoading(false);
+                });
+        }
+    }, [id, isEditing]);
 
-    const payload = {
-      scenario_name: "User Defined Test",
-      components: {
-        reservoir: {
-          initial_level: formState.initial_level,
-          area_storage_curve_coeff: formState.area_storage_curve_coeff,
-        },
-        sluice_gate: {
-          width: formState.width,
-          height: 10, // Not used by backend yet, but good to include
-        },
-      },
-      controller: {
-        type: "RuleBasedAgent",
-        target_level: formState.target_level,
-      },
-      simulation_params: {
-        duration_hours: formState.duration_hours,
-      },
+
+    const handleInputChange = (event) => {
+        const { name, value } = event.target;
+        const isNumeric = !['name'].includes(name);
+        setFormState(prevState => ({
+            ...prevState,
+            [name]: isNumeric ? parseFloat(value) || 0 : value,
+        }));
     };
 
-    try {
-      const response = await axios.post('/api/run_simulation', payload);
-      if (response.data.status === 'success') {
-        setSimulationData(response.data.data);
-      } else {
-        setError(response.data.message || 'An unknown error occurred.');
-      }
-    } catch (err) {
-      if (err.response) {
-        console.error("Error response:", err.response.data);
-        setError(`Server Error: ${err.response.status} - ${err.response.data.message || 'Unknown error'}`);
-      } else if (err.request) {
-        console.error("Error request:", err.request);
-        setError('No response from server. Is the backend running?');
-      } else {
-        console.error('Error', err.message);
-        setError(`Request Error: ${err.message}`);
-      }
-      console.error("Full error object:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const buildPayload = () => {
+        return {
+            name: formState.name,
+            scenario: {
+                components: {
+                    reservoir: {
+                        initial_level: formState.initial_level,
+                        area_storage_curve_coeff: formState.area_storage_curve_coeff,
+                    },
+                    sluice_gate: {
+                        width: formState.width,
+                    },
+                },
+                controller: {
+                    target_level: formState.target_level,
+                },
+                simulation_params: {
+                    duration_hours: formState.duration_hours,
+                },
+            }
+        };
+    };
+
+    const handleSaveProject = async (event) => {
+        event.preventDefault();
+        setLoading(true);
+        setError('');
+
+        const payload = buildPayload();
+
+        try {
+            if (isEditing) {
+                // To be implemented: PUT /api/projects/{id}
+                // For now, we just log it.
+                console.log("Would update project:", payload);
+                alert("Project update successful (simulated)!");
+            } else {
+                await axios.post('/api/projects', payload);
+                alert('Project created successfully!');
+            }
+            navigate('/'); // Redirect to dashboard
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to save project.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const runSimulation = async (event) => {
+        event.preventDefault();
+        setLoading(true);
+        setError('');
+        setSimulationData(null);
+
+        const payload = buildPayload().scenario;
+
+        try {
+            const response = await axios.post('/api/run_simulation', payload);
+            if (response.data.status === 'success') {
+                setSimulationData(response.data.data);
+            } else {
+                setError(response.data.message || 'An unknown error occurred.');
+            }
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to run simulation.');
+        } finally {
+            setLoading(false);
+        }
+    };
 
   const chartOptions = {
     responsive: true,
@@ -164,11 +214,17 @@ const SimulationRunner = () => {
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>CHS-Twin-Factory: Dynamic Scenario Builder</h1>
+      <h1>{isEditing ? 'Edit Project' : 'Create New Project'}</h1>
 
-      <form onSubmit={runSimulation} style={formStyle}>
-        <h3>Scenario Editor</h3>
+      <form onSubmit={handleSaveProject} style={formStyle}>
+        <h3>{isEditing ? `Editing: ${formState.name}`: 'Project Details'}</h3>
 
+        <div style={labelStyle}>
+            <label htmlFor="name">Project Name:</label>
+            <input type="text" id="name" name="name" value={formState.name} onChange={handleInputChange} style={{...inputStyle, width: '250px'}} required />
+        </div>
+
+        <h3>Scenario Parameters</h3>
         <div style={labelStyle}>
           <label htmlFor="initial_level">Initial Water Level (m):</label>
           <input type="number" id="initial_level" name="initial_level" value={formState.initial_level} onChange={handleInputChange} style={inputStyle} />
@@ -194,9 +250,14 @@ const SimulationRunner = () => {
           <input type="number" id="duration_hours" name="duration_hours" value={formState.duration_hours} onChange={handleInputChange} style={inputStyle} />
         </div>
 
-        <button type="submit" disabled={loading} style={buttonStyle}>
-          {loading ? 'Running Simulation...' : 'Run Simulation'}
-        </button>
+        <div style={{display: 'flex', gap: '10px', marginTop: '10px'}}>
+            <button type="submit" disabled={loading} style={{...buttonStyle, backgroundColor: '#28a745'}}>
+              {loading ? 'Saving...' : (isEditing ? 'Save Changes' : 'Save Project')}
+            </button>
+            <button type="button" onClick={runSimulation} disabled={loading} style={buttonStyle}>
+              {loading ? 'Running...' : 'Run Quick Simulation'}
+            </button>
+        </div>
       </form>
 
       {error && <p style={{ color: 'red' }}>Error: {error}</p>}

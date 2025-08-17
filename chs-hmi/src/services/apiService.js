@@ -193,3 +193,46 @@ export const updateDeviceConfig = async (deviceId, config) => {
   // await axios.post(`/api/v1/devices/${deviceId}/config`, config);
   return Promise.resolve({ success: true, message: `Device ${deviceId} configuration updated.` });
 };
+
+/**
+ * Starts a training job for a project.
+ * @param {string} projectId - The ID of the project.
+ * @param {object} params - The training parameters (e.g., { algorithm: 'PPO', total_timesteps: 100000 }).
+ * @returns {Promise<Object>} A promise that resolves to the new model data.
+ */
+export const trainAgent = async (projectId, params) => {
+  try {
+    const response = await axios.post(`/api/projects/${projectId}/train`, params);
+    return response.data;
+  } catch (error) {
+    console.error(`Error starting training for project ${projectId}:`, error);
+    if (error.response) {
+      throw new Error(`Backend error: ${error.response.status} ${error.response.data.message || ''}`);
+    } else if (error.request) {
+      throw new Error('Could not connect to the server.');
+    } else {
+      throw new Error(`An unexpected error occurred: ${error.message}`);
+    }
+  }
+};
+
+/**
+ * Fetches the list of trained models for a project.
+ * @param {string} projectId - The ID of the project.
+ * @returns {Promise<Array>} A promise that resolves to an array of model objects.
+ */
+export const fetchProjectModels = async (projectId) => {
+  try {
+    const response = await axios.get(`/api/projects/${projectId}/models`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching models for project ${projectId}:`, error);
+    if (error.response) {
+      throw new Error(`Backend error: ${error.response.status} ${error.response.data.message || ''}`);
+    } else if (error.request) {
+      throw new Error('Could not connect to the server.');
+    } else {
+      throw new Error(`An unexpected error occurred: ${error.message}`);
+    }
+  }
+};

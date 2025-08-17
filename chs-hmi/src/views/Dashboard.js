@@ -82,74 +82,33 @@ const Dashboard = forwardRef(({ isEditMode, activeView, setActiveView }, ref) =>
     backgroundColor: '#fff',
   };
 
-  const errorStyle = {
-    color: 'red',
-    width: '100%',
-    textAlign: 'center',
-  };
+    useEffect(() => {
+        fetchProjectsAndModels();
+    }, [fetchProjectsAndModels]);
 
-  // --- EFFECTS ---
-  useEffect(() => {
-    const getData = async () => {
-      try {
-        const data = await fetchSystemStatus();
-        setSystemStatus(data);
-        setError('');
-      } catch (err) {
-        setError(err.message);
-        console.error(err);
-      }
+    const handleOpenTrainModal = (project) => {
+        setSelectedProject(project);
+        setIsModalOpen(true);
     };
-    getData();
-    const intervalId = setInterval(getData, 5000);
-    return () => clearInterval(intervalId);
-  }, []);
 
-  useEffect(() => {
-    const getEvents = async () => {
-      try {
-        const eventData = await fetchEvents();
-        const sortedEvents = eventData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        setEvents(sortedEvents);
-      } catch (err) {
-        console.error("Failed to fetch events:", err.message);
-      }
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setSelectedProject(null);
     };
-    getEvents();
-    const intervalId = setInterval(getEvents, 15000);
-    return () => clearInterval(intervalId);
-  }, []);
 
-  useEffect(() => {
-    const handleDecisionRequest = (request) => {
-      setDecisionRequests((prev) => ({
-        ...prev,
-        [request.device_id]: {
-          message: request.message,
-          options: request.options,
-        },
-      }));
+    const handleTrainingComplete = () => {
+        // Refresh the data after training is done
+        fetchProjectsAndModels();
     };
-    websocketService.connect(handleDecisionRequest);
-    return () => {
-      websocketService.disconnect();
-    };
-  }, []);
 
-  useEffect(() => {
-    if (isHistoryModalOpen && historyModalContent.deviceId && historyModalContent.sensorKey) {
-      const getHistory = async (range = '1h') => {
-        setHistoryModalContent(prev => ({ ...prev, isLoading: true, error: null }));
+    const handleRun = async (projectId) => {
         try {
-          const history = await fetchDeviceHistory(historyModalContent.deviceId, range);
-          const sensorHistory = history[historyModalContent.sensorKey];
-          if (!sensorHistory || !sensorHistory.timestamps || !sensorHistory.values) {
-            throw new Error(`No valid history data found for sensor '${historyModalContent.sensorKey}'`);
-          }
-          setHistoryModalContent(prev => ({ ...prev, historyData: sensorHistory, isLoading: false }));
+            alert(`Running simulation for project ${projectId}...`);
+            await axios.post(`/api/projects/${projectId}/run`);
+            alert(`Simulation for project ${projectId} completed!`);
         } catch (err) {
-          console.error("Failed to fetch history:", err);
-          setHistoryModalContent(prev => ({ ...prev, error: err.message, isLoading: false }));
+            alert(`Failed to run simulation for project ${projectId}.`);
+            console.error(err);
         }
       };
       getHistory();
@@ -292,27 +251,13 @@ const Dashboard = forwardRef(({ isEditMode, activeView, setActiveView }, ref) =>
         )}
       </Modal>
 
-      <Modal
-        show={isResolveModalOpen}
-        onClose={handleCloseResolveModal}
-        title={`解决告警: ${resolvingEvent.id}`}
-      >
-        <div>
-          <label htmlFor="resolveNotes" style={{ display: 'block', marginBottom: '8px' }}>
-            解决备注:
-          </label>
-          <textarea
-            id="resolveNotes"
-            style={{ width: '100%', minHeight: '80px', padding: '8px' }}
-            value={resolvingEvent.notes}
-            onChange={(e) => setResolvingEvent(prev => ({ ...prev, notes: e.target.value }))}
-          />
-          <button
-            style={{ marginTop: '10px', padding: '8px 16px' }}
-            onClick={handleResolveEvent}
-          >
-            提交
-          </button>
+            {isModalOpen && selectedProject && (
+                <TrainingModal
+                    project={selectedProject}
+                    onClose={handleCloseModal}
+                    onTrainingStarted={handleTrainingComplete}
+                />
+            )}
         </div>
       </Modal>
     </div>
