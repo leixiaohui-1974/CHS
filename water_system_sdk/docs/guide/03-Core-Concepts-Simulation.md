@@ -124,12 +124,12 @@ plt.show()
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch03_single_reservoir.py`
+`source/ch03/ch03_single_reservoir.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch03_single_reservoir.py
+python water_system_sdk/docs/guide/source/ch03/ch03_single_reservoir.py
 ```
 
 当您运行此脚本时，您应该会在命令行看到打印出的结果数据，并弹出一个图表，显示水库的蓄水量从10个单位开始，并逐渐增加到一个稳定状态。

@@ -36,12 +36,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch23_irrigation_system.py`
+`source/ch23/ch23_irrigation_system.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch23_irrigation_system.py
+python water_system_sdk/docs/guide/source/ch23/ch23_irrigation_system.py
 ```
 *注意：为了简化，此示例中的连接方式做了一定的理想化处理。例如，它没有使用一个严格满足水量平衡的节点模型来处理分流。一个更精确的模型会使用`StVenantModel`中的节点或一个专门的`Junction`智能体。*
 

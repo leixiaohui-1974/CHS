@@ -119,12 +119,12 @@ plt.show()
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch04_pid_control.py`
+`source/ch04/ch04_pid_control.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch04_pid_control.py
+python water_system_sdk/docs/guide/source/ch04/ch04_pid_control.py
 ```
 
 当您运行此脚本时，您将看到PID控制器在行动。水位将从10开始，控制器将指令一个高入流量以提高水位。当水位接近15的设定值时，控制器将减少入流，并最终稳定在一个能将水位保持在设定值的入流速率上。

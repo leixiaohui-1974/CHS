@@ -37,12 +37,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch18_kalman_filter.py`
+`source/ch18/ch18_kalman_filter.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch18_kalman_filter.py
+python water_system_sdk/docs/guide/source/ch18/ch18_kalman_filter.py
 ```
 
 ### 预期结果

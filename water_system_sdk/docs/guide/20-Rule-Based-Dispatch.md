@@ -35,12 +35,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch20_rule_based_dispatch.py`
+`source/ch20/ch20_rule_based_dispatch.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch20_rule_based_dispatch.py
+python water_system_sdk/docs/guide/source/ch20/ch20_rule_based_dispatch.py
 ```
 
 ### 预期结果

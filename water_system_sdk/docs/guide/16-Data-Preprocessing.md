@@ -32,12 +32,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch16_data_preprocessing.py`
+`source/ch16/ch16_data_preprocessing.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch16_data_preprocessing.py
+python water_system_sdk/docs/guide/source/ch16/ch16_data_preprocessing.py
 ```
 
 ### 预期结果

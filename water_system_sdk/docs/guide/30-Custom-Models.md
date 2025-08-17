@@ -30,12 +30,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch30_custom_model.py`
+`source/ch30/ch30_custom_model.py`
 
 您可以直接运行此文件来查看仿真结果。脚本中定义了 `EvaporationModel` 类，并展示了如何将其实例化并与 `LinearTank` 连接。
 
 ```bash
-python source/ch30_custom_model.py
+python water_system_sdk/docs/guide/source/ch30/ch30_custom_model.py
 ```
 
 ### 预期结果

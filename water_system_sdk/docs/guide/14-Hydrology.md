@@ -32,10 +32,10 @@
 3.  **`ch14_timeseries.json`**: 定义输入数据。
 4.  **`ch14_hydrology_simulation.py`**: 加载以上文件并运行仿真的脚本。
 
-您可以直接运行此Python文件来查看仿真结果：
+您可以直接运行主脚本来查看仿真结果：
 
 ```bash
-python source/ch14_hydrology_simulation.py
+python water_system_sdk/docs/guide/source/ch14/ch14_hydrology_simulation.py
 ```
 
 ### 预期结果

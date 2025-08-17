@@ -57,12 +57,12 @@
 
 ### 完整脚本与运行
 
-本章的完整示例代码（包含3个JSON文件和1个Python脚本）已保存到 `source` 目录下。
+本章的完整示例代码（包含3个JSON文件和1个Python脚本）已保存到 `source/ch27/` 目录下。
 
 您可以直接运行主脚本来查看仿真结果：
 
 ```bash
-python source/ch27_flood_control.py
+python water_system_sdk/docs/guide/source/ch27/ch27_flood_control.py
 ```
 
 ### 预期结果

@@ -33,12 +33,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch11_pipe_simulation.py`
+`source/ch11/ch11_pipe_simulation.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch11_pipe_simulation.py
+python water_system_sdk/docs/guide/source/ch11/ch11_pipe_simulation.py
 ```
 
 ### 预期结果
