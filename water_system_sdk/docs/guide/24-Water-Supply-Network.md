@@ -36,12 +36,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch24_water_supply_network.py`
+`source/ch24/ch24_water_supply_network.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch24_water_supply_network.py
+python water_system_sdk/docs/guide/source/ch24/ch24_water_supply_network.py
 ```
 
 ### 预期结果

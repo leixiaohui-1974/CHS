@@ -28,12 +28,12 @@ EnKF 的巨大优势在于它 **不需要对模型进行线性化**，也 **不�
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch19_enkf_simulation.py`
+`source/ch19/ch19_enkf_simulation.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch19_enkf_simulation.py
+python water_system_sdk/docs/guide/source/ch19/ch19_enkf_simulation.py
 ```
 
 ### 预期结果

@@ -45,12 +45,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch06_gate_control.py`
+`source/ch06/ch06_gate_control.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch06_gate_control.py
+python water_system_sdk/docs/guide/source/ch06/ch06_gate_control.py
 ```
 
 ### 预期结果

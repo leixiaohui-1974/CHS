@@ -34,12 +34,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch28_hybrid_system.py`
+`source/ch28/ch28_hybrid_system.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch28_hybrid_system.py
+python water_system_sdk/docs/guide/source/ch28/ch28_hybrid_system.py
 ```
 
 ### 预期结果

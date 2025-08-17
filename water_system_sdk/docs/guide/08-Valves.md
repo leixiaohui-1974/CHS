@@ -34,12 +34,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch08_valve_control.py`
+`source/ch08/ch08_valve_control.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch08_valve_control.py
+python water_system_sdk/docs/guide/source/ch08/ch08_valve_control.py
 ```
 
 ### 预期结果

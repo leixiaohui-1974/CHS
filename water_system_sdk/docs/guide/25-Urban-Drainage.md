@@ -33,12 +33,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch25_urban_drainage.py`
+`source/ch25/ch25_urban_drainage.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch25_urban_drainage.py
+python water_system_sdk/docs/guide/source/ch25/ch25_urban_drainage.py
 ```
 
 ### 预期结果

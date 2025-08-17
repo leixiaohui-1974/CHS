@@ -30,12 +30,12 @@ KPI是用来衡量一个系统性能的量化指标。对于一个水务控制�
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch22_results_analysis.py`
+`source/ch22/ch22_results_analysis.py`
 
 您可以直接运行此文件来查看分析结果。该脚本为了能独立运行，在内部“伪造”了一份仿真结果数据。
 
 ```bash
-python source/ch22_results_analysis.py
+python water_system_sdk/docs/guide/source/ch22/ch22_results_analysis.py
 ```
 
 ### 预期结果

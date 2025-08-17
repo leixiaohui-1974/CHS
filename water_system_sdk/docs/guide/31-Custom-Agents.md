@@ -30,12 +30,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch31_custom_agent.py`
+`source/ch31/ch31_custom_agent.py`
 
 您可以直接运行此文件来查看仿真结果。该脚本首先定义了 `HysteresisControllerAgent` 类，然后实例化该类，并将其与一个水箱和一个水泵模型组合起来，以验证其功能。
 
 ```bash
-python source/ch31_custom_agent.py
+python water_system_sdk/docs/guide/source/ch31/ch31_custom_agent.py
 ```
 *注意：为了清晰地展示智能体如何通过消息总线进行通信，该示例在主循环中“手动”模拟了消息的传递过程。在更高级的、完全基于事件的架构中，这些 `on_message` 调用将由 `Host` 的消息总线自动触发。*
 

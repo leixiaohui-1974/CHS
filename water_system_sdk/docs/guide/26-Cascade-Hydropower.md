@@ -33,12 +33,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch26_cascade_hydropower.py`
+`source/ch26/ch26_cascade_hydropower.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch26_cascade_hydropower.py
+python water_system_sdk/docs/guide/source/ch26/ch26_cascade_hydropower.py
 ```
 
 ### 预期结果

@@ -95,12 +95,12 @@ host.add_connection(
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch05_mpc_control.py`
+`source/ch05/ch05_mpc_control.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch05_mpc_control.py
+python water_system_sdk/docs/guide/source/ch05/ch05_mpc_control.py
 ```
 
 当您运行此脚本时，您会看到与PID类似但可能更平滑的响应。MPC控制器正在“思考未来”，以一种优化的方式将水位驱动到设定值。

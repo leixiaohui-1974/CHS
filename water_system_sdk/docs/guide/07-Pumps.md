@@ -34,12 +34,12 @@
 
 本章的完整示例代码已保存到以下文件中：
 
-`source/ch07_pump_control.py`
+`source/ch07/ch07_pump_control.py`
 
 您可以直接运行此文件来查看仿真结果：
 
 ```bash
-python source/ch07_pump_control.py
+python water_system_sdk/docs/guide/source/ch07/ch07_pump_control.py
 ```
 
 代码的关键部分在于手动循环，我们在其中实现了控制逻辑：
