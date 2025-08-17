@@ -1,0 +1,10 @@
+{
+  "UpstreamCatchment": {
+    "runoff_model": "Xinanjiang",
+    "runoff_parameters": {
+      "K": 0.3,
+      "IM": 0.05,
+      "C": 0.15
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# 控制器参数
+# run_case.py 会自动加载这个文件 (如果它被命名为 control_parameters.yaml)
+# 为了清晰，我们在指南中保持 ch15_ 前缀，
+# 但在实际运行时，用户需要将其重命名或修改运行脚本。
+pid_params:
+  kp: 0.1
+  ki: 0.02
+  kd: 0.05
+  output_min: 0.0
+  output_max: 1.0
