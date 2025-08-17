@@ -6,7 +6,7 @@ import logging
 import logging.config
 from typing import Dict, Any, List, Optional
 
-from water_system_simulator.core.simulation_modes import SimulationMode
+from chs_sdk.core.simulation_modes import SimulationMode
 
 # --- Helper functions for attribute access ---
 
@@ -58,89 +58,89 @@ class ComponentRegistry:
     """A registry for dynamically loading component classes."""
     _CLASS_MAP = {
         # Preprocessing
-        "RainfallProcessor": "water_system_simulator.preprocessing.rainfall_processor.RainfallProcessor",
-        "InverseDistanceWeightingInterpolator": "water_system_simulator.preprocessing.interpolators.InverseDistanceWeightingInterpolator",
-        "ThiessenPolygonInterpolator": "water_system_simulator.preprocessing.interpolators.ThiessenPolygonInterpolator",
-        "KrigingInterpolator": "water_system_simulator.preprocessing.interpolators.KrigingInterpolator",
+        "RainfallProcessor": "chs_sdk.preprocessing.rainfall_processor.RainfallProcessor",
+        "InverseDistanceWeightingInterpolator": "chs_sdk.preprocessing.interpolators.InverseDistanceWeightingInterpolator",
+        "ThiessenPolygonInterpolator": "chs_sdk.preprocessing.interpolators.ThiessenPolygonInterpolator",
+        "KrigingInterpolator": "chs_sdk.preprocessing.interpolators.KrigingInterpolator",
         # Controllers
-        "PIDController": "water_system_simulator.control.pid_controller.PIDController",
-        "MPCController": "water_system_simulator.control.mpc_controller.MPCController",
-        "GainScheduledMPCController": "water_system_simulator.control.gs_mpc_controller.GainScheduledMPCController",
-        "RuleBasedOperationalController": "water_system_simulator.control.rule_based_controller.RuleBasedOperationalController",
-        "RecursiveLeastSquaresAgent": "water_system_simulator.control.rls_estimator.RecursiveLeastSquaresAgent",
-        "ParameterKalmanFilterAgent": "water_system_simulator.control.kf_estimator.ParameterKalmanFilterAgent",
+        "PIDController": "chs_sdk.control.pid_controller.PIDController",
+        "MPCController": "chs_sdk.control.mpc_controller.MPCController",
+        "GainScheduledMPCController": "chs_sdk.control.gs_mpc_controller.GainScheduledMPCController",
+        "RuleBasedOperationalController": "chs_sdk.control.rule_based_controller.RuleBasedOperationalController",
+        "RecursiveLeastSquaresAgent": "chs_sdk.control.rls_estimator.RecursiveLeastSquaresAgent",
+        "ParameterKalmanFilterAgent": "chs_sdk.control.kf_estimator.ParameterKalmanFilterAgent",
         # Disturbances
-        "Disturbance": "water_system_simulator.disturbances.predefined.Disturbance",
-        "TimeSeriesDisturbance": "water_system_simulator.disturbances.timeseries_disturbance.TimeSeriesDisturbance",
-        "RainfallAgent": "water_system_simulator.disturbances.agents.RainfallAgent",
-        "DemandAgent": "water_system_simulator.disturbances.agents.DemandAgent",
-        "PriceAgent": "water_system_simulator.disturbances.agents.PriceAgent",
-        "FaultAgent": "water_system_simulator.disturbances.agents.FaultAgent",
+        "Disturbance": "chs_sdk.disturbances.predefined.Disturbance",
+        "TimeSeriesDisturbance": "chs_sdk.disturbances.timeseries_disturbance.TimeSeriesDisturbance",
+        "RainfallAgent": "chs_sdk.disturbances.agents.RainfallAgent",
+        "DemandAgent": "chs_sdk.disturbances.agents.DemandAgent",
+        "PriceAgent": "chs_sdk.disturbances.agents.PriceAgent",
+        "FaultAgent": "chs_sdk.disturbances.agents.FaultAgent",
         # --- Entities ---
-        "BasePhysicalEntity": "water_system_simulator.modeling.base_physical_entity.BasePhysicalEntity",
-        "ChannelEntity": "water_system_simulator.modeling.entities.channel_entity.ChannelEntity",
+        "BasePhysicalEntity": "chs_sdk.modeling.base_physical_entity.BasePhysicalEntity",
+        "ChannelEntity": "chs_sdk.modeling.entities.channel_entity.ChannelEntity",
 
         # --- Models ---
         # Hydrodynamic Models
-        "SteadyChannelModel": "water_system_simulator.modeling.hydrodynamics.channel_models.SteadyChannelModel",
-        "StVenantModel": "water_system_simulator.modeling.hydrodynamics.channel_models.StVenantModel",
+        "SteadyChannelModel": "chs_sdk.modeling.hydrodynamics.channel_models.SteadyChannelModel",
+        "StVenantModel": "chs_sdk.modeling.hydrodynamics.channel_models.StVenantModel",
 
         # Storage / Routing Models
-        "ReservoirModel": "water_system_simulator.modeling.storage_models.ReservoirModel",
-        "FirstOrderSystem": "water_system_simulator.modeling.first_order_system.FirstOrderSystem",
-        "MuskingumChannelModel": "water_system_simulator.modeling.storage_models.MuskingumChannelModel",
-        "FirstOrderInertiaModel": "water_system_simulator.modeling.storage_models.FirstOrderInertiaModel",
-        "IntegralDelayModel": "water_system_simulator.modeling.delay_models.IntegralDelayModel",
-        "IntegralPlusDelayModel": "water_system_simulator.modeling.integral_plus_delay_model.IntegralPlusDelayModel",
-        "PiecewiseIntegralDelayModel": "water_system_simulator.modeling.adaptive_models.PiecewiseIntegralDelayModel",
-        "GateModel": "water_system_simulator.modeling.control_structure_models.GateModel",
-        "PumpStationModel": "water_system_simulator.modeling.control_structure_models.PumpStationModel",
-        "TwoDimensionalHydrodynamicModel": "water_system_simulator.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
-        "SemiDistributedHydrologyModel": "water_system_simulator.modeling.hydrology.semi_distributed.SemiDistributedHydrologyModel",
+        "ReservoirModel": "chs_sdk.modeling.storage_models.ReservoirModel",
+        "FirstOrderSystem": "chs_sdk.modeling.first_order_system.FirstOrderSystem",
+        "MuskingumChannelModel": "chs_sdk.modeling.storage_models.MuskingumChannelModel",
+        "FirstOrderInertiaModel": "chs_sdk.modeling.storage_models.FirstOrderInertiaModel",
+        "IntegralDelayModel": "chs_sdk.modeling.delay_models.IntegralDelayModel",
+        "IntegralPlusDelayModel": "chs_sdk.modeling.integral_plus_delay_model.IntegralPlusDelayModel",
+        "PiecewiseIntegralDelayModel": "chs_sdk.modeling.adaptive_models.PiecewiseIntegralDelayModel",
+        "GateModel": "chs_sdk.modeling.control_structure_models.GateModel",
+        "PumpStationModel": "chs_sdk.modeling.control_structure_models.PumpStationModel",
+        "TwoDimensionalHydrodynamicModel": "chs_sdk.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
+        "SemiDistributedHydrologyModel": "chs_sdk.modeling.hydrology.semi_distributed.SemiDistributedHydrologyModel",
         # Runoff Models
-        "RunoffCoefficientModel": "water_system_simulator.modeling.hydrology.runoff_models.RunoffCoefficientModel",
-        "XinanjiangModel": "water_system_simulator.modeling.hydrology.runoff_models.XinanjiangModel",
-        "SCSRunoffModel": "water_system_simulator.modeling.hydrology.runoff_models.SCSRunoffModel",
-        "TankModel": "water_system_simulator.modeling.hydrology.runoff_models.TankModel",
-        "HYMODModel": "water_system_simulator.modeling.hydrology.runoff_models.HYMODModel",
-        "GreenAmptRunoffModel": "water_system_simulator.modeling.hydrology.runoff_models.GreenAmptRunoffModel",
-        "TOPMODEL": "water_system_simulator.modeling.hydrology.runoff_models.TOPMODEL",
-        "WETSPAModel": "water_system_simulator.modeling.hydrology.runoff_models.WETSPAModel",
-        "ShanbeiModel": "water_system_simulator.modeling.hydrology.runoff_models.ShanbeiModel",
-        "HebeiModel": "water_system_simulator.modeling.hydrology.runoff_models.HebeiModel",
+        "RunoffCoefficientModel": "chs_sdk.modeling.hydrology.runoff_models.RunoffCoefficientModel",
+        "XinanjiangModel": "chs_sdk.modeling.hydrology.runoff_models.XinanjiangModel",
+        "SCSRunoffModel": "chs_sdk.modeling.hydrology.runoff_models.SCSRunoffModel",
+        "TankModel": "chs_sdk.modeling.hydrology.runoff_models.TankModel",
+        "HYMODModel": "chs_sdk.modeling.hydrology.runoff_models.HYMODModel",
+        "GreenAmptRunoffModel": "chs_sdk.modeling.hydrology.runoff_models.GreenAmptRunoffModel",
+        "TOPMODEL": "chs_sdk.modeling.hydrology.runoff_models.TOPMODEL",
+        "WETSPAModel": "chs_sdk.modeling.hydrology.runoff_models.WETSPAModel",
+        "ShanbeiModel": "chs_sdk.modeling.hydrology.runoff_models.ShanbeiModel",
+        "HebeiModel": "chs_sdk.modeling.hydrology.runoff_models.HebeiModel",
         # Routing Models
-        "MuskingumModel": "water_system_simulator.modeling.hydrology.routing_models.MuskingumModel",
-        "UnitHydrographRoutingModel": "water_system_simulator.modeling.hydrology.routing_models.UnitHydrographRoutingModel",
-        "LinearReservoirRoutingModel": "water_system_simulator.modeling.hydrology.routing_models.LinearReservoirRoutingModel",
-        "VariableVolumeRoutingModel": "water_system_simulator.modeling.hydrology.routing_models.VariableVolumeRoutingModel",
+        "MuskingumModel": "chs_sdk.modeling.hydrology.routing_models.MuskingumModel",
+        "UnitHydrographRoutingModel": "chs_sdk.modeling.hydrology.routing_models.UnitHydrographRoutingModel",
+        "LinearReservoirRoutingModel": "chs_sdk.modeling.hydrology.routing_models.LinearReservoirRoutingModel",
+        "VariableVolumeRoutingModel": "chs_sdk.modeling.hydrology.routing_models.VariableVolumeRoutingModel",
         # Instruments
-        "LevelSensor": "water_system_simulator.modeling.instrument_models.LevelSensor",
-        "GateActuator": "water_system_simulator.modeling.instrument_models.GateActuator",
+        "LevelSensor": "chs_sdk.modeling.instrument_models.LevelSensor",
+        "GateActuator": "chs_sdk.modeling.instrument_models.GateActuator",
 
         # --- Data Processing ---
-        "DataSmoother": "water_system_simulator.data_processing.processors.DataSmoother",
-        "DataFusionEngine": "water_system_simulator.data_processing.processors.DataFusionEngine",
-        "OutlierRemover": "water_system_simulator.data_processing.processors.OutlierRemover",
-        "NoiseInjector": "water_system_simulator.data_processing.processors.NoiseInjector",
+        "DataSmoother": "chs_sdk.data_processing.processors.DataSmoother",
+        "DataFusionEngine": "chs_sdk.data_processing.processors.DataFusionEngine",
+        "OutlierRemover": "chs_sdk.data_processing.processors.OutlierRemover",
+        "NoiseInjector": "chs_sdk.data_processing.processors.NoiseInjector",
 
         # --- Custom Agents ---
-        "SensorClusterAgent": "water_system_simulator.modeling.sensor_cluster_agent.SensorClusterAgent",
-        "PumpStationAgent": "water_system_simulator.modeling.pump_station_agent.PumpStationAgent",
-        "CentralDataFusionAgent": "water_system_simulator.modeling.central_data_fusion_agent.CentralDataFusionAgent",
+        "SensorClusterAgent": "chs_sdk.modeling.sensor_cluster_agent.SensorClusterAgent",
+        "PumpStationAgent": "chs_sdk.modeling.pump_station_agent.PumpStationAgent",
+        "CentralDataFusionAgent": "chs_sdk.modeling.central_data_fusion_agent.CentralDataFusionAgent",
 
         # --- Body Agents ---
-        # "BaseBodyAgent": "water_system_simulator.modeling.body_agent.BaseBodyAgent",
-        # "ReservoirBodyAgent": "water_system_simulator.modeling.body_agent.ReservoirBodyAgent",
+        # "BaseBodyAgent": "chs_sdk.modeling.body_agent.BaseBodyAgent",
+        # "ReservoirBodyAgent": "chs_sdk.modeling.body_agent.ReservoirBodyAgent",
 
         # --- New Agent Architecture ---
-        "BaseAgent": "water_system_simulator.agent.base_agent.BaseAgent",
-        "BaseEmbodiedAgent": "water_system_simulator.agent.base_agent.BaseEmbodiedAgent",
-        "BaseDisturbanceAgent": "water_system_simulator.agent.base_agent.BaseDisturbanceAgent",
-        "BodyAgent": "water_system_simulator.agent.body_agent.BodyAgent",
-        "ControlAgent": "water_system_simulator.agent.control_agent.ControlAgent",
-        "PerceptionAgent": "water_system_simulator.agent.perception_agent.PerceptionAgent",
-        "DispatchAgent": "water_system_simulator.agent.dispatch_agent.DispatchAgent",
-        "CentralManagementAgent": "water_system_simulator.agent.central_management_agent.CentralManagementAgent",
+        "BaseAgent": "chs_sdk.agent.base_agent.BaseAgent",
+        "BaseEmbodiedAgent": "chs_sdk.agent.base_agent.BaseEmbodiedAgent",
+        "BaseDisturbanceAgent": "chs_sdk.agent.base_agent.BaseDisturbanceAgent",
+        "BodyAgent": "chs_sdk.agent.body_agent.BodyAgent",
+        "ControlAgent": "chs_sdk.agent.control_agent.ControlAgent",
+        "PerceptionAgent": "chs_sdk.agent.perception_agent.PerceptionAgent",
+        "DispatchAgent": "chs_sdk.agent.dispatch_agent.DispatchAgent",
+        "CentralManagementAgent": "chs_sdk.agent.central_management_agent.CentralManagementAgent",
     }
 
     @classmethod
@@ -202,7 +202,7 @@ class SimulationManager:
 
     def _create_pipeline(self, pipeline_config: dict):
         """Creates a DataProcessingPipeline from its configuration."""
-        from water_system_simulator.data_processing.pipeline import DataProcessingPipeline
+        from chs_sdk.data_processing.pipeline import DataProcessingPipeline
 
         processor_instances = []
         processor_configs = pipeline_config.get("processors", [])

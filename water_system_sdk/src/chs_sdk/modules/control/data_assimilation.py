@@ -2,7 +2,7 @@ from abc import abstractmethod
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
 
-from water_system_simulator.modeling.base_model import BaseModel
+from chs_sdk.modeling.base_model import BaseModel
 
 
 class BaseDataAssimilation(BaseModel):

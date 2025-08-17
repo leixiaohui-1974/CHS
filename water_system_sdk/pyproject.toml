@@ -33,6 +33,13 @@ dev = [
     "sphinx",
     "sphinx_rtd_theme"
 ]
+agent = [
+    "scikit-learn"  # For ML-based agents, e.g., reinforcement learning or forecasting
+]
+service = [
+    "fastapi",
+    "uvicorn[standard]"  # For running the web service
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

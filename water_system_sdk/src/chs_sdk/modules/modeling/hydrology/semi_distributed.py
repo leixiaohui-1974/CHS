@@ -1,7 +1,7 @@
 import pandas as pd
 from typing import List, Union
-from water_system_simulator.modeling.base_model import BaseModel
-from water_system_simulator.modeling.hydrology.sub_basin import SubBasin
+from chs_sdk.modeling.base_model import BaseModel
+from chs_sdk.modeling.hydrology.sub_basin import SubBasin
 from .strategies import BaseRunoffModel, BaseRoutingModel
 
 

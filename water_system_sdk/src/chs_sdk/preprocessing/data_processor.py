@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from scipy.spatial import cKDTree
 from pykrige.ok import OrdinaryKriging
-from water_system_simulator.preprocessing.structures import RainGauge
+from chs_sdk.preprocessing.structures import RainGauge
 
 
 class BaseDataProcessor(ABC):

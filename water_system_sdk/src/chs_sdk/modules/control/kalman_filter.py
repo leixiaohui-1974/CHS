@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
-from water_system_simulator.control.data_assimilation import BaseDataAssimilation
+from chs_sdk.control.data_assimilation import BaseDataAssimilation
 
 class KalmanFilter(BaseDataAssimilation):
     """

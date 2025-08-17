@@ -1,4 +1,4 @@
-from water_system_simulator.modeling.base_physical_entity import BasePhysicalEntity
+from chs_sdk.modeling.base_physical_entity import BasePhysicalEntity
 
 class ChannelEntity(BasePhysicalEntity):
     """
