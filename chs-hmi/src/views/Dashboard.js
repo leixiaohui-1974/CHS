@@ -1,38 +1,86 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
-import { fetchProjectModels } from '../services/apiService';
-import TrainingModal from '../components/TrainingModal';
+import React, { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { useAuth } from '../context/AuthContext';
+import {
+  fetchSystemStatus,
+  fetchEvents,
+  fetchDeviceHistory,
+  acknowledgeEvent,
+  resolveEvent,
+  fetchDashboardLayouts,
+  saveDashboardLayout,
+} from '../services/apiService';
+import { Responsive, WidthProvider } from 'react-grid-layout';
+import websocketService from '../services/websocketService';
+import DeviceCard from '../components/DeviceCard';
+import EventList from '../components/EventList';
+import Modal from '../components/Modal';
+import HistoricalChart from '../components/HistoricalChart';
+import TopologyView from '../components/TopologyView';
+import DeviceSettings from '../components/DeviceSettings';
 
-const Dashboard = () => {
-    const [projects, setProjects] = useState([]);
-    const [error, setError] = useState('');
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedProject, setSelectedProject] = useState(null);
+const ResponsiveGridLayout = WidthProvider(Responsive);
 
-    const fetchProjectsAndModels = useCallback(async () => {
-        try {
-            const projectsResponse = await axios.get('/api/projects');
-            const projectsData = projectsResponse.data;
+const Dashboard = forwardRef(({ isEditMode, activeView, setActiveView }, ref) => {
+  // --- STATE ---
+  const [systemStatus, setSystemStatus] = useState(null);
+  const [error, setError] = useState('');
+  const [decisionRequests, setDecisionRequests] = useState({});
+  const [events, setEvents] = useState([]);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [historyModalContent, setHistoryModalContent] = useState({
+    deviceId: null,
+    sensorKey: null,
+    historyData: null,
+    isLoading: false,
+    error: null,
+  });
+  const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
+  const [resolvingEvent, setResolvingEvent] = useState({ id: null, notes: '' });
+  const [layouts, setLayouts] = useState(null);
+  const { user } = useAuth();
 
-            const projectsWithModels = await Promise.all(
-                projectsData.map(async (project) => {
-                    try {
-                        const models = await fetchProjectModels(project.id);
-                        return { ...project, models: models || [] };
-                    } catch (modelError) {
-                        console.error(`Failed to fetch models for project ${project.id}`, modelError);
-                        return { ...project, models: [] }; // Return project without models on error
-                    }
-                })
-            );
+  const defaultLayouts = {
+    lg: [
+      { i: 'devices', x: 0, y: 0, w: 8, h: 12, minW: 4, minH: 6 },
+      { i: 'events', x: 8, y: 0, w: 4, h: 12, minW: 3, minH: 8 },
+    ],
+  };
 
-            setProjects(projectsWithModels);
-        } catch (err) {
-            setError('Failed to fetch projects. Is the backend running?');
-            console.error(err);
-        }
-    }, []);
+  // Expose the saveLayout function to the parent component (Layout)
+  useImperativeHandle(ref, () => ({
+    saveLayout: async () => {
+      try {
+        await saveDashboardLayout(layouts);
+        alert('Layout saved successfully!');
+      } catch (error) {
+        console.error("Failed to save layout:", error);
+        alert(`Error saving layout: ${error.message}`);
+      }
+    },
+  }));
+
+  // --- STYLES ---
+  const devicesContainerStyle = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    width: '100%',
+    height: '100%',
+    overflow: 'auto',
+  };
+
+  const eventsContainerStyle = {
+    width: '100%',
+    height: '100%',
+    overflow: 'auto',
+  };
+
+  const gridItemStyle = {
+    border: isEditMode ? '1px dashed #ccc' : 'none',
+    borderRadius: '4px',
+    padding: '5px',
+    backgroundColor: '#fff',
+  };
 
     useEffect(() => {
         fetchProjectsAndModels();
@@ -62,64 +110,146 @@ const Dashboard = () => {
             alert(`Failed to run simulation for project ${projectId}.`);
             console.error(err);
         }
+      };
+      getHistory();
+    }
+  }, [isHistoryModalOpen, historyModalContent.deviceId, historyModalContent.sensorKey]);
+
+  useEffect(() => {
+    const loadLayout = async () => {
+      const savedData = await fetchDashboardLayouts();
+      if (savedData && savedData.layouts) {
+        setLayouts(savedData.layouts);
+      } else {
+        setLayouts(defaultLayouts);
+      }
     };
+    loadLayout();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    // Styles
-    const containerStyle = { fontFamily: 'sans-serif', padding: '20px', maxWidth: '900px', margin: '0 auto' };
-    const headerStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #eee', paddingBottom: '10px', marginBottom: '20px' };
-    const projectCardStyle = { border: '1px solid #ddd', borderRadius: '8px', padding: '20px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' };
-    const buttonStyle = { padding: '8px 15px', border: 'none', borderRadius: '5px', cursor: 'pointer', textDecoration: 'none', color: 'white', display: 'block', width: '100%', boxSizing: 'border-box', textAlign: 'center' };
-    const createBtnStyle = { ...buttonStyle, backgroundColor: '#28a745', display: 'inline-block', width: 'auto' };
-    const viewBtnStyle = { ...buttonStyle, backgroundColor: '#007bff' };
-    const editBtnStyle = { ...buttonStyle, backgroundColor: '#ffc107', color: 'black' };
-    const runBtnStyle = { ...buttonStyle, backgroundColor: '#17a2b8' };
-    const trainBtnStyle = { ...buttonStyle, backgroundColor: '#6f42c1' };
-    const downloadBtnStyle = { ...buttonStyle, backgroundColor: '#20c997', padding: '5px 10px', textDecoration: 'none', display: 'inline-block', width: 'auto' };
+  // --- HANDLERS ---
+  const handleDecision = (deviceId, action) => {
+    websocketService.sendDecision(deviceId, action);
+    setDecisionRequests((prev) => {
+      const newRequests = { ...prev };
+      delete newRequests[deviceId];
+      return newRequests;
+    });
+  };
 
-    return (
-        <div style={containerStyle}>
-            <div style={headerStyle}>
-                <h1>Project Dashboard</h1>
-                <Link to="/project/new" style={createBtnStyle}>Create New Project</Link>
-            </div>
-            {error && <p style={{ color: 'red' }}>{error}</p>}
-            <div>
-                {projects.length > 0 ? (
-                    projects.map(project => (
-                        <div key={project.id} style={projectCardStyle}>
-                            <div style={{ flex: 1, marginRight: '20px' }}>
-                                <h3>{project.name}</h3>
-                                <div style={{ marginTop: '15px' }}>
-                                    <h4>Trained Models:</h4>
-                                    {project.models.length > 0 ? (
-                                        <ul style={{ listStyle: 'none', paddingLeft: 0 }}>
-                                            {project.models.map(model => (
-                                                <li key={model.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #eee' }}>
-                                                    <div>
-                                                        <div><strong>Algorithm:</strong> {model.algorithm}</div>
-                                                        <div style={{fontSize: '0.8em', color: '#666'}}><strong>Trained at:</strong> {new Date(model.created_at).toLocaleString()}</div>
-                                                    </div>
-                                                    <a href={`/api/models/${model.id}`} style={downloadBtnStyle} download>Download</a>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <p>No models trained yet.</p>
-                                    )}
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '150px' }}>
-                                <button onClick={() => handleOpenTrainModal(project)} style={trainBtnStyle}>Train Agent</button>
-                                <button onClick={() => handleRun(project.id)} style={runBtnStyle}>Run Sim</button>
-                                <Link to={`/project/${project.id}/results`} style={viewBtnStyle}>View Results</Link>
-                                <Link to={`/project/${project.id}/edit`} style={editBtnStyle}>Edit</Link>
-                            </div>
-                        </div>
-                    ))
+  const handleSensorClick = (deviceId, sensorKey) => {
+    setHistoryModalContent({ deviceId, sensorKey, historyData: null, isLoading: true, error: null });
+    setIsHistoryModalOpen(true);
+  };
+
+  const handleCloseHistoryModal = () => {
+    setIsHistoryModalOpen(false);
+    setHistoryModalContent({ deviceId: null, sensorKey: null, historyData: null, isLoading: false, error: null });
+  };
+
+  const handleAcknowledgeEvent = async (eventId) => {
+    try {
+      await acknowledgeEvent(eventId);
+      setEvents(prevEvents => prevEvents.map(event => event.id === eventId ? { ...event, status: 'ACKNOWLEDGED' } : event));
+    } catch (err) {
+      setError(`Failed to acknowledge event: ${err.message}`);
+    }
+  };
+
+  const handleOpenResolveModal = (eventId) => {
+    setResolvingEvent({ id: eventId, notes: '' });
+    setIsResolveModalOpen(true);
+  };
+
+  const handleCloseResolveModal = () => {
+    setIsResolveModalOpen(false);
+    setResolvingEvent({ id: null, notes: '' });
+  };
+
+  const handleResolveEvent = async () => {
+    if (!resolvingEvent.id) return;
+    try {
+      await resolveEvent(resolvingEvent.id, resolvingEvent.notes);
+      setEvents(prevEvents => prevEvents.map(event => event.id === resolvingEvent.id ? { ...event, status: 'RESOLVED' } : event));
+      handleCloseResolveModal();
+    } catch (err) {
+      setError(`Failed to resolve event: ${err.message}`);
+    }
+  };
+
+  // --- RENDER ---
+  const renderActiveView = () => {
+    switch (activeView) {
+      case 'topology':
+        return <TopologyView />;
+      case 'settings':
+        return user?.role === 'admin' ? <DeviceSettings /> : <p>Access Denied</p>;
+      case 'dashboard':
+      default:
+        return (
+          <ResponsiveGridLayout
+            className="layout"
+            layouts={layouts || defaultLayouts}
+            breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 2 }}
+            cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+            rowHeight={30}
+            isDraggable={isEditMode}
+            isResizable={isEditMode}
+            onLayoutChange={(layout, newLayouts) => setLayouts(newLayouts)}
+          >
+            <div key="devices" style={gridItemStyle}>
+              <div style={devicesContainerStyle}>
+                {systemStatus ? (
+                  Object.entries(systemStatus).map(([deviceId, deviceData]) => (
+                    <DeviceCard
+                      key={deviceId}
+                      deviceId={deviceId}
+                      deviceData={deviceData}
+                      isAwaitingDecision={!!decisionRequests[deviceId]}
+                      decisionInfo={decisionRequests[deviceId]}
+                      onDecision={handleDecision}
+                      onSensorClick={handleSensorClick}
+                    />
+                  ))
                 ) : (
-                    !error && <p>No projects found. Create one to get started!</p>
+                  !error && <p>Loading system status...</p>
                 )}
+              </div>
             </div>
+            <div key="events" style={gridItemStyle}>
+              <div style={eventsContainerStyle}>
+                <EventList
+                  events={events}
+                  onAcknowledge={handleAcknowledgeEvent}
+                  onResolve={handleOpenResolveModal}
+                />
+              </div>
+            </div>
+          </ResponsiveGridLayout>
+        );
+    }
+  };
+
+  return (
+    <div>
+      {error && <p style={errorStyle}>{error}</p>}
+      {renderActiveView()}
+
+      <Modal
+        show={isHistoryModalOpen}
+        onClose={handleCloseHistoryModal}
+        title={`历史数据: ${historyModalContent.sensorKey}`}
+      >
+        {historyModalContent.isLoading && <p>正在加载历史数据...</p>}
+        {historyModalContent.error && <p style={errorStyle}>错误: {historyModalContent.error}</p>}
+        {historyModalContent.historyData && (
+          <HistoricalChart
+            chartData={historyModalContent.historyData}
+            title={`${historyModalContent.sensorKey} (最近1小时)`}
+          />
+        )}
+      </Modal>
 
             {isModalOpen && selectedProject && (
                 <TrainingModal
@@ -129,7 +259,9 @@ const Dashboard = () => {
                 />
             )}
         </div>
-    );
-};
+      </Modal>
+    </div>
+  );
+});
 
 export default Dashboard;

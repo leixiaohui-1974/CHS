@@ -1,32 +1,44 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Dashboard from './views/Dashboard';
-import SimulationRunner from './components/SimulationRunner'; // Re-using this for project creation/editing
 import './App.css';
-
-// A simple wrapper for the project editor/creator
-const ProjectEditor = () => (
-    <div>
-        <h1 style={{ textAlign: 'center' }}>Create/Edit Project</h1>
-        <SimulationRunner />
-    </div>
-);
-
-import ResultViewer from './views/ResultViewer';
-
+import Dashboard from './views/Dashboard';
+import Login from './views/Login';
+import Reporting from './views/Reporting';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthProvider } from './context/AuthContext';
+import Layout from './components/Layout';
 
 function App() {
   return (
-    <Router>
+    <AuthProvider>
+      <Router>
         <div className="App">
-            <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/project/new" element={<ProjectEditor />} />
-                <Route path="/project/:id/edit" element={<ProjectEditor />} />
-                <Route path="/project/:id/results" element={<ResultViewer />} />
-            </Routes>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/reporting"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Reporting />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
         </div>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
 
