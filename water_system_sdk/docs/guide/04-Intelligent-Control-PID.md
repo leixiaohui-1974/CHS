@@ -1,70 +1,70 @@
-# Chapter 4: Introducing Intelligent Control with PID
+# 第四章：引入智能控制 - PID
 
-In the last chapter, we simulated a reservoir with a constant inflow. This is called an "open-loop" system because there is no feedback to control the outcome.
+在上一章中，我们模拟了一个具有恒定入流的水库。这被称为“开环”系统，因为没有反馈来控制结果。
 
-In this chapter, we will close the loop. We will introduce a **PID Controller Agent** to automatically adjust the inflow to the reservoir to maintain a desired water level, or **setpoint**. This is your first step into the "Agent Version" of the `chs-sdk`.
+在本章中，我们将“闭合回路”。我们将引入一个 **PID控制器智能体** 来自动调节水库的入流，以维持一个期望的水位，即 **设定值 (setpoint)**。这是您进入 `chs-sdk` “智能体版”世界的第一步。
 
-## What is a PID Controller?
+## 什么是PID控制器？
 
-A PID (Proportional-Integral-Derivative) controller is one of the most common control algorithms used in industry. It continuously calculates an "error" value as the difference between a desired setpoint and a measured process variable and applies a correction based on proportional, integral, and derivative terms.
+PID（比例-积分-微分）控制器是工业界最常用的控制算法之一。它持续计算期望设定值与测量过程变量之间的“误差”值，并基于比例、积分和微分项应用校正。
 
-*   **Proportional (P)**: Reacts to the current error. A larger error results in a larger correction.
-*   **Integral (I)**: Considers the accumulation of past errors. This helps eliminate steady-state errors.
-*   **Derivative (D)**: Responds to the rate at which the error is changing. This helps to dampen oscillations.
+*   **比例 (P)**: 对当前误差做出反应。误差越大，校正量越大。
+*   **积分 (I)**: 考虑过去误差的累积。这有助于消除稳态误差。
+*   **微分 (D)**: 响应误差的变化速率。这有助于抑制振荡。
 
-Don't worry if this seems complicated. The `chs-sdk` provides a ready-to-use `PIDController` agent that handles all the math for us.
+如果这听起来很复杂，别担心。`chs-sdk` 提供了一个即用型的 `PIDController` 智能体，它为我们处理了所有的数学运算。
 
-## Scenario: Maintaining a Reservoir Level
+## 场景：维持水库水位
 
-Our goal is to modify the simulation from the previous chapter. Instead of a constant inflow, we will have a controllable inflow. A PID controller will observe the water level in the reservoir and adjust the inflow to keep the level at a setpoint of 15 units.
+我们的目标是修改上一章的仿真。我们将用一个可控的入流代替恒定的入流。一个PID控制器将观察水库的水位，并调节入流以将水位保持在15个单位的设定值。
 
-## Modifying the Simulation Script
+## 修改仿真脚本
 
-Let's modify our `run_reservoir_sim.py` script.
+让我们修改我们的 `run_reservoir_sim.py` 脚本。
 
-### Step 1: Import the PIDController
+### 第一步：导入 PIDController
 
-First, we need to import the `PIDController` class.
+首先，我们需要导入 `PIDController` 类。
 
 ```python
-# In addition to previous imports
+# 在之前的导入基础上增加
 from chs_sdk.modules.control.pid_controller import PIDController
 ```
 
-### Step 2: Create the PID Controller Agent
+### 第二步：创建PID控制器智能体
 
-Now, let's create an instance of the `PIDController`. We need to provide it with the P, I, and D tuning parameters (`kp`, `ki`, `kd`) and our desired `setpoint`.
+现在，让我们创建一个 `PIDController` 的实例。我们需要为它提供P、I和D的调整参数（`kp`, `ki`, `kd`）以及我们期望的 `setpoint`。
 
 ```python
-# Create the PID controller agent
+# 创建PID控制器智能体
 pid_agent = PIDController(
     name='MyPIDController',
     kp=1.5,
     ki=0.1,
     kd=0.5,
-    setpoint=15.0  # Our target water level
+    setpoint=15.0  # 我们的目标水位
 )
 ```
-Finding the right values for `kp`, `ki`, and `kd` is called "tuning," and it's a key part of control engineering. For now, we'll use these example values.
+为 `kp`, `ki`, `kd` 找到合适的值被称为“整定”，这是控制工程中的一个关键部分。目前，我们将使用这些示例值。
 
-### Step 3: Update the Connections
+### 第三步：更新连接
 
-This is the most important part. We need to wire our new controller into the system.
+这是最重要的部分。我们需要将我们的新控制器接入系统。
 
-1.  The PID controller needs to **know the current water level** of the reservoir. So, we connect the reservoir's output to the controller's input.
-2.  The PID controller will **calculate the required inflow**. So, we connect the controller's output to the reservoir's inflow input.
+1.  PID控制器需要 **知道水库的当前水位**。因此，我们将水库的输出连接到控制器的输入。
+2.  PID控制器将 **计算所需的入流**。因此，我们将控制器的输出连接到水库的入流输入。
 
-Our old `inflow_agent` is no longer needed, as the PID controller is now in charge of the inflow.
+我们旧的 `inflow_agent` 不再需要了，因为现在由PID控制器负责入流。
 
 ```python
-# The Host and Reservoir are created as before...
+# Host 和 Reservoir 的创建方式同前...
 
-# Add the agents to the host
+# 将智能体添加到主机
 host.add_agent(reservoir_agent)
 host.add_agent(pid_agent)
 
-# --- New Connections ---
-# 1. Connect reservoir's level to the PID's measurement input
+# --- 新的连接 ---
+# 1. 将水库的水位连接到PID的测量值输入
 host.add_connection(
     source_agent_name='MyReservoir',
     target_agent_name='MyPIDController',
@@ -72,7 +72,7 @@ host.add_connection(
     target_port_name='measured_value'
 )
 
-# 2. Connect the PID's output to the reservoir's inflow
+# 2. 将PID的输出连接到水库的入流
 host.add_connection(
     source_agent_name='MyPIDController',
     target_agent_name='MyReservoir',
@@ -81,33 +81,33 @@ host.add_connection(
 )
 ```
 
-### Step 4: Update the Plotting
+### 第四步：更新绘图代码
 
-Let's update our plotting code to also show the setpoint and the controller's output (the inflow it's commanding).
+让我们更新我们的绘图代码，以同时显示设定值和控制器的输出（它指令的入流）。
 
 ```python
-# Get the results
+# 获取结果
 results_df = host.get_datalogger().get_as_dataframe()
 
-# Plot the results
+# 绘制结果
 plt.figure(figsize=(12, 8))
 
-# Plot 1: Reservoir Storage
+# 图1：水库蓄水量
 plt.subplot(2, 1, 1)
-plt.plot(results_df.index, results_df['MyReservoir.value'], label='Reservoir Storage')
-# Add a line for the setpoint
-plt.axhline(y=15.0, color='r', linestyle='--', label='Setpoint (15.0)')
-plt.title('Reservoir Storage Level')
-plt.ylabel('Storage (units)')
+plt.plot(results_df.index, results_df['MyReservoir.value'], label='水库蓄水量')
+# 添加一条设定值水平线
+plt.axhline(y=15.0, color='r', linestyle='--', label='设定值 (15.0)')
+plt.title('水库蓄水水位')
+plt.ylabel('蓄水量 (单位)')
 plt.legend()
 plt.grid(True)
 
-# Plot 2: Controller Output
+# 图2：控制器输出
 plt.subplot(2, 1, 2)
-plt.plot(results_df.index, results_df['MyPIDController.output'], label='PID Output (Inflow)')
-plt.title('Controller Output')
-plt.ylabel('Flow (units)')
-plt.xlabel('Time (hours)')
+plt.plot(results_df.index, results_df['MyPIDController.output'], label='PID 输出 (入流量)')
+plt.title('控制器输出')
+plt.ylabel('流量 (单位)')
+plt.xlabel('时间 (小时)')
 plt.legend()
 plt.grid(True)
 
@@ -115,86 +115,18 @@ plt.tight_layout()
 plt.show()
 ```
 
-## The Complete Script
+## 完整脚本与运行
 
-Here is the new, complete script:
+本章的完整示例代码已保存到以下文件中：
 
-```python
-import matplotlib.pyplot as plt
+`source/ch04_pid_control.py`
 
-from chs_sdk.core.host import Host
-from chs_sdk.modules.modeling.storage_models import FirstOrderStorageModel
-from chs_sdk.modules.control.pid_controller import PIDController
+您可以直接运行此文件来查看仿真结果：
 
-# 1. Create a simulation host
-host = Host()
-
-# 2. Define the reservoir model agent
-reservoir_agent = FirstOrderStorageModel(
-    name='MyReservoir',
-    initial_value=10.0,
-    time_constant=5.0
-)
-
-# 3. Create the PID controller agent
-pid_agent = PIDController(
-    name='MyPIDController',
-    kp=1.5,
-    ki=0.1,
-    kd=0.5,
-    setpoint=15.0
-)
-
-# 4. Register agents and connections
-host.add_agent(reservoir_agent)
-host.add_agent(pid_agent)
-
-# Connect reservoir level to PID input
-host.add_connection(
-    source_agent_name='MyReservoir',
-    target_agent_name='MyPIDController',
-    source_port_name='value',
-    target_port_name='measured_value'
-)
-
-# Connect PID output to reservoir inflow
-host.add_connection(
-    source_agent_name='MyPIDController',
-    target_agent_name='MyReservoir',
-    source_port_name='output',
-    target_port_name='inflow'
-)
-
-# 5. Run the simulation
-host.run(num_steps=50, dt=1.0) # Run for longer to see it stabilize
-
-# 6. Visualize the results
-results_df = host.get_datalogger().get_as_dataframe()
-print("Simulation Results:")
-print(results_df.head())
-
-plt.figure(figsize=(12, 8))
-
-plt.subplot(2, 1, 1)
-plt.plot(results_df.index, results_df['MyReservoir.value'], label='Reservoir Storage')
-plt.axhline(y=15.0, color='r', linestyle='--', label='Setpoint (15.0)')
-plt.title('Reservoir Storage Level')
-plt.ylabel('Storage (units)')
-plt.legend()
-plt.grid(True)
-
-plt.subplot(2, 1, 2)
-plt.plot(results_df.index, results_df['MyPIDController.output'], label='PID Output (Inflow)')
-plt.title('Controller Output')
-plt.ylabel('Flow (units)')
-plt.xlabel('Time (hours)')
-plt.legend()
-plt.grid(True)
-
-plt.tight_layout()
-plt.show()
+```bash
+python source/ch04_pid_control.py
 ```
 
-When you run this script, you will see the PID controller in action. The water level will start at 10, and the controller will command a high inflow to raise it. As the level approaches the setpoint of 15, the controller will reduce the inflow, eventually settling on an inflow rate that keeps the water level stable at the setpoint.
+当您运行此脚本时，您将看到PID控制器在行动。水位将从10开始，控制器将指令一个高入流量以提高水位。当水位接近15的设定值时，控制器将减少入流，并最终稳定在一个能将水位保持在设定值的入流速率上。
 
-You have now successfully used an intelligent agent to control a simulation! In the next chapters, we will explore more advanced control methods and how to build more complex system models.
+您现在已经成功地使用一个智能体来控制一个仿真了！在接下来的章节中，我们将探索更高级的控制方法以及如何构建更复杂的系统模型。

@@ -1,37 +1,41 @@
-# CHS-SDK: The Complete Guide
+# CHS-SDK：完全入门指南
 
-Welcome to the complete guide for the `chs-sdk`. This guide is designed to take you from a beginner to a proficient user of the SDK. Each chapter builds upon the last, so it is recommended to follow them in order.
+欢迎阅读 `chs-sdk` 完全入门指南。本指南旨在引导您从初学者成长为熟练使用本SDK的专家。每个章节都建立在前一章的基础之上，因此建议您按顺序阅读。
 
-## Table of Contents
+## 目录
 
-*   **Chapter 1: Introduction to the CHS-SDK**
-    *   [Read Chapter 1](./01-Introduction.md)
-    *   *Learn about what the CHS-SDK is, the problems it can solve, and how this guide is structured.*
+*   **第一章：CHS-SDK 介绍**
+    *   [阅读第一章](./01-Introduction.md)
+    *   *了解CHS-SDK是什么，它可以解决哪些问题，以及本指南的结构。*
 
-*   **Chapter 2: Installation and Setup**
-    *   [Read Chapter 2](./02-Installation-and-Setup.md)
-    *   *Get the SDK installed and running on your local machine.*
+*   **第二章：安装与设置**
+    *   [阅读第二章](./02-Installation-and-Setup.md)
+    *   *在您的本地计算机上安装并运行SDK。*
 
-*   **Chapter 3: Your First Simulation - A Single Reservoir**
-    *   [Read Chapter 3](./03-Core-Concepts-Simulation.md)
-    *   *Learn the fundamental concepts of the simulation engine by building and running a simple open-loop simulation of a reservoir.*
+*   **第三章：您的第一个仿真 - 单个水库**
+    *   [阅读第三章](./03-Core-Concepts-Simulation.md)
+    *   *通过构建和运行一个简单的水库开环仿真，学习仿真引擎的基本概念。*
 
-*   **Chapter 4: Introducing Intelligent Control with PID**
-    *   [Read Chapter 4](./04-Intelligent-Control-PID.md)
-    *   *Take your first step into the world of intelligent agents by adding a PID controller to automatically manage your reservoir's water level.*
+*   **第四章：引入智能控制 - PID**
+    *   [阅读第四章](./04-Intelligent-Control-PID.md)
+    *   *通过添加PID控制器来自动管理您的水库水位，迈出进入智能体世界的第一步。*
 
-*   **Chapter 5: Advanced Control with MPC**
-    *   *(Coming Soon)*
-    *   *Explore more sophisticated, predictive control strategies using Model Predictive Control (MPC).*
+*   **第五章：高级控制 - MPC**
+    *   [阅读第五章](./05-Advanced-Control-MPC.md)
+    *   *使用模型预测控制（MPC）探索更复杂的、具有前瞻性的控制策略。*
 
-*   **Chapter 6: Building Complex Systems**
-    *   *(Coming Soon)*
-    *   *Learn how to model and simulate more realistic, multi-component systems with channels, gates, and pumps.*
+*   **第六章：水力控制结构 (1) - 闸门 (Gate)**
+    *   [阅读第六章](./06-Gates.md)
+    *   *模拟一个更真实的控制回路，包括传感器、执行器和物理闸门模型。*
 
-*   **Chapter 7: Data Assimilation and Forecasting**
-    *   *(Coming Soon)*
-    *   *Discover how to use real-world data to improve your model's accuracy and make forecasts.*
+*   **第七章：水力控制结构 (2) - 水泵 (Pump)**
+    *   [阅读第七章](./07-Pumps.md)
+    *   *学习如何模拟由能量驱动的输水过程，并实现水泵的启停控制。*
 
-*   **Chapter 8: Customizing the SDK**
-    *   *(Coming Soon)*
-    *   *Learn how to extend the SDK with your own custom models and agents.*
+*   **第八章：水力控制结构 (3) - 阀门 (Valve)**
+    *   *（即将推出）*
+    *   *学习在有压管网中对阀门进行建模和控制。*
+
+---
+
+*后续章节将按照 `GUIDE_OUTLINE.md` 中的规划逐步添加。*
