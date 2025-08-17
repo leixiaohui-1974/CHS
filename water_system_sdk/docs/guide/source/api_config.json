@@ -1,0 +1,44 @@
+{
+    "simulation_params": {
+        "total_time": 1000,
+        "dt": 1.0
+    },
+    "components": {
+        "main_reservoir": {
+            "type": "ReservoirModel",
+            "params": {
+                "area": 100.0,
+                "initial_level": 5.0
+            }
+        },
+        "level_controller": {
+            "type": "PIDController",
+            "params": {
+                "Kp": 0.5,
+                "Ki": 0.02,
+                "Kd": 0.01,
+                "set_point": 10.0,
+                "output_min": 0
+            }
+        }
+    },
+    "connections": [
+        {
+            "source": "main_reservoir.state.level",
+            "target": "level_controller.input.error_source"
+        },
+        {
+            "source": "level_controller.state.output",
+            "target": "main_reservoir.input.inflow"
+        }
+    ],
+    "execution_order": [
+        "level_controller",
+        "main_reservoir"
+    ],
+    "logger_config": [
+        "main_reservoir.state.level",
+        "level_controller.state.output",
+        "level_controller.set_point"
+    ]
+}

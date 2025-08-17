@@ -98,3 +98,78 @@ chs_sdk/
 *   **tools/**: 与行业标准软件进行交互的适配器。
 *   **utils/**: 提供了被广泛使用的通用、低级别的辅助函数。
 *   **workflows/**: 任务的“总导演”，将 SDK 的各种能力串联成端到端的任务流。
+
+---
+
+## 新增功能：提升开发者体验与服务能力
+
+为了提升 SDK 的易用性并拓展其服务能力，我们引入了以下核心功能：
+
+### 1. `SimulationBuilder`：更优雅的仿真配置方式
+
+告别繁琐的字典配置，我们现在推出了 `SimulationBuilder`。它提供了一个流畅的、面向对象的 API，让您可以通过链式调用来以编程方式构建仿真任务。
+
+**旧方式 (字典配置):**
+```python
+sdk_config = {
+    "simulation_params": {"total_time": 1000, "dt": 1.0},
+    "components": {
+        "main_reservoir": {"type": "ReservoirModel", "params": {"area": 100.0}}
+    },
+    # ... and so on
+}
+```
+
+**新方式 (`SimulationBuilder`):**
+```python
+from chs_sdk.simulation_builder import SimulationBuilder
+
+builder = SimulationBuilder()
+sdk_config = (builder
+    .set_simulation_params(total_time=1000, dt=1.0)
+    .add_component(
+        name="main_reservoir",
+        component_type="ReservoirModel",
+        params={"area": 100.0, "initial_level": 5.0}
+    )
+    # ... continue chaining methods
+    .build()
+)
+```
+这种方式不仅代码更清晰，还能在 IDE 中获得更好的自动补全支持，减少配置错误。
+
+### 2. 模块化安装：按需选择功能
+
+为了让包体更轻量，我们将 SDK 的依赖分成了核心、智能体和Web服务三个部分。您可以根据需要进行安装：
+
+- **核心版 (仅仿真引擎):**
+  ```bash
+  pip install .
+  ```
+- **智能体版 (包含机器学习等智能体依赖):**
+  ```bash
+  pip install .[agent]
+  ```
+- **Web服务版 (包含运行 API 服务所需依赖):**
+  ```bash
+  pip install .[service]
+  ```
+- **完整版 (包含所有功能):**
+  ```bash
+  pip install .[agent,service]
+  ```
+
+### 3. FastAPI Web 服务：将仿真能力 API 化
+
+我们内置了一个基于 FastAPI 的 Web 服务，可以轻松地将仿真能力作为 API 提供给其他系统调用。
+
+**如何启动服务:**
+1.  确保已安装 `service` 依赖: `pip install .[service]`
+2.  在 `water_system_sdk` 目录下运行以下命令:
+    ```bash
+    uvicorn chs_sdk.service.main:app --host 0.0.0.0 --port 8000
+    ```
+3.  服务启动后，您可以访问 `http://localhost:8000/docs` 查看交互式 API 文档。
+
+**如何调用 API:**
+您可以使用 `curl` 或任何编程语言向 `/run_simulation/` 端点发送 POST 请求，请求体中包含 JSON 格式的仿真配置。
