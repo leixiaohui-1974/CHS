@@ -63,70 +63,70 @@ class ComponentRegistry:
         "ThiessenPolygonInterpolator": "chs_sdk.preprocessing.interpolators.ThiessenPolygonInterpolator",
         "KrigingInterpolator": "chs_sdk.preprocessing.interpolators.KrigingInterpolator",
         # Controllers
-        "PIDController": "chs_sdk.control.pid_controller.PIDController",
-        "MPCController": "chs_sdk.control.mpc_controller.MPCController",
-        "GainScheduledMPCController": "chs_sdk.control.gs_mpc_controller.GainScheduledMPCController",
-        "RuleBasedOperationalController": "chs_sdk.control.rule_based_controller.RuleBasedOperationalController",
-        "RecursiveLeastSquaresAgent": "chs_sdk.control.rls_estimator.RecursiveLeastSquaresAgent",
-        "ParameterKalmanFilterAgent": "chs_sdk.control.kf_estimator.ParameterKalmanFilterAgent",
+        "PIDController": "chs_sdk.modules.control.pid_controller.PIDController",
+        "MPCController": "chs_sdk.modules.control.mpc_controller.MPCController",
+        "GainScheduledMPCController": "chs_sdk.modules.control.gs_mpc_controller.GainScheduledMPCController",
+        "RuleBasedOperationalController": "chs_sdk.modules.control.rule_based_controller.RuleBasedOperationalController",
+        "RecursiveLeastSquaresAgent": "chs_sdk.modules.control.rls_estimator.RecursiveLeastSquaresAgent",
+        "ParameterKalmanFilterAgent": "chs_sdk.modules.control.kf_estimator.ParameterKalmanFilterAgent",
         # Disturbances
-        "Disturbance": "chs_sdk.disturbances.predefined.Disturbance",
-        "TimeSeriesDisturbance": "chs_sdk.disturbances.timeseries_disturbance.TimeSeriesDisturbance",
-        "RainfallAgent": "chs_sdk.disturbances.agents.RainfallAgent",
-        "DemandAgent": "chs_sdk.disturbances.agents.DemandAgent",
-        "PriceAgent": "chs_sdk.disturbances.agents.PriceAgent",
-        "FaultAgent": "chs_sdk.disturbances.agents.FaultAgent",
+        "Disturbance": "chs_sdk.modules.disturbances.predefined.Disturbance",
+        "TimeSeriesDisturbance": "chs_sdk.modules.disturbances.timeseries_disturbance.TimeSeriesDisturbance",
+        "RainfallAgent": "chs_sdk.modules.disturbances.agents.RainfallAgent",
+        "DemandAgent": "chs_sdk.modules.disturbances.agents.DemandAgent",
+        "PriceAgent": "chs_sdk.modules.disturbances.agents.PriceAgent",
+        "FaultAgent": "chs_sdk.modules.disturbances.agents.FaultAgent",
         # --- Entities ---
-        "BasePhysicalEntity": "chs_sdk.modeling.base_physical_entity.BasePhysicalEntity",
-        "ChannelEntity": "chs_sdk.modeling.entities.channel_entity.ChannelEntity",
+        "BasePhysicalEntity": "chs_sdk.modules.modeling.base_physical_entity.BasePhysicalEntity",
+        "ChannelEntity": "chs_sdk.modules.modeling.entities.channel_entity.ChannelEntity",
 
         # --- Models ---
         # Hydrodynamic Models
-        "SteadyChannelModel": "chs_sdk.modeling.hydrodynamics.channel_models.SteadyChannelModel",
-        "StVenantModel": "chs_sdk.modeling.hydrodynamics.channel_models.StVenantModel",
+        "SteadyChannelModel": "chs_sdk.modules.modeling.hydrodynamics.channel_models.SteadyChannelModel",
+        "StVenantModel": "chs_sdk.modules.modeling.hydrodynamics.channel_models.StVenantModel",
 
         # Storage / Routing Models
-        "ReservoirModel": "chs_sdk.modeling.storage_models.ReservoirModel",
-        "FirstOrderSystem": "chs_sdk.modeling.first_order_system.FirstOrderSystem",
-        "MuskingumChannelModel": "chs_sdk.modeling.storage_models.MuskingumChannelModel",
-        "FirstOrderInertiaModel": "chs_sdk.modeling.storage_models.FirstOrderInertiaModel",
-        "IntegralDelayModel": "chs_sdk.modeling.delay_models.IntegralDelayModel",
-        "IntegralPlusDelayModel": "chs_sdk.modeling.integral_plus_delay_model.IntegralPlusDelayModel",
-        "PiecewiseIntegralDelayModel": "chs_sdk.modeling.adaptive_models.PiecewiseIntegralDelayModel",
-        "GateModel": "chs_sdk.modeling.control_structure_models.GateModel",
-        "PumpStationModel": "chs_sdk.modeling.control_structure_models.PumpStationModel",
-        "TwoDimensionalHydrodynamicModel": "chs_sdk.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
-        "SemiDistributedHydrologyModel": "chs_sdk.modeling.hydrology.semi_distributed.SemiDistributedHydrologyModel",
+        "ReservoirModel": "chs_sdk.modules.modeling.storage_models.LinearTank",
+        "FirstOrderSystem": "chs_sdk.modules.modeling.first_order_system.FirstOrderSystem",
+        "MuskingumChannelModel": "chs_sdk.modules.modeling.storage_models.MuskingumChannelModel",
+        "FirstOrderInertiaModel": "chs_sdk.modules.modeling.storage_models.FirstOrderInertiaModel",
+        "IntegralDelayModel": "chs_sdk.modules.modeling.delay_models.IntegralDelayModel",
+        "IntegralPlusDelayModel": "chs_sdk.modules.modeling.integral_plus_delay_model.IntegralPlusDelayModel",
+        "PiecewiseIntegralDelayModel": "chs_sdk.modules.modeling.adaptive_models.PiecewiseIntegralDelayModel",
+        "GateModel": "chs_sdk.modules.modeling.control_structure_models.SluiceGate",
+        "PumpStationModel": "chs_sdk.modules.modeling.control_structure_models.PumpStationModel",
+        "TwoDimensionalHydrodynamicModel": "chs_sdk.modules.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
+        "SemiDistributedHydrologyModel": "chs_sdk.modules.modeling.hydrology.semi_distributed.SemiDistributedHydrologyModel",
         # Runoff Models
-        "RunoffCoefficientModel": "chs_sdk.modeling.hydrology.runoff_models.RunoffCoefficientModel",
-        "XinanjiangModel": "chs_sdk.modeling.hydrology.runoff_models.XinanjiangModel",
-        "SCSRunoffModel": "chs_sdk.modeling.hydrology.runoff_models.SCSRunoffModel",
-        "TankModel": "chs_sdk.modeling.hydrology.runoff_models.TankModel",
-        "HYMODModel": "chs_sdk.modeling.hydrology.runoff_models.HYMODModel",
-        "GreenAmptRunoffModel": "chs_sdk.modeling.hydrology.runoff_models.GreenAmptRunoffModel",
-        "TOPMODEL": "chs_sdk.modeling.hydrology.runoff_models.TOPMODEL",
-        "WETSPAModel": "chs_sdk.modeling.hydrology.runoff_models.WETSPAModel",
-        "ShanbeiModel": "chs_sdk.modeling.hydrology.runoff_models.ShanbeiModel",
-        "HebeiModel": "chs_sdk.modeling.hydrology.runoff_models.HebeiModel",
+        "RunoffCoefficientModel": "chs_sdk.modules.modeling.hydrology.runoff_models.RunoffCoefficientModel",
+        "XinanjiangModel": "chs_sdk.modules.modeling.hydrology.runoff_models.XinanjiangModel",
+        "SCSRunoffModel": "chs_sdk.modules.modeling.hydrology.runoff_models.SCSRunoffModel",
+        "TankModel": "chs_sdk.modules.modeling.hydrology.runoff_models.TankModel",
+        "HYMODModel": "chs_sdk.modules.modeling.hydrology.runoff_models.HYMODModel",
+        "GreenAmptRunoffModel": "chs_sdk.modules.modeling.hydrology.runoff_models.GreenAmptRunoffModel",
+        "TOPMODEL": "chs_sdk.modules.modeling.hydrology.runoff_models.TOPMODEL",
+        "WETSPAModel": "chs_sdk.modules.modeling.hydrology.runoff_models.WETSPAModel",
+        "ShanbeiModel": "chs_sdk.modules.modeling.hydrology.runoff_models.ShanbeiModel",
+        "HebeiModel": "chs_sdk.modules.modeling.hydrology.runoff_models.HebeiModel",
         # Routing Models
-        "MuskingumModel": "chs_sdk.modeling.hydrology.routing_models.MuskingumModel",
-        "UnitHydrographRoutingModel": "chs_sdk.modeling.hydrology.routing_models.UnitHydrographRoutingModel",
-        "LinearReservoirRoutingModel": "chs_sdk.modeling.hydrology.routing_models.LinearReservoirRoutingModel",
-        "VariableVolumeRoutingModel": "chs_sdk.modeling.hydrology.routing_models.VariableVolumeRoutingModel",
+        "MuskingumModel": "chs_sdk.modules.modeling.hydrology.routing_models.MuskingumModel",
+        "UnitHydrographRoutingModel": "chs_sdk.modules.modeling.hydrology.routing_models.UnitHydrographRoutingModel",
+        "LinearReservoirRoutingModel": "chs_sdk.modules.modeling.hydrology.routing_models.LinearReservoirRoutingModel",
+        "VariableVolumeRoutingModel": "chs_sdk.modules.modeling.hydrology.routing_models.VariableVolumeRoutingModel",
         # Instruments
-        "LevelSensor": "chs_sdk.modeling.instrument_models.LevelSensor",
-        "GateActuator": "chs_sdk.modeling.instrument_models.GateActuator",
+        "LevelSensor": "chs_sdk.modules.modeling.instrument_models.LevelSensor",
+        "GateActuator": "chs_sdk.modules.modeling.instrument_models.GateActuator",
 
         # --- Data Processing ---
-        "DataSmoother": "chs_sdk.data_processing.processors.DataSmoother",
-        "DataFusionEngine": "chs_sdk.data_processing.processors.DataFusionEngine",
-        "OutlierRemover": "chs_sdk.data_processing.processors.OutlierRemover",
-        "NoiseInjector": "chs_sdk.data_processing.processors.NoiseInjector",
+        "DataSmoother": "chs_sdk.modules.data_processing.processors.DataSmoother",
+        "DataFusionEngine": "chs_sdk.modules.data_processing.processors.DataFusionEngine",
+        "OutlierRemover": "chs_sdk.modules.data_processing.processors.OutlierRemover",
+        "NoiseInjector": "chs_sdk.modules.data_processing.processors.NoiseInjector",
 
         # --- Custom Agents ---
-        "SensorClusterAgent": "chs_sdk.modeling.sensor_cluster_agent.SensorClusterAgent",
-        "PumpStationAgent": "chs_sdk.modeling.pump_station_agent.PumpStationAgent",
-        "CentralDataFusionAgent": "chs_sdk.modeling.central_data_fusion_agent.CentralDataFusionAgent",
+        "SensorClusterAgent": "chs_sdk.modules.modeling.sensor_cluster_agent.SensorClusterAgent",
+        "PumpStationAgent": "chs_sdk.modules.modeling.pump_station_agent.PumpStationAgent",
+        "CentralDataFusionAgent": "chs_sdk.modules.modeling.central_data_fusion_agent.CentralDataFusionAgent",
 
         # --- Body Agents ---
         # "BaseBodyAgent": "chs_sdk.modeling.body_agent.BaseBodyAgent",
@@ -183,15 +183,27 @@ class SimulationManager:
         self.components: Dict[str, Any] = {}
         self.config: Dict[str, Any] = {}
         self.datasets: Dict[str, Any] = {}
-        self._current_t: float = 0.0
         self.logger = logging.getLogger(__name__)
+
+        # New attributes for step-by-step execution
+        self._time_steps: np.ndarray = np.array([])
+        self._current_step_index: int = 0
+        self._is_initialized: bool = False
+        self._is_finished: bool = False
+        self.history: List[Dict[str, Any]] = []
+        self.current_results: Dict[str, Any] = {}
+        self.dt: float = 1.0
+
         if config:
             self.load_config(config)
+            self.initialize()
 
     @property
     def t(self) -> float:
         """Returns the current simulation time."""
-        return self._current_t
+        if self._is_initialized and not self._is_finished:
+            return self._time_steps[self._current_step_index]
+        return 0.0
 
     def _create_strategy(self, strategy_info: dict):
         """Creates a strategy object from its configuration info."""
@@ -525,31 +537,15 @@ class SimulationManager:
             return processed_config
         return config
 
-    def run(self, mode: str = "DYNAMIC", **kwargs) -> pd.DataFrame:
-        """Runs a complete simulation based on the loaded configuration.
-
-        This is the main public method of the SimulationManager. It uses the
-        pre-loaded configuration, runs the simulation loop for the specified
-        duration, and logs the requested variables at each time step.
-
-        Args:
-            mode: The simulation fidelity mode to run in. Can be "STEADY",
-                  "DYNAMIC", or "PRECISION". Defaults to "DYNAMIC".
-            **kwargs: Can override simulation_params like 'total_time' and 'dt'.
-
-        Returns:
-            A pandas DataFrame where each row represents a time step and
-            each column represents a logged variable. The DataFrame includes
-            a 'time' column indicating the simulation time for each row.
+    def initialize(self, mode: str = "DYNAMIC", **kwargs):
+        """
+        Initializes the simulation environment, builds components, and sets up
+        the time steps for the run.
         """
         if not self.config:
-            raise RuntimeError("Configuration must be loaded via constructor or load_config() before running.")
+            raise RuntimeError("Configuration must be loaded before initializing.")
 
-        # Set simulation mode
-        try:
-            simulation_mode = SimulationMode[mode.upper()]
-        except KeyError:
-            raise ValueError(f"Invalid simulation mode '{mode}'. Must be one of 'STEADY', 'DYNAMIC', 'PRECISION'.")
+        self.simulation_mode = SimulationMode[mode.upper()]
 
         # --- Preprocessing Step ---
         preprocessing_order = self.config.get("preprocessing", [])
@@ -561,47 +557,71 @@ class SimulationManager:
                 raise TypeError(f"Component '{comp_name}' does not have a 'run_preprocessing' method.")
             component.run_preprocessing(self)
 
-        # --- Simulation Loop ---
+        # --- Setup Simulation Loop ---
         sim_params = self.config.get("simulation_params", {})
         total_time = kwargs.get('total_time', sim_params.get("total_time", 100))
-        dt = kwargs.get('dt', sim_params.get("dt", 1.0))
+        self.dt = kwargs.get('dt', sim_params.get("dt", 1.0))
 
+        if self.simulation_mode == SimulationMode.STEADY:
+            self._time_steps = np.array([0.0])
+        else:
+            self._time_steps = np.arange(0, total_time, self.dt)
+
+        self._is_initialized = True
+        self._is_finished = False
+        self._current_step_index = 0
+        self.history = []
+
+    def run_step(self) -> None:
+        """Executes a single step of the simulation."""
+        if not self._is_initialized or self._is_finished:
+            self.logger.warning("run_step called on uninitialized or finished simulation.")
+            return
+
+        t = self._time_steps[self._current_step_index]
         connections = self.config.get("connections", [])
         execution_order = self.config.get("execution_order", [])
         logger_config = self.config.get("logger_config", [])
 
-        if not execution_order:
-            raise ValueError("'execution_order' cannot be empty.")
+        # 1. Check and execute events
+        self._check_and_execute_events(t)
 
-        history = []
+        # 2. Process connections
+        for conn in connections:
+            source_comp_name, source_attr_path = conn["source"].split('.', 1)
+            target_comp_name, target_attr_path = conn["target"].split('.', 1)
+            value = getattr_by_path(self.components[source_comp_name], source_attr_path)
+            setattr_by_path(self.components[target_comp_name], target_attr_path, value)
 
-        # For STEADY mode, we only run one step (t=0)
-        if simulation_mode == SimulationMode.STEADY:
-            time_steps = [0.0]
-        else:
-            time_steps = np.arange(0, total_time, dt)
+        # 3. Execute components
+        for instruction in execution_order:
+            self._execute_step(instruction, t=t, dt=self.dt, simulation_mode=self.simulation_mode)
 
-        for t in time_steps:
-            # 1. Check and execute events
-            self._check_and_execute_events(t)
+        # 4. Log data
+        step_log = {"time": t}
+        for log_path in logger_config:
+            comp_name, attr_path = log_path.split('.', 1)
+            value = getattr_by_path(self.components[comp_name], attr_path)
+            step_log[log_path] = value
+        self.history.append(step_log)
+        self.current_results = step_log
 
-            # 2. Process connections (for simple, state-copying links)
-            for conn in connections:
-                source_comp_name, source_attr_path = conn["source"].split('.', 1)
-                target_comp_name, target_attr_path = conn["target"].split('.', 1)
-                value = getattr_by_path(self.components[source_comp_name], source_attr_path)
-                setattr_by_path(self.components[target_comp_name], target_attr_path, value)
+        # 5. Advance step counter
+        self._current_step_index += 1
+        if self._current_step_index >= len(self._time_steps):
+            self._is_finished = True
 
-            # 3. Execute components based on the new expressive execution order
-            for instruction in execution_order:
-                self._execute_step(instruction, t=t, dt=dt, simulation_mode=simulation_mode)
+    def is_running(self) -> bool:
+        """Returns True if the simulation is initialized and has more steps to run."""
+        return self._is_initialized and not self._is_finished
 
-            # 4. Log data for this time step
-            step_log = {"time": t}
-            for log_path in logger_config:
-                comp_name, attr_path = log_path.split('.', 1)
-                value = getattr_by_path(self.components[comp_name], attr_path)
-                step_log[log_path] = value
-            history.append(step_log)
+    def get_results(self) -> pd.DataFrame:
+        """Returns the simulation results up to the current step as a DataFrame."""
+        return pd.DataFrame(self.history)
 
-        return pd.DataFrame(history)
+    def run(self, mode: str = "DYNAMIC", **kwargs) -> pd.DataFrame:
+        """Runs a complete simulation based on the loaded configuration."""
+        self.initialize(mode, **kwargs)
+        while self.is_running():
+            self.run_step()
+        return self.get_results()

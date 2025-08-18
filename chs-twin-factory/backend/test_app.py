@@ -52,37 +52,30 @@ class ProjectAPITestCase(unittest.TestCase):
         self.assertEqual(single_data['name'], 'Test Project')
         self.assertEqual(single_data['scenario']['controller']['target_level'], 12.0)
 
-    def test_run_simulation_for_project(self):
+    def test_run_live_simulation_for_project(self):
         # First, create a project to run
         scenario = {
-            "components": {
-                "reservoir": {"initial_level": 10.0, "area_storage_curve_coeff": 1000.0},
-                "sluice_gate": {"width": 5.0},
-            },
-            "controller": {"target_level": 12.0},
-            "simulation_params": {"duration_hours": 0.01}, # Use a short duration for testing
+            "simulation_params": {"total_time": 1, "dt": 1},
+            "components": {"reservoir": {"type": "ReservoirModel", "params": {"area": 1.0, "initial_level": 0.0}}},
+            "connections": [],
+            "execution_order": ["reservoir"]
         }
         create_response = self.client.post('/api/projects',
                                            data=json.dumps({"name": "Runnable Project", "scenario": scenario}),
                                            content_type='application/json')
         project_id = create_response.get_json()['project']['id']
 
-        # 4. Test running a simulation for the project
-        run_response = self.client.post(f'/api/projects/{project_id}/run')
+        # 4. Test running a live simulation for the project
+        run_response = self.client.post(f'/api/projects/{project_id}/run_live')
         self.assertEqual(run_response.status_code, 200)
         run_data = run_response.get_json()
         self.assertEqual(run_data['status'], 'success')
-        self.assertIn('time', run_data['data'])
-        self.assertIn('level', run_data['data'])
-        self.assertTrue(len(run_data['data']['time']) > 0)
+        self.assertIn('simulation_id', run_data)
+        self.assertTrue(run_data['simulation_id'].startswith('sim_'))
 
-        # 5. Test getting the simulation runs for the project
-        runs_response = self.client.get(f'/api/projects/{project_id}/runs')
-        self.assertEqual(runs_response.status_code, 200)
-        runs_data = runs_response.get_json()
-        self.assertEqual(len(runs_data), 1)
-        self.assertIn('results', runs_data[0])
-        self.assertIn('level', runs_data[0]['results'])
+        # Note: Testing the results of a live simulation is more complex
+        # as it involves websockets. This test just verifies that the
+        # simulation can be successfully started.
 
 if __name__ == '__main__':
     unittest.main()

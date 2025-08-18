@@ -415,8 +415,8 @@ INFLOW_RATE = 50.0 # m^3/s
 
 # --- V2 SDK Imports ---
 # Corrected to use the new SimulationBuilder and SimulationManager
-from water_system_sdk.src.chs_sdk.simulation_manager import SimulationManager
-from water_system_sdk.src.chs_sdk.simulation_builder import SimulationBuilder
+from chs_sdk.simulation_manager import SimulationManager
+from chs_sdk.simulation_builder import SimulationBuilder
 
 
 @app.route('/api/projects/<int:project_id>/runs', methods=['GET'])
@@ -467,7 +467,7 @@ def _run_simulation_background(app, sim_id, scenario_json):
             active_simulations[sim_id] = sim_manager
 
             while sim_manager.is_running():
-                sim_manager.run_step({})
+                sim_manager.run_step()
                 socketio.emit('simulation_update', sim_manager.current_results, room=sim_id, namespace='/live')
                 socketio.sleep(sim_manager.dt)
 

@@ -1,5 +1,5 @@
 from typing import Optional
-from chs_sdk.modeling.base_model import BaseModel
+from chs_sdk.modules.modeling.base_model import BaseModel
 from chs_sdk.core.simulation_modes import SimulationMode
 
 class BasePhysicalEntity(BaseModel):

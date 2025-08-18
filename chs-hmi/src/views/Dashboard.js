@@ -15,7 +15,7 @@ import DeviceCard from '../components/DeviceCard';
 import EventList from '../components/EventList';
 import Modal from '../components/Modal';
 import HistoricalChart from '../components/HistoricalChart';
-import TopologyView from '../components/TopologyView';
+import ReactFlowTopology from '../components/ReactFlowTopology';
 import DeviceSettings from '../components/DeviceSettings';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
@@ -182,7 +182,7 @@ const Dashboard = forwardRef(({ isEditMode, activeView, setActiveView }, ref) =>
   const renderActiveView = () => {
     switch (activeView) {
       case 'topology':
-        return <TopologyView />;
+        return <ReactFlowTopology />;
       case 'settings':
         return user?.role === 'admin' ? <DeviceSettings /> : <p>Access Denied</p>;
       case 'dashboard':

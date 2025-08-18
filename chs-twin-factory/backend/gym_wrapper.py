@@ -5,8 +5,8 @@ import json
 from collections import OrderedDict
 
 # Correctly import the SDK components I created and refactored
-from water_system_sdk.src.chs_sdk.simulation_manager import SimulationManager
-from water_system_sdk.src.chs_sdk.simulation_builder import SimulationBuilder
+from chs_sdk.simulation_manager import SimulationManager
+from chs_sdk.simulation_builder import SimulationBuilder
 
 
 class ChsEnv(gym.Env):
