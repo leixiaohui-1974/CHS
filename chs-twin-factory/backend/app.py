@@ -28,8 +28,12 @@ import shutil
 import uuid
 import requests
 
+from flask_socketio import SocketIO, Namespace, join_room
+
 # --- Flask App Initialization ---
 app = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
+
 # Determine the absolute path for the instance folder
 instance_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'instance'))
 os.makedirs(instance_path, exist_ok=True)
@@ -387,30 +391,33 @@ def get_project(project_id):
     project = Project.query.get_or_404(project_id)
     return jsonify(project.to_dict())
 
+
+@app.route('/api/projects/<int:project_id>/topology', methods=['GET'])
+def get_project_topology(project_id):
+    """
+    Returns the topology data (components and connections) for a project.
+    """
+    project = Project.query.get_or_404(project_id)
+    scenario = json.loads(project.scenario_json)
+
+    # The frontend needs the components and connections to draw the topology
+    topology_data = {
+        "components": scenario.get("components", {}),
+        "connections": scenario.get("connections", [])
+    }
+
+    return jsonify(topology_data)
+
 # --- Simulation Constants ---
 TIME_STEP = 1.0     # seconds
 DISCHARGE_COEFF = 0.6
 INFLOW_RATE = 50.0 # m^3/s
 
-@app.route('/api/projects/<int:project_id>/run', methods=['POST'])
-def run_project_simulation(project_id):
-    project = Project.query.get_or_404(project_id)
-    sim_config = json.loads(project.scenario_json)
+# --- V2 SDK Imports ---
+# Corrected to use the new SimulationBuilder and SimulationManager
+from water_system_sdk.src.chs_sdk.simulation_manager import SimulationManager
+from water_system_sdk.src.chs_sdk.simulation_builder import SimulationBuilder
 
-    try:
-        results_data = execute_simulation(sim_config)
-
-        simulation_run = SimulationRun(
-            project_id=project.id,
-            results_json=json.dumps(results_data)
-        )
-        db.session.add(simulation_run)
-        db.session.commit()
-
-        return jsonify({"status": "success", "data": results_data})
-    except Exception as e:
-        app.logger.error(f"An error occurred during simulation for project {project_id}: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/projects/<int:project_id>/runs', methods=['GET'])
 def get_project_runs(project_id):
@@ -419,122 +426,82 @@ def get_project_runs(project_id):
     return jsonify([run.to_dict() for run in runs])
 
 
-def execute_simulation(sim_config):
+# --- Live Simulation Namespace ---
+active_simulations = {}
+
+class LiveSimulationNamespace(Namespace):
+    def on_connect(self):
+        app.logger.info(f"SocketIO client connected: {request.sid}")
+
+    def on_disconnect(self):
+        app.logger.info(f"SocketIO client disconnected: {request.sid}")
+
+    def on_join_simulation_room(self, data):
+        sim_id = data.get('simulation_id')
+        if sim_id and sim_id in active_simulations:
+            app.logger.info(f"Client {request.sid} joining room for simulation {sim_id}")
+            join_room(sim_id)
+        else:
+            app.logger.warning(f"Client {request.sid} tried to join invalid or expired room: {sim_id}")
+
+socketio.on_namespace(LiveSimulationNamespace('/live'))
+
+def _run_simulation_background(app, sim_id, scenario_json):
+    """The background task that runs the simulation and emits updates."""
+    with app.app_context():
+        sim_manager = None
+        try:
+            builder = SimulationBuilder()
+            scenario_config = json.loads(scenario_json)
+
+            builder.set_simulation_params(**scenario_config.get('simulation_params', {}))
+            for name, comp in scenario_config.get('components', {}).items():
+                builder.add_component(name, comp.get('type'), comp.get('params', {}))
+            for conn in scenario_config.get('connections', []):
+                builder.add_connection(conn.get('source'), conn.get('target'))
+            builder.set_execution_order(scenario_config.get('execution_order', []))
+            builder.configure_logger(scenario_config.get('logger_config', []))
+
+            sdk_config = builder.build()
+            sim_manager = SimulationManager(config=sdk_config)
+            active_simulations[sim_id] = sim_manager
+
+            while sim_manager.is_running():
+                sim_manager.run_step({})
+                socketio.emit('simulation_update', sim_manager.current_results, room=sim_id, namespace='/live')
+                socketio.sleep(sim_manager.dt)
+
+            final_results_df = sim_manager.get_results()
+            # TODO: Persist final results to the database. This requires passing project_id.
+
+            socketio.emit('simulation_end', {'results': final_results_df.to_dict(orient='records')}, room=sim_id, namespace='/live')
+
+        except Exception as e:
+            app.logger.error(f"Error in background simulation {sim_id}: {e}", exc_info=True)
+            socketio.emit('simulation_error', {'error': str(e)}, room=sim_id, namespace='/live')
+        finally:
+            if sim_id in active_simulations:
+                del active_simulations[sim_id]
+            app.logger.info(f"Simulation {sim_id} finished and cleaned up.")
+
+
+@app.route('/api/projects/<int:project_id>/run_live', methods=['POST'])
+def run_live_simulation(project_id):
     """
-    Core simulation logic, refactored to be reusable.
+    Starts a simulation in the background and returns a simulation ID
+    for clients to subscribe to real-time updates via WebSocket.
     """
-    # 1. Extract parameters from the config
-    components = sim_config.get('components', {})
-    reservoir_params = components.get('reservoir', {})
-    sluice_gate_params = components.get('sluice_gate', {})
-    controller_params = sim_config.get('controller', {})
-    simulation_params = sim_config.get('simulation_params', {})
+    project = Project.query.get_or_404(project_id)
+    sim_id = f"sim_{project_id}_{uuid.uuid4()}"
 
-    initial_level = reservoir_params.get('initial_level', 10.0)
-    reservoir_area = reservoir_params.get('area_storage_curve_coeff', 1000.0)
-    gate_width = sluice_gate_params.get('width', 5.0)
-    target_level = controller_params.get('target_level', 12.0)
-    duration_hours = simulation_params.get('duration_hours', 0.055)
-    sim_duration_seconds = duration_hours * 3600
-
-    # 2. Initialize Agent Kernel
-    kernel = AgentKernel()
-
-    # 3. Define Topics
-    topic_inflow = "data.inflow.constant"
-    topic_level = "state.reservoir.level"
-    topic_gate_control = "control.gate.opening"
-    topic_gate_flow = "state.gate.flow"
-
-    # 4. Add Agents
-    kernel.add_agent(
-        agent_class=InflowAgent,
-        agent_id="inflow_provider",
-        topic=topic_inflow,
-        rainfall_pattern=[INFLOW_RATE]
+    socketio.start_background_task(
+        target=_run_simulation_background,
+        app=app,
+        sim_id=sim_id,
+        scenario_json=project.scenario_json
     )
-    kernel.add_agent(
-        agent_class=TankAgent,
-        agent_id="main_reservoir",
-        area=reservoir_area,
-        initial_level=initial_level,
-        inflow_topic=topic_inflow,
-        release_outflow_topic=topic_gate_flow,
-        state_topic=topic_level
-    )
-    kernel.add_agent(
-        agent_class=GateAgent,
-        agent_id="main_gate",
-        num_gates=1,
-        gate_width=gate_width,
-        discharge_coeff=DISCHARGE_COEFF,
-        upstream_topic=topic_level,
-        downstream_topic="data.boundary.downstream_level",
-        opening_topic=topic_gate_control,
-        state_topic=topic_gate_flow
-    )
-    kernel.add_agent(
-        agent_class=RuleBasedAgent,
-        agent_id="rule_controller",
-        level_topic=topic_level,
-        gate_topic=topic_gate_control,
-        set_point=target_level
-    )
-    kernel.add_agent(
-        agent_class=DataCaptureAgent,
-        agent_id="data_logger",
-        topics_to_log=["#"]
-    )
-    kernel.add_agent(
-        agent_class=InflowAgent,
-        agent_id="downstream_level_provider",
-        topic="data.boundary.downstream_level",
-        rainfall_pattern=[0.0]
-    )
-    # 5. Run Simulation
-    sim_thread = threading.Thread(target=kernel.run, kwargs={'duration': sim_duration_seconds, 'time_step': TIME_STEP})
-    sim_thread.start()
-    sim_thread.join() # Wait for the simulation to complete
 
-    # 6. Process and Return Results
-    data_logger = kernel._agents["data_logger"]
-    captured_data = data_logger.get_data()
-    df = pd.DataFrame(captured_data)
-
-    def extract_payload(payload, key):
-        if hasattr(payload, 'dict'):
-            payload = payload.dict()
-        return payload.get(key) if isinstance(payload, dict) else None
-
-    level_series = df[df['topic'] == topic_level].set_index('time')['payload'].apply(lambda p: extract_payload(p, 'level')).rename('level')
-    inflow_series = df[df['topic'] == topic_inflow].set_index('time')['payload'].apply(lambda p: extract_payload(p, 'value')).rename('inflow')
-    outflow_series = df[df['topic'] == topic_gate_flow].set_index('time')['payload'].apply(lambda p: extract_payload(p, 'flow')).rename('outflow')
-
-    results_df = pd.concat([level_series, inflow_series, outflow_series], axis=1).ffill().bfill().reset_index()
-    results_df = results_df.rename(columns={'index': 'time'})
-    results_df = results_df.astype({'time': 'float', 'level': 'float', 'inflow': 'float', 'outflow': 'float'}).fillna(0)
-
-    return {
-        "time": results_df['time'].round(1).tolist(),
-        "level": results_df['level'].round(2).tolist(),
-        "inflow": results_df['inflow'].round(2).tolist(),
-        "outflow": results_df['outflow'].round(2).tolist()
-    }
-
-@app.route('/api/run_simulation', methods=['POST'])
-def run_simulation():
-    """
-    Legacy endpoint to run a simulation without creating a project.
-    """
-    sim_config = request.get_json()
-    if not sim_config:
-        return jsonify({"status": "error", "message": "Invalid JSON payload"}), 400
-    try:
-        results_data = execute_simulation(sim_config)
-        return jsonify({"status": "success", "data": results_data})
-    except Exception as e:
-        app.logger.error(f"An error occurred during simulation: {e}", exc_info=True)
-        return jsonify({"status": "error", "message": str(e)}), 500
+    return jsonify({"status": "success", "simulation_id": sim_id})
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    socketio.run(app, debug=True, port=5001, allow_unsafe_werkzeug=True)

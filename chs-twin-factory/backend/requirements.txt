@@ -1,4 +1,6 @@
 Flask
+Flask-SocketIO
+python-socketio[client]
 Flask-SQLAlchemy
 Flask-Migrate
 mlflow

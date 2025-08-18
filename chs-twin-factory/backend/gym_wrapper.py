@@ -2,121 +2,150 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 import json
+from collections import OrderedDict
 
-# Assuming CHS_SDK can be imported this way.
-# The actual path might need adjustment during integration.
-from water_system_sdk.src.chs_sdk.main import CHS_SDK
+# Correctly import the SDK components I created and refactored
+from water_system_sdk.src.chs_sdk.simulation_manager import SimulationManager
+from water_system_sdk.src.chs_sdk.simulation_builder import SimulationBuilder
 
 
 class ChsEnv(gym.Env):
-    """Custom Environment for CHS-SDK that follows the gymnasium interface."""
+    """
+    A dynamically configurable Gymnasium Environment for the CHS-SDK.
+
+    This environment parses a `scenario_json` to configure its observation
+    space, action space, and reward function, allowing it to adapt to
+    various simulation scenarios without code changes.
+    """
     metadata = {'render_modes': ['human']}
 
-    def __init__(self, scenario_json: str):
+    def __init__(self, scenario_json: str, log_dir: str = None):
         super().__init__()
 
         self.scenario_config = json.loads(scenario_json)
-        self.sdk = CHS_SDK(self.scenario_config)
+        self._parse_config()
 
-        # --- Define action and observation space ---
-        # The spaces are defined dynamically based on the scenario config.
-        # This is a simplified example assuming specific keys in the config.
+        # Create a reusable builder instance
+        self.builder = SimulationBuilder()
+        self.sim_manager = None  # Will be initialized in reset()
 
-        # Example Action Space: Control the outflow of the first controllable component.
-        # In a real implementation, you would parse config['control']
-        action_low = np.array([0.0], dtype=np.float32)
-        action_high = np.array([100.0], dtype=np.float32) # Assuming a max_flow of 100
-        self.action_space = spaces.Box(low=action_low, high=action_high, dtype=np.float32)
+    def _parse_config(self):
+        """Parses the scenario config to define spaces and reward."""
+        if 'rl_config' not in self.scenario_config:
+            raise ValueError("Scenario config must contain 'rl_config' section.")
 
-        # Example Observation Space: Observe the level of the first reservoir.
-        # In a real implementation, you would parse config['components']
-        obs_low = np.array([80.0], dtype=np.float32) # Assuming min_level
-        obs_high = np.array([100.0], dtype=np.float32) # Assuming max_level
+        rl_config = self.scenario_config['rl_config']
+
+        # --- Observation Space ---
+        self.observation_keys = OrderedDict(rl_config['observation_space'])
+        obs_low = np.array([v['low'] for v in self.observation_keys.values()], dtype=np.float32)
+        obs_high = np.array([v['high'] for v in self.observation_keys.values()], dtype=np.float32)
         self.observation_space = spaces.Box(low=obs_low, high=obs_high, dtype=np.float32)
 
-        self.target_level = 95.0 # Example target level for reward
+        # --- Action Space ---
+        self.action_keys = OrderedDict(rl_config['action_space'])
+        action_low = np.array([v['low'] for v in self.action_keys.values()], dtype=np.float32)
+        action_high = np.array([v['high'] for v in self.action_keys.values()], dtype=np.float32)
+        self.action_space = spaces.Box(low=action_low, high=action_high, dtype=np.float32)
+
+        # --- Reward Function ---
+        self.reward_config = rl_config['reward']
+
+        # --- Truncation ---
+        self.max_steps = rl_config.get('max_steps_per_episode', 1000)
+        self.current_step = 0
 
     def _get_obs(self):
-        """Helper function to get the current observation from the SDK."""
-        state = self.sdk.get_current_state()
-        # This is highly dependent on the scenario's component IDs.
-        # This should be made more robust.
-        # Assuming the first component is the reservoir we want to observe.
-        first_component_id = list(state.keys())[0]
-        level = state[first_component_id].get('level', self.target_level)
-        return np.array([level], dtype=np.float32)
+        """Extracts the observation vector from the full simulation state."""
+        if not self.sim_manager or not self.sim_manager.current_results:
+            return np.zeros(self.observation_space.shape, dtype=np.float32)
 
-    def _get_info(self):
-        """Helper function to get diagnostic information."""
-        return {}
+        latest_results = self.sim_manager.current_results
+        obs_vector = np.array(
+            [latest_results.get(key, 0.0) for key in self.observation_keys.keys()],
+            dtype=np.float32
+        )
+        return obs_vector
+
+    def _calculate_reward(self, observation_vector: np.ndarray) -> float:
+        """Calculates the reward based on the configured logic."""
+        obs_dict = {name: observation_vector[i] for i, name in enumerate(self.observation_keys.keys())}
+
+        total_reward = 0.0
+        for reward_part in self.reward_config:
+            if reward_part['type'] == 'distance_to_target':
+                target_val = reward_part['target']
+                actual_val = obs_dict.get(reward_part['variable'])
+                if actual_val is not None:
+                    # Use a negative quadratic to encourage being close to target
+                    error = (target_val - actual_val) * reward_part.get('scale', 1.0)
+                    total_reward -= error**2 * reward_part['weight']
+            # Add other reward types here (e.g., 'energy_cost')
+
+        return total_reward
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
+        self.current_step = 0
 
-        # Re-initialize the SDK to reset the simulation state
-        self.sdk = CHS_SDK(self.scenario_config)
+        # Build the simulation config from the scenario using the builder
+        # This part assumes the scenario_config has the right structure for the builder
+        sdk_config = self.builder.set_simulation_params(**self.scenario_config['simulation_params'])
+        for name, comp in self.scenario_config['components'].items():
+            self.builder.add_component(name, comp['type'], comp['params'])
+        for conn in self.scenario_config['connections']:
+            self.builder.add_connection(conn['source'], conn['target'])
+        self.builder.set_execution_order(self.scenario_config['execution_order'])
+        self.builder.configure_logger(self.scenario_config['logger_config'])
+
+        # Initialize the simulation manager
+        self.sim_manager = SimulationManager(config=self.builder.build())
+
+        # Run one step to get initial state
+        self.sim_manager.run_step({})
 
         observation = self._get_obs()
-        info = self._get_info()
+        info = {} # No extra info on reset
 
         return observation, info
 
     def step(self, action):
-        # --- Map action to SDK's expected format ---
-        # This is also dependent on the scenario config.
-        # Assuming the action controls the outflow of the first controllable component.
-        control_config = self.scenario_config.get('control', [])
-        if not control_config:
-            raise ValueError("No control defined in the scenario config.")
+        self.current_step += 1
 
-        target_component_id = control_config[0]['component_id']
-        target_variable = control_config[0]['variable']
+        # Map the agent's action vector to the SDK's expected input format
+        sdk_action = {key: float(action[i]) for i, key in enumerate(self.action_keys.keys())}
 
-        sdk_action = {
-            target_component_id: {
-                target_variable: float(action[0])
-            }
-        }
+        # Run one timestep in the simulation
+        self.sim_manager.run_step(sdk_action)
 
-        # --- Run one timestep in the simulation ---
-        self.sdk.run_step(sdk_action)
-
-        # --- Get the new state (observation) ---
+        # Get results
         observation = self._get_obs()
+        reward = self._calculate_reward(observation)
 
-        # --- Calculate reward ---
-        # Reward is higher the closer the level is to the target level.
-        level = observation[0]
-        reward = -np.abs(level - self.target_level)
+        # Check for termination and truncation
+        terminated = False # Termination logic (e.g., critical failure) can be added here
+        truncated = self.current_step >= self.max_steps
 
-        # --- Check for termination ---
-        # For simplicity, we don't terminate the episode here.
-        # In a real scenario, this could be based on reaching a critical level.
-        terminated = False
-        truncated = False # For when the episode is ended by a time limit
-
-        info = self._get_info()
+        info = {}
 
         return observation, reward, terminated, truncated, info
 
     def render(self, mode='human'):
-        # For now, we'll just print the current state
         if mode == 'human':
             obs = self._get_obs()
-            print(f"Current Level: {obs[0]}")
+            print(f"Step: {self.current_step}, Observation: {obs}")
 
     def close(self):
-        pass
+        self.sim_manager = None
 
 
 from stable_baselines3.common.monitor import Monitor
 
-
 def create_chs_env(scenario_json: str, log_dir: str = None) -> gym.Env:
     """
-    Factory function to create an instance of the ChsEnv.
+    Factory function to create and wrap an instance of the ChsEnv.
     """
-    env = ChsEnv(scenario_json)
-    # Wrap the environment with a Monitor to log statistics
-    env = Monitor(env, filename=log_dir)
+    env = ChsEnv(scenario_json, log_dir)
+    if log_dir:
+        env = Monitor(env, filename=log_dir)
     return env
