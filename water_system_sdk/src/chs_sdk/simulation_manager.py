@@ -63,84 +63,84 @@ class ComponentRegistry:
         "ThiessenPolygonInterpolator": "chs_sdk.preprocessing.interpolators.ThiessenPolygonInterpolator",
         "KrigingInterpolator": "chs_sdk.preprocessing.interpolators.KrigingInterpolator",
         # Controllers
-        "PIDController": "chs_sdk.control.pid_controller.PIDController",
-        "MPCController": "chs_sdk.control.mpc_controller.MPCController",
-        "GainScheduledMPCController": "chs_sdk.control.gs_mpc_controller.GainScheduledMPCController",
-        "RuleBasedOperationalController": "chs_sdk.control.rule_based_controller.RuleBasedOperationalController",
-        "RecursiveLeastSquaresAgent": "chs_sdk.control.rls_estimator.RecursiveLeastSquaresAgent",
-        "ParameterKalmanFilterAgent": "chs_sdk.control.kf_estimator.ParameterKalmanFilterAgent",
+        "PIDController": "chs_sdk.modules.control.pid_controller.PIDController",
+        "MPCController": "chs_sdk.modules.control.mpc_controller.MPCController",
+        "GainScheduledMPCController": "chs_sdk.modules.control.gs_mpc_controller.GainScheduledMPCController",
+        "RuleBasedOperationalController": "chs_sdk.modules.control.rule_based_controller.RuleBasedOperationalController",
+        "RecursiveLeastSquaresAgent": "chs_sdk.modules.control.rls_estimator.RecursiveLeastSquaresAgent",
+        "ParameterKalmanFilterAgent": "chs_sdk.modules.control.kf_estimator.ParameterKalmanFilterAgent",
         # Disturbances
-        "Disturbance": "chs_sdk.disturbances.predefined.Disturbance",
-        "TimeSeriesDisturbance": "chs_sdk.disturbances.timeseries_disturbance.TimeSeriesDisturbance",
-        "RainfallAgent": "chs_sdk.disturbances.agents.RainfallAgent",
-        "DemandAgent": "chs_sdk.disturbances.agents.DemandAgent",
-        "PriceAgent": "chs_sdk.disturbances.agents.PriceAgent",
-        "FaultAgent": "chs_sdk.disturbances.agents.FaultAgent",
+        "Disturbance": "chs_sdk.modules.disturbances.predefined.Disturbance",
+        "TimeSeriesDisturbance": "chs_sdk.modules.disturbances.timeseries_disturbance.TimeSeriesDisturbance",
+        "RainfallAgent": "chs_sdk.modules.disturbances.agents.RainfallAgent",
+        "DemandAgent": "chs_sdk.modules.disturbances.agents.DemandAgent",
+        "PriceAgent": "chs_sdk.modules.disturbances.agents.PriceAgent",
+        "FaultAgent": "chs_sdk.modules.disturbances.agents.FaultAgent",
         # --- Entities ---
-        "BasePhysicalEntity": "chs_sdk.modeling.base_physical_entity.BasePhysicalEntity",
-        "ChannelEntity": "chs_sdk.modeling.entities.channel_entity.ChannelEntity",
+        "BasePhysicalEntity": "chs_sdk.modules.modeling.base_physical_entity.BasePhysicalEntity",
+        "ChannelEntity": "chs_sdk.modules.modeling.entities.channel_entity.ChannelEntity",
 
         # --- Models ---
         # Hydrodynamic Models
-        "SteadyChannelModel": "chs_sdk.modeling.hydrodynamics.channel_models.SteadyChannelModel",
-        "StVenantModel": "chs_sdk.modeling.hydrodynamics.channel_models.StVenantModel",
+        "SteadyChannelModel": "chs_sdk.modules.modeling.hydrodynamics.channel_models.SteadyChannelModel",
+        "StVenantModel": "chs_sdk.modules.modeling.hydrodynamics.channel_models.StVenantModel",
 
         # Storage / Routing Models
-        "ReservoirModel": "chs_sdk.modeling.storage_models.ReservoirModel",
-        "FirstOrderSystem": "chs_sdk.modeling.first_order_system.FirstOrderSystem",
-        "MuskingumChannelModel": "chs_sdk.modeling.storage_models.MuskingumChannelModel",
-        "FirstOrderInertiaModel": "chs_sdk.modeling.storage_models.FirstOrderInertiaModel",
-        "IntegralDelayModel": "chs_sdk.modeling.delay_models.IntegralDelayModel",
-        "IntegralPlusDelayModel": "chs_sdk.modeling.integral_plus_delay_model.IntegralPlusDelayModel",
-        "PiecewiseIntegralDelayModel": "chs_sdk.modeling.adaptive_models.PiecewiseIntegralDelayModel",
-        "GateModel": "chs_sdk.modeling.control_structure_models.GateModel",
-        "PumpStationModel": "chs_sdk.modeling.control_structure_models.PumpStationModel",
-        "TwoDimensionalHydrodynamicModel": "chs_sdk.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
-        "SemiDistributedHydrologyModel": "chs_sdk.modeling.hydrology.semi_distributed.SemiDistributedHydrologyModel",
+        "ReservoirModel": "chs_sdk.modules.modeling.storage_models.ReservoirModel",
+        "FirstOrderSystem": "chs_sdk.modules.modeling.first_order_system.FirstOrderSystem",
+        "MuskingumChannelModel": "chs_sdk.modules.modeling.storage_models.MuskingumChannelModel",
+        "FirstOrderInertiaModel": "chs_sdk.modules.modeling.storage_models.FirstOrderInertiaModel",
+        "IntegralDelayModel": "chs_sdk.modules.modeling.delay_models.IntegralDelayModel",
+        "IntegralPlusDelayModel": "chs_sdk.modules.modeling.integral_plus_delay_model.IntegralPlusDelayModel",
+        "PiecewiseIntegralDelayModel": "chs_sdk.modules.modeling.adaptive_models.PiecewiseIntegralDelayModel",
+        "GateModel": "chs_sdk.modules.modeling.control_structure_models.GateModel",
+        "PumpStationModel": "chs_sdk.modules.modeling.control_structure_models.PumpStationModel",
+        "TwoDimensionalHydrodynamicModel": "chs_sdk.modules.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
+        "SemiDistributedHydrologyModel": "chs_sdk.modules.modeling.hydrology.semi_distributed.SemiDistributedHydrologyModel",
         # Runoff Models
-        "RunoffCoefficientModel": "chs_sdk.modeling.hydrology.runoff_models.RunoffCoefficientModel",
-        "XinanjiangModel": "chs_sdk.modeling.hydrology.runoff_models.XinanjiangModel",
-        "SCSRunoffModel": "chs_sdk.modeling.hydrology.runoff_models.SCSRunoffModel",
-        "TankModel": "chs_sdk.modeling.hydrology.runoff_models.TankModel",
-        "HYMODModel": "chs_sdk.modeling.hydrology.runoff_models.HYMODModel",
-        "GreenAmptRunoffModel": "chs_sdk.modeling.hydrology.runoff_models.GreenAmptRunoffModel",
-        "TOPMODEL": "chs_sdk.modeling.hydrology.runoff_models.TOPMODEL",
-        "WETSPAModel": "chs_sdk.modeling.hydrology.runoff_models.WETSPAModel",
-        "ShanbeiModel": "chs_sdk.modeling.hydrology.runoff_models.ShanbeiModel",
-        "HebeiModel": "chs_sdk.modeling.hydrology.runoff_models.HebeiModel",
+        "RunoffCoefficientModel": "chs_sdk.modules.modeling.hydrology.runoff_models.RunoffCoefficientModel",
+        "XinanjiangModel": "chs_sdk.modules.modeling.hydrology.runoff_models.XinanjiangModel",
+        "SCSRunoffModel": "chs_sdk.modules.modeling.hydrology.runoff_models.SCSRunoffModel",
+        "TankModel": "chs_sdk.modules.modeling.hydrology.runoff_models.TankModel",
+        "HYMODModel": "chs_sdk.modules.modeling.hydrology.runoff_models.HYMODModel",
+        "GreenAmptRunoffModel": "chs_sdk.modules.modeling.hydrology.runoff_models.GreenAmptRunoffModel",
+        "TOPMODEL": "chs_sdk.modules.modeling.hydrology.runoff_models.TOPMODEL",
+        "WETSPAModel": "chs_sdk.modules.modeling.hydrology.runoff_models.WETSPAModel",
+        "ShanbeiModel": "chs_sdk.modules.modeling.hydrology.runoff_models.ShanbeiModel",
+        "HebeiModel": "chs_sdk.modules.modeling.hydrology.runoff_models.HebeiModel",
         # Routing Models
-        "MuskingumModel": "chs_sdk.modeling.hydrology.routing_models.MuskingumModel",
-        "UnitHydrographRoutingModel": "chs_sdk.modeling.hydrology.routing_models.UnitHydrographRoutingModel",
-        "LinearReservoirRoutingModel": "chs_sdk.modeling.hydrology.routing_models.LinearReservoirRoutingModel",
-        "VariableVolumeRoutingModel": "chs_sdk.modeling.hydrology.routing_models.VariableVolumeRoutingModel",
+        "MuskingumModel": "chs_sdk.modules.modeling.hydrology.routing_models.MuskingumModel",
+        "UnitHydrographRoutingModel": "chs_sdk.modules.modeling.hydrology.routing_models.UnitHydrographRoutingModel",
+        "LinearReservoirRoutingModel": "chs_sdk.modules.modeling.hydrology.routing_models.LinearReservoirRoutingModel",
+        "VariableVolumeRoutingModel": "chs_sdk.modules.modeling.hydrology.routing_models.VariableVolumeRoutingModel",
         # Instruments
-        "LevelSensor": "chs_sdk.modeling.instrument_models.LevelSensor",
-        "GateActuator": "chs_sdk.modeling.instrument_models.GateActuator",
+        "LevelSensor": "chs_sdk.modules.modeling.instrument_models.LevelSensor",
+        "GateActuator": "chs_sdk.modules.modeling.instrument_models.GateActuator",
 
         # --- Data Processing ---
-        "DataSmoother": "chs_sdk.data_processing.processors.DataSmoother",
-        "DataFusionEngine": "chs_sdk.data_processing.processors.DataFusionEngine",
-        "OutlierRemover": "chs_sdk.data_processing.processors.OutlierRemover",
-        "NoiseInjector": "chs_sdk.data_processing.processors.NoiseInjector",
+        "DataSmoother": "chs_sdk.modules.data_processing.processors.DataSmoother",
+        "DataFusionEngine": "chs_sdk.modules.data_processing.processors.DataFusionEngine",
+        "OutlierRemover": "chs_sdk.modules.data_processing.processors.OutlierRemover",
+        "NoiseInjector": "chs_sdk.modules.data_processing.processors.NoiseInjector",
 
         # --- Custom Agents ---
-        "SensorClusterAgent": "chs_sdk.modeling.sensor_cluster_agent.SensorClusterAgent",
-        "PumpStationAgent": "chs_sdk.modeling.pump_station_agent.PumpStationAgent",
-        "CentralDataFusionAgent": "chs_sdk.modeling.central_data_fusion_agent.CentralDataFusionAgent",
+        "SensorClusterAgent": "chs_sdk.modules.modeling.sensor_cluster_agent.SensorClusterAgent",
+        "PumpStationAgent": "chs_sdk.modules.modeling.pump_station_agent.PumpStationAgent",
+        "CentralDataFusionAgent": "chs_sdk.modules.modeling.central_data_fusion_agent.CentralDataFusionAgent",
 
         # --- Body Agents ---
         # "BaseBodyAgent": "chs_sdk.modeling.body_agent.BaseBodyAgent",
         # "ReservoirBodyAgent": "chs_sdk.modeling.body_agent.ReservoirBodyAgent",
 
         # --- New Agent Architecture ---
-        "BaseAgent": "chs_sdk.agent.base_agent.BaseAgent",
-        "BaseEmbodiedAgent": "chs_sdk.agent.base_agent.BaseEmbodiedAgent",
-        "BaseDisturbanceAgent": "chs_sdk.agent.base_agent.BaseDisturbanceAgent",
-        "BodyAgent": "chs_sdk.agent.body_agent.BodyAgent",
-        "ControlAgent": "chs_sdk.agent.control_agent.ControlAgent",
-        "PerceptionAgent": "chs_sdk.agent.perception_agent.PerceptionAgent",
-        "DispatchAgent": "chs_sdk.agent.dispatch_agent.DispatchAgent",
-        "CentralManagementAgent": "chs_sdk.agent.central_management_agent.CentralManagementAgent",
+        "BaseAgent": "chs_sdk.agents.base.BaseAgent",
+        "BaseEmbodiedAgent": "chs_sdk.agents.body_agent.BodyAgent",
+        "BaseDisturbanceAgent": "chs_sdk.agents.disturbance_agents.BaseDisturbanceAgent",
+        "BodyAgent": "chs_sdk.agents.body_agent.BodyAgent",
+        "ControlAgent": "chs_sdk.agents.control_agent.ControlAgent",
+        "PerceptionAgent": "chs_sdk.agents.perception_agent.PerceptionAgent",
+        "DispatchAgent": "chs_sdk.agents.dispatch_agent.DispatchAgent",
+        "CentralManagementAgent": "chs_sdk.agents.management_agents.CentralManagementAgent",
     }
 
     @classmethod
@@ -150,6 +150,18 @@ class ComponentRegistry:
             raise ImportError(f"Component type '{class_name}' not found in registry.")
 
         full_path = cls._CLASS_MAP[class_name]
+        module_path, class_name_only = full_path.rsplit('.', 1)
+
+        try:
+            module = importlib.import_module(module_path)
+            return getattr(module, class_name_only)
+        except (ImportError, AttributeError) as e:
+            raise ImportError(f"Could not import class '{class_name_only}' from '{module_path}'. Error: {e}")
+
+    @classmethod
+    def get_solver_class(cls, class_name: str):
+        """Dynamically imports and returns a solver class."""
+        full_path = f"chs_sdk.modules.basic_tools.solvers.{class_name}"
         module_path, class_name_only = full_path.rsplit('.', 1)
 
         try:
@@ -345,6 +357,13 @@ class SimulationManager:
                 if "pipeline" in params:
                     pipeline_config = params.pop("pipeline")
                     params["pipeline"] = self._create_pipeline(pipeline_config)
+
+                if comp_type == 'FirstOrderInertiaModel':
+                    solver_name = self.config.get('solver', 'EulerIntegrator') # default to Euler
+                    solver_class = ComponentRegistry.get_solver_class(solver_name)
+                    params['solver_class'] = solver_class
+                    params['dt'] = self.config.get('dt', 1.0)
+
                 self.components[name] = component_class(**params)
 
     def _execute_step(self, instruction: Any, t: float, dt: float, simulation_mode: SimulationMode):

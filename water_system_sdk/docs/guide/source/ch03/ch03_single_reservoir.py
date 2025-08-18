@@ -1,56 +1,80 @@
 import matplotlib.pyplot as plt
+import os
+import pandas as pd
 
-from chs_sdk.core.host import Host
-from chs_sdk.modules.modeling.storage_models import FirstOrderStorageModel
-from chs_sdk.modules.disturbances.predefined import ConstantDisturbance
+# This assumes the package is installed. If not, you might need to adjust the python path.
+from chs_sdk.simulation_manager import SimulationManager
 
-def run_simulation():
+def main():
     """
-    This script demonstrates the basic setup and execution of a simulation
-    for a single reservoir with a constant inflow.
+    This example demonstrates how to run a simulation for a single reservoir
+    with a constant inflow using the SimulationManager.
     """
-    # 1. 创建一个仿真主机
-    host = Host()
+    # 1. Define the simulation configuration as a Python dictionary.
+    simulation_config = {
+        'solver': 'RK4Integrator',
+        'dt': 1.0,
+        'duration': 24,
+        'components': [
+            {
+                'name': 'inflow',
+                'type': 'Disturbance',
+                'properties': {
+                    'signal_type': 'constant',
+                    'value': 5.0
+                }
+            },
+            {
+                'name': 'MyReservoir',
+                'type': 'FirstOrderInertiaModel',
+                'properties': {
+                    'initial_storage': 10.0,
+                    'time_constant': 5.0
+                },
+                'connections': {
+                    'inflow': 'inflow.output'
+                }
+            }
+        ],
+        'execution_order': [
+            'inflow',
+            'MyReservoir'
+        ],
+        'logger_config': [
+            'MyReservoir.state.storage',
+            'inflow.output'
+        ],
+        'simulation_params': {
+            'total_time': 24,
+            'dt': 1.0
+        }
+    }
 
-    # 2. 定义水库模型智能体
-    reservoir_agent = FirstOrderStorageModel(
-        name='MyReservoir',
-        initial_value=10.0,
-        time_constant=5.0
-    )
+    # 2. Instantiate SimulationManager with the configuration dictionary.
+    manager = SimulationManager(config=simulation_config)
 
-    # 3. 定义一个恒定入流扰动智能体
-    inflow_agent = ConstantDisturbance(
-        name='inflow',
-        constant_value=5.0
-    )
+    # 3. Run the simulation.
+    results_df = manager.run()
 
-    # 4. 注册组件和连接
-    host.add_agent(reservoir_agent)
-    host.add_agent(inflow_agent)
-    host.add_connection(
-        source_agent_name='inflow',
-        target_agent_name='MyReservoir',
-        source_port_name='value',
-        target_port_name='inflow'
-    )
+    # 4. Process and plot the results.
+    print("\nSimulation Results (first 5 rows):")
+    print(results_df.head())
 
-    # 5. 运行仿真
-    host.run(num_steps=24, dt=1.0)
-
-    # 6. 可视化结果
-    results_df = host.get_datalogger().get_as_dataframe()
-    print("仿真结果:")
-    print(results_df)
+    if not os.path.exists('results'):
+        os.makedirs('results')
 
     plt.figure(figsize=(10, 6))
-    plt.plot(results_df.index, results_df['MyReservoir.value'], label='水库蓄水量')
-    plt.xlabel('时间 (小时)')
-    plt.ylabel('蓄水量 (单位)')
-    plt.title('水库仿真结果')
+    plt.plot(results_df['time'], results_df['MyReservoir.state.storage'], label='Reservoir Storage')
+    plt.xlabel('Time (hours)')
+    plt.ylabel('Storage (units)')
+    plt.title('Reservoir Simulation Results')
     plt.grid(True)
     plt.legend()
-    plt.show()
+
+    plot_filename = 'results/ch03_single_reservoir.png'
+    plt.savefig(plot_filename)
+    print(f"\nPlot saved to {plot_filename}")
+    # plt.show() # plt.show() will block the execution, use plt.savefig() instead
 
 if __name__ == "__main__":
-    run_simulation()
+    main()
