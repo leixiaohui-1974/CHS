@@ -179,12 +179,27 @@ export const resolveEvent = async (eventId, notes) => {
   return Promise.resolve({ success: true, message: `Event ${eventId} resolved.` });
 };
 
-export const getSystemTopology = async () => {
-  console.log("Fetching system topology (mock)...");
-  // In a real app, this would be:
-  // const response = await axios.get('/api/v1/system_topology');
-  // return response.data;
-  return Promise.resolve(mockSystemTopology);
+export const getSystemTopology = async (projectId) => {
+  if (!projectId) {
+    console.error("getSystemTopology requires a projectId.");
+    // Return a default or empty topology to prevent UI crashes
+    return { components: {}, connections: [] };
+  }
+  try {
+    // Note: The backend uses /api/projects/{projectId}/topology
+    // The '/api' prefix is handled by the proxy in package.json
+    const response = await axios.get(`/api/projects/${projectId}/topology`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching system topology for project ${projectId}:`, error);
+    if (error.response) {
+      throw new Error(`Backend error: ${error.response.status} ${error.response.data.message || ''}`);
+    } else if (error.request) {
+      throw new Error('Could not connect to the server.');
+    } else {
+      throw new Error(`An unexpected error occurred: ${error.message}`);
+    }
+  }
 };
 
 export const updateDeviceConfig = async (deviceId, config) => {
