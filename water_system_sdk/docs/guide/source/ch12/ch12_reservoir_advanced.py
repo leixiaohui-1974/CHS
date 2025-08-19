@@ -5,7 +5,7 @@ import pandas as pd
 from chs_sdk.core.host import AgentKernel as Host
 from chs_sdk.modules.modeling.storage_models import NonlinearTank
 from chs_sdk.modules.disturbances.timeseries_disturbance import TimeSeriesDisturbance
-from project_utils import ModelAgent
+from water_system_sdk.docs.guide.source.project_utils import ModelAgent
 
 def run_simulation():
     """

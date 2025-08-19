@@ -4,7 +4,7 @@ import pandas as pd
 from chs_sdk.core.host import AgentKernel as Host
 from chs_sdk.modules.modeling.storage_models import FirstOrderInertiaModel
 from chs_sdk.modules.control.pid_controller import PIDController
-from project_utils import EulerMethod, ModelAgent
+from water_system_sdk.docs.guide.source.project_utils import EulerMethod, ModelAgent
 
 def run_simulation():
     """

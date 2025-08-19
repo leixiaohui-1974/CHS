@@ -10,7 +10,7 @@ from chs_sdk.modules.modeling.storage_models import NonlinearTank
 from chs_sdk.modules.modeling.control_structure_models import SluiceGate
 from chs_sdk.modules.modeling.storage_models import MuskingumChannelModel
 from chs_sdk.modules.control.rule_based_controller import RuleBasedOperationalController
-from project_utils import ModelAgent, EulerMethod
+from water_system_sdk.docs.guide.source.project_utils import ModelAgent, EulerMethod
 
 def run_forecast_model():
     """Runs the hydrological forecast to get the inflow hydrograph."""

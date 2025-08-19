@@ -7,7 +7,7 @@ from chs_sdk.modules.modeling.storage_models import LinearTank
 from chs_sdk.modules.modeling.control_structure_models import SluiceGate, PumpStationModel
 from chs_sdk.modules.control.rule_based_controller import RuleBasedOperationalController
 from chs_sdk.modules.disturbances.timeseries_disturbance import TimeSeriesDisturbance
-from project_utils import ModelAgent
+from water_system_sdk.docs.guide.source.project_utils import ModelAgent
 
 def run_simulation():
     """

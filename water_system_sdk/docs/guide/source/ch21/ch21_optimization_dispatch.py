@@ -6,7 +6,7 @@ from chs_sdk.modules.modeling.storage_models import LinearTank
 from chs_sdk.modules.modeling.valve_models import GenericValve
 from chs_sdk.agents.control_agents import PIDAgent
 from chs_sdk.agents.message import Message
-from project_utils import ModelAgent, SimpleDispatchAgent
+from water_system_sdk.docs.guide.source.project_utils import ModelAgent, SimpleDispatchAgent
 
 def run_simulation():
     """
