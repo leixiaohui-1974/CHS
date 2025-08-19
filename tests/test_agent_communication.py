@@ -11,7 +11,7 @@ class PingAgent(BaseAgent):
         super().__init__(agent_id, kernel, **config)
         self.ping_sent = False
 
-    def execute(self, current_time: float):
+    def on_execute(self, current_time: float, time_step: float):
         if not self.ping_sent:
             print(f"[{self.agent_id}] Sending ping at time {current_time}")
             self._publish("test/ping", "ping")
@@ -33,7 +33,7 @@ class PongAgent(BaseAgent):
         print(f"[{self.agent_id}] Subscribing to topic 'test/ping'")
         self.kernel.message_bus.subscribe(self, "test/ping")
 
-    def execute(self, current_time: float):
+    def on_execute(self, current_time: float, time_step: float):
         pass # Logic is reactive in on_message
 
     def on_message(self, message: Message):

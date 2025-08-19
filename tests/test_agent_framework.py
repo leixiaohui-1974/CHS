@@ -24,7 +24,7 @@ class MockAgent(BaseAgent):
     def setup(self):
         self.setup_called = True
 
-    def execute(self, current_time: float):
+    def on_execute(self, current_time: float, time_step: float):
         self.execute_count += 1
 
     def on_message(self, message: Message):
@@ -35,8 +35,8 @@ class MockAgent(BaseAgent):
 
 
 class PingAgent(MockAgent):
-    def execute(self, current_time: float):
-        super().execute(current_time)
+    def on_execute(self, current_time: float, time_step: float):
+        super().on_execute(current_time, time_step)
         # On the first step, publish a ping message
         if self.execute_count == 1:
             self._publish("pong_topic", {"content": "ping"})
