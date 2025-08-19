@@ -30,6 +30,7 @@ nav:
       - 'PID控制器 (PIDController)': 'notebooks/08_Control_PIDController.ipynb'
       - '模型预测控制 (MPCController)': 'notebooks/09_Control_MPCController.ipynb'
       - '一维水动力学 (StVenant)': 'notebooks/10_Hydrodynamics_StVenant.ipynb'
+      - '二维水动力学 (2D Hydro)': 'notebooks/14_Hydrodynamics_2D.ipynb'
     - '高级教程':
       - '使用MPC进行预测控制': 'sdk_tutorials/advanced_mpc.md'
       - '多智能体协同': 'sdk_tutorials/multi_agent_collaboration.md'
