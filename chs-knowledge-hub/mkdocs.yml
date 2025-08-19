@@ -18,6 +18,12 @@ plugins:
 nav:
   - '首页': 'index.md'
   - '部署指南': 'deployment_guide.md'
+  - '案例教程':
+    - '基础PID控制': 'notebooks/19_Example_Simple_PID.ipynb'
+    - '高级MPC对比': 'notebooks/20_Example_MPC_Comparison.ipynb'
+  - '数据预处理指南':
+    - '降雨插值 (RainfallProcessor)': 'notebooks/15_Preprocessing_Rainfall.ipynb'
+    - 'DEM与流域划分 (Watershed Delineation)': 'notebooks/16_Preprocessing_DEM.ipynb'
   - '教程':
     - '入门教程': 'sdk_tutorials/getting_started.md'
     - '核心模型指南':
@@ -30,11 +36,15 @@ nav:
       - 'PID控制器 (PIDController)': 'notebooks/08_Control_PIDController.ipynb'
       - '模型预测控制 (MPCController)': 'notebooks/09_Control_MPCController.ipynb'
       - '一维水动力学 (StVenant)': 'notebooks/10_Hydrodynamics_StVenant.ipynb'
+      - '二维水动力学 (2D Hydro)': 'notebooks/14_Hydrodynamics_2D.ipynb'
     - '高级教程':
       - '使用MPC进行预测控制': 'sdk_tutorials/advanced_mpc.md'
       - '多智能体协同': 'sdk_tutorials/multi_agent_collaboration.md'
       - '硬件在环(HIL)测试': 'sdk_tutorials/hil_testing.md'
       - '创建自定义智能体': 'sdk_tutorials/creating_a_custom_agent.md'
+  - '系统辨识指南':
+    - '递归最小二乘法 (RLS)': 'notebooks/17_SysID_RLS.ipynb'
+    - '卡尔曼滤波 (Kalman Filter)': 'notebooks/18_SysID_KalmanFilter.ipynb'
   - '扰动与事件指南':
     - '时间序列扰动 (TimeSeries)': 'notebooks/11_Disturbances_TimeSeries.ipynb'
     - '降雨事件 (RainfallAgent)': 'notebooks/12_Disturbances_Rainfall.ipynb'
