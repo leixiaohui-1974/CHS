@@ -38,10 +38,13 @@ class SluiceGate(GateBase):
     Represents a vertical sluice gate, automatically switching between
     free-flow and submerged-flow discharge equations.
     """
-    def step(self, upstream_level: float, downstream_level: float, dt: float, **kwargs):
+    def step(self, upstream_level: float, downstream_level: float, dt: float, command: float = None, **kwargs):
         """
         Calculates flow based on upstream/downstream levels and gate opening.
         """
+        if command is not None:
+            self.set_target(command)
+
         # Update actuator position first
         self.update(dt)
         gate_opening = self.get_current_position()

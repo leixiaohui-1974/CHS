@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.linalg import cho_factor, cho_solve
-from chs_sdk.control.data_assimilation import BaseDataAssimilation
+from chs_sdk.modules.control.data_assimilation import BaseDataAssimilation
 
 class KalmanFilter(BaseDataAssimilation):
     """

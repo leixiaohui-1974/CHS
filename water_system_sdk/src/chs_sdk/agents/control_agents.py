@@ -52,7 +52,7 @@ class PIDAgent(BaseAgent):
                     self.initialized = True
                     log.info(f"PIDAgent '{self.agent_id}' initialized with first measurement: {self._current_value}")
 
-    def execute(self, current_time: float):
+    def on_execute(self, current_time: float, time_step: float):
         """
         Calculates the control output based on the PID algorithm, but only after
         it has been initialized with a measurement.

@@ -74,7 +74,7 @@ def run_enkf_simulation():
         enkf.update(np.array([measurement]))
 
         # 记录结果
-        estimated_x = enkf.get_state_mean()
+        estimated_x = enkf.get_state()
         results['time'].append(i)
         results['true_x'].append(true_x[i])
         results['estimated_x'].append(estimated_x[0])

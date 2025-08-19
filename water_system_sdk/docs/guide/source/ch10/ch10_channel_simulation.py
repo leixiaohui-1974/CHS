@@ -10,8 +10,8 @@ def run_simulation():
     # 1. 定义网络拓扑
     # 节点定义
     nodes_config = [
-        {'name': 'Upstream', 'type': 'inflow', 'bed_elevation': 10.0},
-        {'name': 'Downstream', 'type': 'level', 'bed_elevation': 5.0, 'initial_level': 7.0}
+        {'name': 'Upstream', 'type': 'inflow', 'bed_elevation': 10.0, 'inflow': 10.0},
+        {'name': 'Downstream', 'type': 'level', 'bed_elevation': 5.0, 'level': 7.0}
     ]
 
     # 河段定义
@@ -43,7 +43,7 @@ def run_simulation():
         'time': [],
         'upstream_flow': [],
         'downstream_flow': [],
-        'midpoint_level': []
+        'downstream_level': []
     }
 
     print("Running simulation...")
@@ -54,7 +54,7 @@ def run_simulation():
         inflow = 10 + 40 * np.exp(-((time_minutes - 60)**2) / (2 * 20**2))
 
         # 更新上游边界条件
-        model.set_boundary_condition('Upstream', 'inflow', inflow)
+        model.network.get_node('Upstream').inflow = inflow
 
         # 运行一个步长
         model.step(dt)
@@ -62,12 +62,12 @@ def run_simulation():
         # 记录结果
         state = model.get_state()
         results['time'].append(i * dt / 60) # 时间单位：分钟
-        results['upstream_flow'].append(state['reaches']['MainChannel']['inflow'])
-        results['downstream_flow'].append(state['reaches']['MainChannel']['outflow'])
+        results['upstream_flow'].append(state['reaches']['MainChannel']['discharge'])
+        results['downstream_flow'].append(state['reaches']['MainChannel']['discharge']) # The new model only has one discharge value per reach
 
-        # 获取河道中点（第12个单元）的水位
-        midpoint_level = state['reaches']['MainChannel']['water_levels'][12]
-        results['midpoint_level'].append(midpoint_level)
+        # 获取下游节点的水位
+        downstream_level = state['nodes']['Downstream']['head']
+        results['downstream_level'].append(downstream_level)
     print("Simulation finished.")
 
     # 4. 绘图
@@ -81,8 +81,8 @@ def run_simulation():
     ax1.legend()
     ax1.grid(True)
 
-    # 图2：中点水位过程线
-    ax2.plot(results['time'], results['midpoint_level'], 'g-', label='河道中点水位')
+    # 图2：下游节点水位过程线
+    ax2.plot(results['time'], results['downstream_level'], 'g-', label='下游节点水位')
     ax2.set_ylabel('水位 (m)')
     ax2.set_xlabel('时间 (分钟)')
     ax2.legend()

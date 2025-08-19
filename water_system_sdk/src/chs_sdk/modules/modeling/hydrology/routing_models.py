@@ -55,25 +55,13 @@ class MuskingumModel(BaseRoutingModel):
         """
         return _muskingum_route_jitted(effective_rainfall_vector, I_prev, O_prev, params, dt)
 
-    def route_flow(self, effective_rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
+    def route_flow(self, inflow_m3_per_s: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         """
         Routes the inflow for one time step using Muskingum method.
         """
         # Get parameters from sub_basin_params, with defaults
         K = float(sub_basin_params.get("K", 24))
         x = float(sub_basin_params.get("x", 0.2))
-        area_km2 = sub_basin_params.get("area")
-
-        if area_km2 is None:
-            raise ValueError("Muskingum routing requires 'area' in sub_basin_params.")
-
-        # Convert effective rainfall (mm) over the area (km^2) to inflow (m^3/s)
-        # Rainfall (mm) -> 0.001 m
-        # Area (km^2) -> 1,000,000 m^2
-        # Volume (m^3) = effective_rainfall * 0.001 * area_km2 * 1,000,000
-        #              = effective_rainfall * area_km2 * 1000
-        # Inflow (m^3/s) = Volume / (dt * 3600)
-        inflow_m3_per_s = (effective_rainfall * area_km2 * 1000) / (dt * 3600)
 
         I_t = inflow_m3_per_s
 

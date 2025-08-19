@@ -3,8 +3,9 @@
 # 为了清晰，我们在指南中保持 ch15_ 前缀，
 # 但在实际运行时，用户需要将其重命名或修改运行脚本。
 pid_params:
-  kp: 0.1
-  ki: 0.02
-  kd: 0.05
+  Kp: 0.1
+  Ki: 0.02
+  Kd: 0.05
+  set_point: 15.0
   output_min: 0.0
   output_max: 1.0

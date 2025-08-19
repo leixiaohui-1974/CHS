@@ -13,6 +13,7 @@ class ReservoirInput(Input):
     inflow: float
     release_outflow: float
     demand_outflow: float
+    gate_inflow: float = 0.0
 
 # --- MuskingumChannelModel ---
 @dataclass
@@ -34,6 +35,7 @@ class FirstOrderInertiaState(State):
 @dataclass
 class FirstOrderInertiaInput(Input):
     inflow: float
+    control_inflow: float = 0.0
 
 
 from typing import Union, Callable
@@ -57,7 +59,7 @@ class LinearTank(BaseModel):
         Updates the water level based on mass balance.
         """
         total_outflow = self.input.release_outflow + self.input.demand_outflow
-        net_inflow = self.input.inflow - total_outflow
+        net_inflow = self.input.inflow + self.input.gate_inflow - total_outflow
         dh = (net_inflow / self.area) * dt if self.area > 0 else 0
 
         self.level += dh
@@ -172,16 +174,20 @@ class FirstOrderInertiaModel(BaseModel):
 
         def ode_func(t, y):
             outflow = y / self.time_constant if self.time_constant > 0 else 0
-            return self.input.inflow - outflow
+            total_inflow = self.input.inflow + self.input.control_inflow
+            return total_inflow - outflow
 
         self.solver = solver_class(f=ode_func, dt=dt)
         self.state.output = initial_storage / time_constant if time_constant > 0 else 0
         self.output = self.state.output # Set initial output
 
-    def step(self, t, **kwargs):
+    def step(self, t=0, dt=1.0, **kwargs):
         """
         Performs a single simulation step using the selected solver.
         """
+        if hasattr(self.state, 'output'):
+             self.state.storage = self.state.output * self.time_constant
+
         self.state.storage = self.solver.step(t, self.state.storage)
         outflow = self.state.storage / self.time_constant if self.time_constant > 0 else 0
         self.state.output = outflow

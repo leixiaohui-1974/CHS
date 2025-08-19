@@ -56,7 +56,7 @@ class ValveBase(ActuatorBase):
             # Assumes it's a callable function
             return self.cv_curve(opening)
 
-    def step(self, upstream_pressure: float, downstream_pressure: float, dt: float):
+    def step(self, upstream_pressure: float, downstream_pressure: float, dt: float, command: float = None):
         """
         Updates the valve's state and calculates flow.
 
@@ -65,6 +65,9 @@ class ValveBase(ActuatorBase):
             downstream_pressure (float): Pressure downstream of the valve.
             dt (float): Simulation time step.
         """
+        if command is not None:
+            self.set_opening(command)
+
         # First, update the actuator's physical position
         self.update(dt)
         current_opening = self.get_current_position()

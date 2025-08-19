@@ -1,9 +1,8 @@
 import numpy as np
 from chs_sdk.modules.modeling.storage_models import LinearTank
-from chs_sdk.main import SimulationEngine, SimulationMode
-from chs_sdk.agents.body_agents import TankAgent
-from chs_sdk.agents.disturbance_agents import InflowAgent
-from chs_sdk.agents.message_bus import InMemoryMessageBus as MessageBus
+from chs_sdk.core.host import AgentKernel
+from chs_sdk.modules.disturbances.timeseries_disturbance import TimeSeriesDisturbance
+from docs.guide.source.project_utils import ModelAgent
 
 def run_module_version(steps: int, area: float, initial_level: float, inflow_rate: float) -> float:
     """
@@ -23,31 +22,35 @@ def run_agent_version(steps: int, area: float, initial_level: float, inflow_rate
     Runs the simulation using the new Agent-based architecture.
     """
     print("--- Running Agent Version ---")
-    message_bus = MessageBus()
-    inflow_pattern = [inflow_rate] * steps
+    host = AgentKernel()
 
-    inflow_agent = InflowAgent(
-        agent_id="inflow_source", kernel=None, topic="inflow/tank1",
-        rainfall_pattern=inflow_pattern
+    host.add_agent(
+        agent_class=ModelAgent,
+        agent_id='tank1',
+        model_class=LinearTank,
+        area=area,
+        initial_level=initial_level
     )
 
-    tank_agent = TankAgent(
-        agent_id="tank1", kernel=None, area=area, initial_level=initial_level,
-        inflow_topic="inflow/tank1",
-        state_topic="state/tank1"
+    host.add_agent(
+        agent_class=ModelAgent,
+        agent_id='inflow_source',
+        model_class=TimeSeriesDisturbance,
+        times=[0, steps],
+        values=[inflow_rate, inflow_rate]
     )
 
-    engine = SimulationEngine(
-        mode=SimulationMode.SIL, agents=[inflow_agent, tank_agent], message_bus=message_bus
-    )
+    tank_agent = host._agents['tank1']
+    inflow_agent = host._agents['inflow_source']
 
-    inflow_agent.kernel = engine
-    tank_agent.kernel = engine
+    tank_agent.subscribe(f"{inflow_agent.agent_id}/output", 'inflow')
 
-    inflow_agent.setup()
-    tank_agent.setup()
-
-    engine.run(duration_seconds=steps, time_step_seconds=1.0)
+    host.start(time_step=1.0)
+    for _ in range(steps):
+        inflow_agent.on_execute(host.current_time, host.time_step)
+        host.message_bus.dispatch()
+        tank_agent.on_execute(host.current_time, host.time_step)
+        host.current_time += host.time_step
 
     final_level = tank_agent.model.level
     print(f"Final level (Agent Version): {final_level:.4f}")

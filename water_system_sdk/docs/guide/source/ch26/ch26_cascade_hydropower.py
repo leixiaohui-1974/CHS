@@ -1,14 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
-# This is a simple way to make the SDK accessible to the script.
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
-
-from chs_sdk.core.host import Host
+from chs_sdk.core.host import AgentKernel as Host
 from chs_sdk.modules.modeling.storage_models import LinearTank, MuskingumChannelModel
 from chs_sdk.modules.modeling.control_structure_models import HydropowerStationModel
+from project_utils import ModelAgent, EulerMethod
 
 def run_simulation():
     """
@@ -18,71 +15,101 @@ def run_simulation():
     host = Host()
 
     # 1. 创建组件
-    res1 = LinearTank(name='Reservoir1', area=5e6, initial_level=100.0)
-    hs1 = HydropowerStationModel(name='HydroStation1', max_flow_area=50.0, discharge_coeff=0.9, efficiency=0.85)
+    host.add_agent(
+        agent_class=ModelAgent,
+        agent_id='Reservoir1',
+        model_class=LinearTank,
+        area=5e6,
+        initial_level=100.0)
+    host.add_agent(
+        agent_class=ModelAgent,
+        agent_id='HydroStation1',
+        model_class=HydropowerStationModel,
+        max_flow_area=50.0,
+        discharge_coeff=0.9,
+        efficiency=0.85)
+    host.add_agent(
+        agent_class=ModelAgent,
+        agent_id='RiverReach',
+        model_class=MuskingumChannelModel,
+        K=6*3600.0,
+        x=0.2,
+        dt=1800.0,
+        initial_inflow=10,
+        initial_outflow=10)
+    host.add_agent(
+        agent_class=ModelAgent,
+        agent_id='Reservoir2',
+        model_class=LinearTank,
+        area=4e6,
+        initial_level=50.0)
+    host.add_agent(
+        agent_class=ModelAgent,
+        agent_id='HydroStation2',
+        model_class=HydropowerStationModel,
+        max_flow_area=50.0,
+        discharge_coeff=0.9,
+        efficiency=0.85)
 
-    reach = MuskingumChannelModel(name='RiverReach', K=6*3600.0, x=0.2, dt=1800.0, initial_inflow=10, initial_outflow=10) # 6小时传播时间
+    # 2. 建立连接
+    res1 = host._agents['Reservoir1']
+    hs1 = host._agents['HydroStation1']
+    reach = host._agents['RiverReach']
+    res2 = host._agents['Reservoir2']
+    hs2 = host._agents['HydroStation2']
 
-    res2 = LinearTank(name='Reservoir2', area=4e6, initial_level=50.0)
-    hs2 = HydropowerStationModel(name='HydroStation2', max_flow_area=50.0, discharge_coeff=0.9, efficiency=0.85)
+    hs1.subscribe(f"{res1.agent_id}/level", 'upstream_level')
+    res1.subscribe(f"{hs1.agent_id}/output", 'release_outflow')
+    reach.subscribe(f"{hs1.agent_id}/output", 'inflow')
+    res2.subscribe(f"{reach.agent_id}/output", 'inflow')
+    hs2.subscribe(f"{res2.agent_id}/level", 'upstream_level')
+    res2.subscribe(f"{hs2.agent_id}/output", 'release_outflow')
 
-    # 2. 添加到主机
-    host.add_agents([res1, hs1, reach, res2, hs2])
-
-    # 3. 连接
-    # 上游梯级
-    hs1.set_input('upstream_level', res1.get_port('level'))
-    hs1.set_input('downstream_level', 55.0) # 假设上游尾水位
-    host.add_connection('HydroStation1', 'flow', 'Reservoir1', 'release_outflow')
-    # 梯级间连接
-    host.add_connection('HydroStation1', 'flow', 'RiverReach', 'inflow')
-    host.add_connection('RiverReach', 'outflow', 'Reservoir2', 'inflow')
-    # 下游梯级
-    hs2.set_input('upstream_level', res2.get_port('level'))
-    hs2.set_input('downstream_level', 15.0) # 假设下游尾水位
-    host.add_connection('HydroStation2', 'flow', 'Reservoir2', 'release_outflow')
-
-    # 4. 仿真循环与开环调度
+    # 3. 仿真循环与开环调度
     dt_seconds = 1800.0
-    num_steps = int(48 * 3600 / dt_seconds) # 模拟48小时
+    num_steps = int(48 * 3600 / dt_seconds)
+    results = []
+    host.start(time_step=dt_seconds)
 
-    print("Running cascade hydropower simulation...")
     for i in range(num_steps):
         current_hour = (i * dt_seconds / 3600) % 24
 
-        # 预设的调度计划
         if 8 <= current_hour < 20:
-            # 白天高峰发电
             vane_opening = 0.9
         else:
-            # 夜间低谷发电
             vane_opening = 0.2
 
-        hs1.set_input('vane_opening', vane_opening)
-        hs2.set_input('vane_opening', vane_opening) # 下游尝试执行相同计划
+        hs1.input_values['vane_opening'] = vane_opening
+        hs1.input_values['downstream_level'] = 55.0
+        hs2.input_values['vane_opening'] = vane_opening
+        hs2.input_values['downstream_level'] = 15.0
 
-        host.step(dt=dt_seconds)
-    print("Simulation finished.")
+        host.tick()
 
-    # 5. 绘图
-    results_df = host.get_datalogger().get_as_dataframe()
-    time_hours = results_df.index * dt_seconds / 3600
+        results.append({
+            'time': host.current_time,
+            'Reservoir1.level': res1.model.level,
+            'Reservoir2.level': res2.model.level,
+            'HydroStation1.flow': hs1.model.flow,
+            'RiverReach.outflow': reach.model.output
+        })
+
+    # 4. 绘图
+    results_df = pd.DataFrame(results)
+    time_hours = results_df['time'] / 3600
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 10), sharex=True)
     fig.suptitle('第二十六章: 梯级水电站联动仿真', fontsize=16)
 
-    # 图1: 流量对比
     ax1.plot(time_hours, results_df['HydroStation1.flow'], 'b-', label='上游电站出流')
     ax1.plot(time_hours, results_df['RiverReach.outflow'], 'r--', label='下游水库入流 (滞后)')
     ax1.set_ylabel('流量 (m³/s)'); ax1.legend(); ax1.grid(True)
 
-    # 图2: 水位对比
     ax2.plot(time_hours, results_df['Reservoir1.level'], 'b-', label='上游水库水位')
     ax2b = ax2.twinx()
     ax2b.plot(time_hours, results_df['Reservoir2.level'], 'g--', label='下游水库水位 (右轴)')
     ax2.set_xlabel('时间 (小时)'); ax2.set_ylabel('上游水位 (m)'); ax2b.set_ylabel('下游水位 (m)')
 
-    # 合并图例
     lines, labels = ax2.get_legend_handles_labels()
     lines2, labels2 = ax2b.get_legend_handles_labels()
     ax2.legend(lines + lines2, labels + labels2, loc='best')

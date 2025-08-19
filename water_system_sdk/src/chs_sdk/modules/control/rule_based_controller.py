@@ -1,4 +1,4 @@
-from chs_sdk.modeling.base_model import BaseModel
+from chs_sdk.modules.modeling.base_model import BaseModel
 
 class RuleBasedOperationalController(BaseModel):
     def __init__(self, rules: list, default_actions: dict, **kwargs):

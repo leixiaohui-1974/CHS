@@ -102,14 +102,15 @@ class Reach:
     def __init__(self, from_id, to_id, model_name, params):
         self.from_id = from_id
         self.to_id = to_id
+        self.params = params
 
         if model_name not in ROUTING_MODEL_MAP:
             raise ValueError(f"Routing model '{model_name}' not found for reach {from_id}->{to_id}")
 
-        self.routing_model = ROUTING_MODEL_MAP[model_name](params)
+        self.routing_model = ROUTING_MODEL_MAP[model_name](**params)
 
-    def route(self, inflow):
-        return self.routing_model.route(inflow)
+    def route(self, inflow, dt):
+        return self.routing_model.route_flow(inflow, self.params, dt)
 
 # --- Main Orchestrator ---
 
@@ -183,9 +184,13 @@ class Basin:
     def run_simulation(self):
         """Runs the full hydrological simulation."""
         dt_hours = self.timeseries_data["time_step_hours"]
-        num_steps = len(self.timeseries_data["data"]["SubBasin1"]["precipitation_mm"])
+        first_sub_basin = next((el for el in self.simulation_order if isinstance(self.elements[el], SubBasin)), None)
+        if not first_sub_basin:
+            raise ValueError("No sub-basins found in the simulation.")
+        num_steps = len(self.timeseries_data["data"][first_sub_basin]["precipitation_mm"])
 
-        results = {el_id: np.zeros(num_steps) for el_id in self.elements}
+        all_ids = list(self.elements.keys()) + self.topology_data.get("sinks", [])
+        results = {el_id: np.zeros(num_steps) for el_id in all_ids}
 
         for t in range(num_steps):
             for element_id in self.simulation_order:
@@ -203,7 +208,7 @@ class Basin:
                 # Now, route this total flow through the reach to the next element
                 if element_id in self.reaches:
                     reach = self.reaches[element_id]
-                    routed_outflow = reach.route(total_inflow_to_element_outlet)
+                    routed_outflow = reach.route(total_inflow_to_element_outlet, dt_hours)
 
                     # Add the routed flow to the downstream element's inflow for the next step
                     downstream_element = self.elements[reach.to_id]

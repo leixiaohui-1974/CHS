@@ -2,9 +2,11 @@ import argparse
 import yaml
 import pandas as pd
 import os
-from water_system_simulator.simulation_manager import SimulationManager
+import sys
+from chs_sdk.simulation_manager import SimulationManager
 
 def main():
+    print("sys.path:", sys.path)
     """
     A generic command-line runner for CHS simulation cases.
     """
