@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  scada_dispatch:
+    build:
+      context: ./chs-scada-dispatch
+    ports:
+      - "8001:8001"
+    command: uvicorn app:app --host 0.0.0.0 --port 8001
+    volumes:
+      - ./chs-scada-dispatch:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  twin_factory:
+    build:
+      context: ./chs-twin-factory
+    ports:
+      - "8002:8002"
+    command: uvicorn backend.app:app --host 0.0.0.0 --port 8002 --root-path /app/backend
+    volumes:
+      - ./chs-twin-factory:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  hmi:
+    build:
+      context: ./chs-hmi
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./chs-hmi:/app
+      - /app/node_modules
+    # The default command for the node image is `npm start`,
+    # which is what `react-scripts` uses.
+    # We assume the Dockerfile in chs-hmi handles the `npm install`.
+    environment:
+      - CHOKIDAR_USEPOLLING=true # For hot-reloading in Docker
+      - REACT_APP_SCADA_API_URL=http://localhost:8001
+      - REACT_APP_TWIN_FACTORY_API_URL=http://localhost:8002

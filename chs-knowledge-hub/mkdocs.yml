@@ -17,8 +17,13 @@ plugins:
 
 nav:
   - '首页': 'index.md'
+  - '部署指南': 'deployment_guide.md'
   - '教程':
     - '入门教程': 'sdk_tutorials/getting_started.md'
+    - '核心模型指南':
+      - '线性水库 (LinearTank)': 'notebooks/02_Core_Model_LinearTank.ipynb'
+      - '非线性水库 (NonlinearTank)': 'notebooks/03_Core_Model_NonlinearTank.ipynb'
+      - '马斯京根模型 (Muskingum)': 'notebooks/04_Core_Model_Muskingum.ipynb'
     - '高级教程':
       - '使用MPC进行预测控制': 'sdk_tutorials/advanced_mpc.md'
       - '多智能体协同': 'sdk_tutorials/multi_agent_collaboration.md'
@@ -32,6 +37,8 @@ nav:
     - '核心智能体': 'api_reference/core_agents.md'
     - 'Host': 'api_reference/host.md'
     - 'Modeling': 'api_reference/modeling.md'
+    - 'SCADA Dispatch API': 'api_reference/scada_dispatch_api.md'
+    - 'Twin Factory API': 'api_reference/twin_factory_api.md'
   - '社区':
     - '社区中心': 'community.md'
     - '贡献指南': 'contributing.md'

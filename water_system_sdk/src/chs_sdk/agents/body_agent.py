@@ -1,11 +1,12 @@
 from __future__ import annotations
 from typing import Dict, Any, List
-from .base_agent import BaseEmbodiedAgent
+from .base import BaseAgent
+from .message import StateUpdateMessage
 from ..modeling.base_model import BaseModel
 from scipy.optimize import fsolve
 import numpy as np
 
-class BodyAgent(BaseEmbodiedAgent):
+class BodyAgent(BaseAgent):
     """
     The core of the new architecture, the "Agent Factory".
 
@@ -22,6 +23,8 @@ class BodyAgent(BaseEmbodiedAgent):
        virtual environment for testing the agents it generates.
     """
     def __init__(self,
+                 agent_id: str,
+                 kernel: 'AgentKernel',
                  core_physics_model: BaseModel,
                  sensors: Dict[str, BaseModel],
                  actuators: Dict[str, BaseModel],
@@ -34,7 +37,7 @@ class BodyAgent(BaseEmbodiedAgent):
             sensors: A dictionary of sensor models for perception.
             actuators: A dictionary of actuator models for action.
         """
-        super().__init__(**kwargs)
+        super().__init__(agent_id=agent_id, kernel=kernel, **kwargs)
         self.core_physics_model = core_physics_model
         self.sensors = sensors
         self.actuators = actuators
@@ -52,24 +55,44 @@ class BodyAgent(BaseEmbodiedAgent):
         return np.array([])
 
 
-    def step(self, dt: float, **kwargs):
+    def on_execute(self, current_time: float, time_step: float, **kwargs):
         """
-        Drives the internal physics model based on the current mode.
+        Drives the internal physics model and reports state.
+        This is the main entry point when run by an AgentKernel.
         """
         if not self.core_physics_model:
             return
 
-        if self.mode == 'dynamic':
-            # Standard time-stepping simulation
-            self.core_physics_model.step(dt=dt, **kwargs)
-        elif self.mode == 'steady_state':
-            # Solve for the steady-state equilibrium
-            self.solve_steady_state(**kwargs)
-        elif self.mode == 'transient':
-            # Placeholder for transient simulation (e.g., water hammer)
-            print("WARNING: Transient mode is not yet implemented.")
-            pass
-        # TODO: Implement data assimilation logic here for live twin mode.
+        # For now, we assume dynamic mode when run by kernel.
+        # A more robust implementation might use the agent's FSM to manage modes.
+        self.core_physics_model.step(dt=time_step, **kwargs)
+
+        # Report state after execution
+        self.report_state()
+
+    def report_state(self):
+        """
+        Publishes the current state of the core physics model to the message bus.
+        """
+        if not hasattr(self.core_physics_model, 'get_state'):
+            return
+
+        current_state = self.core_physics_model.get_state()
+        topic = f"state/update/{self.agent_id}"
+        message = StateUpdateMessage(
+            topic=topic,
+            sender_id=self.agent_id,
+            payload=current_state
+        )
+        self._publish(message.topic, message.payload)
+
+
+    def step(self, dt: float, **kwargs):
+        """
+        Legacy step method for compatibility with SimulationManager.
+        Delegates to on_execute.
+        """
+        self.on_execute(current_time=0, time_step=dt, **kwargs)
 
     def solve_steady_state(self, **kwargs):
         """
