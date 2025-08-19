@@ -74,6 +74,31 @@ class OneWayPingAgent(BaseAgent):
     def shutdown(self):
         pass
 
+# --- Utility Agents ---
+
+class LoggerAgent(BaseAgent):
+    """
+    A utility agent that subscribes to a topic and records all message
+    payloads it receives into a history list.
+    """
+    def __init__(self, agent_id: str, kernel: 'AgentKernel', **config):
+        super().__init__(agent_id, kernel, **config)
+        self.topic_to_subscribe = config.get("topic_to_subscribe", "default/topic")
+        self.history = []
+
+    def setup(self):
+        super().setup()
+        self.kernel.message_bus.subscribe(self, self.topic_to_subscribe)
+
+    def on_execute(self, current_time: float, time_step: float):
+        pass # Purely reactive
+
+    def on_message(self, message: Message):
+        self.history.append(message.payload)
+
+    def shutdown(self):
+        pass
+
 
 class OneWayPongAgent(BaseAgent):
     """An agent that listens on 'test/ping' and records the last message it received."""
