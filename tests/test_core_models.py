@@ -7,6 +7,7 @@ import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from water_system_sdk.src.chs_sdk.modules.modeling.storage_models import LinearTank, MuskingumChannelModel, NonlinearTank
+from water_system_sdk.src.chs_sdk.modules.modeling.hydrology.runoff_models import SCSRunoffModel
 
 class TestCoreModels(unittest.TestCase):
 
@@ -148,4 +149,37 @@ class TestCoreModels(unittest.TestCase):
             model.level,
             places=5,
             msg="NonlinearTank level did not interpolate correctly."
+        )
+
+    def test_scs_runoff_model(self):
+        """
+        Tests the SCSRunoffModel for correct runoff calculation.
+        """
+        # 1. Setup
+        model = SCSRunoffModel()
+        cn = 80
+        params = {"CN": cn}
+
+        # 2. Manual calculation for verification
+        s = (1000 / cn) - 10  # (1000 / 80) - 10 = 12.5 - 10 = 2.5
+        ia = 0.2 * s          # 0.2 * 2.5 = 0.5
+
+        # 3. Test Case 1: Rainfall is less than initial abstraction (no runoff)
+        low_rainfall = 0.4
+        runoff1 = model.calculate_runoff(rainfall=low_rainfall, sub_basin_params=params, dt=1)
+        self.assertEqual(runoff1, 0, "Runoff should be 0 when rainfall < Ia")
+
+        # 4. Test Case 2: Rainfall is greater than initial abstraction (runoff occurs)
+        high_rainfall = 2.0
+
+        # Manually calculate expected runoff
+        expected_runoff = ((high_rainfall - ia) ** 2) / (high_rainfall - ia + s)
+        # expected_runoff = (2.0 - 0.5)^2 / (2.0 - 0.5 + 2.5) = 1.5^2 / 4.0 = 2.25 / 4.0 = 0.5625
+
+        runoff2 = model.calculate_runoff(rainfall=high_rainfall, sub_basin_params=params, dt=1)
+        self.assertAlmostEqual(
+            expected_runoff,
+            runoff2,
+            places=7,
+            msg="SCS model calculation is incorrect for P > Ia"
         )
