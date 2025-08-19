@@ -6,7 +6,7 @@ import numpy as np
 # Add the parent directory to the path to allow imports from chs_sdk
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from water_system_sdk.src.chs_sdk.modules.modeling.storage_models import LinearTank, MuskingumChannelModel
+from water_system_sdk.src.chs_sdk.modules.modeling.storage_models import LinearTank, MuskingumChannelModel, NonlinearTank
 
 class TestCoreModels(unittest.TestCase):
 
@@ -96,3 +96,56 @@ class TestCoreModels(unittest.TestCase):
         # 8. Assert the output is correct
         self.assertAlmostEqual(expected_outflow, actual_outflow, places=7,
                                msg="Muskingum model did not route the flow correctly.")
+
+    def test_nonlinear_tank_mass_balance(self):
+        """
+        Tests the NonlinearTank model for correct mass balance and interpolation.
+        """
+        # 1. Setup
+        # A simple curve where level 10m=1000m3, 20m=8000m3 (like a V-shape trough or pyramid)
+        level_volume_curve = np.array([
+            [10.0, 20.0, 30.0],  # levels (m)
+            [1000.0, 8000.0, 27000.0]  # volumes (m^3)
+        ])
+        initial_level = 20.0
+
+        inflow = 50.0  # m^3/s
+        outflow = 10.0 # m^3/s
+        dt = 60.0      # s
+
+        # 2. Instantiate the model
+        model = NonlinearTank(
+            level_to_volume=level_volume_curve,
+            initial_level=initial_level
+        )
+
+        # 3. Check initial state
+        initial_volume = np.interp(initial_level, level_volume_curve[0], level_volume_curve[1])
+        self.assertAlmostEqual(initial_volume, model.volume, places=5)
+
+        # 4. Set inputs and run one step
+        model.input.inflow = inflow
+        model.input.release_outflow = outflow
+        model.step(dt=dt)
+
+        # 5. Calculate expected result
+        net_inflow = inflow - outflow  # 40 m^3/s
+        volume_change = net_inflow * dt  # 40 * 60 = 2400 m^3
+        expected_final_volume = initial_volume + volume_change # 8000 + 2400 = 10400 m^3
+
+        # Manually interpolate to find the expected level
+        expected_final_level = np.interp(expected_final_volume, level_volume_curve[1], level_volume_curve[0])
+
+        # 6. Assert final state
+        self.assertAlmostEqual(
+            expected_final_volume,
+            model.volume,
+            places=5,
+            msg="NonlinearTank volume did not conserve mass correctly."
+        )
+        self.assertAlmostEqual(
+            expected_final_level,
+            model.level,
+            places=5,
+            msg="NonlinearTank level did not interpolate correctly."
+        )
