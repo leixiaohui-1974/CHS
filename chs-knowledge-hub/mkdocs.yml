@@ -27,6 +27,8 @@ nav:
       - 'SCS产流模型 (SCSRunoff)': 'notebooks/05_Hydrology_SCSRunoff.ipynb'
       - '新安江模型 (Xinanjiang)': 'notebooks/06_Hydrology_Xinanjiang.ipynb'
       - '产流系数法 (RunoffCoefficient)': 'notebooks/07_Hydrology_RunoffCoefficient.ipynb'
+      - 'PID控制器 (PIDController)': 'notebooks/08_Control_PIDController.ipynb'
+      - '模型预测控制 (MPCController)': 'notebooks/09_Control_MPCController.ipynb'
     - '高级教程':
       - '使用MPC进行预测控制': 'sdk_tutorials/advanced_mpc.md'
       - '多智能体协同': 'sdk_tutorials/multi_agent_collaboration.md'
