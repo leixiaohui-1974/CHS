@@ -2,7 +2,7 @@ import argparse
 import yaml
 import pandas as pd
 import os
-from water_system_simulator.simulation_manager import SimulationManager
+from chs_sdk.simulation_manager import SimulationManager
 
 def main():
     """
@@ -67,7 +67,7 @@ def main():
     except Exception as e:
         print(f"\nAn error occurred during simulation: {e}")
         # Optionally, re-raise for debugging
-        # raise
+        raise
 
 if __name__ == "__main__":
     main()

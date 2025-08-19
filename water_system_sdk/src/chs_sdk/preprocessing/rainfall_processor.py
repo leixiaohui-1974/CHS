@@ -1,29 +1,40 @@
+import logging
 import pandas as pd
-from typing import Dict, Any
-from chs_sdk.modeling.base_model import BaseModel
+from typing import Dict, TYPE_CHECKING
+from chs_sdk.modules.modeling.base_model import BaseModel
 from chs_sdk.preprocessing.interpolators import BaseSpatialInterpolator
 from chs_sdk.preprocessing.structures import RainGauge
 
+if TYPE_CHECKING:
+    from chs_sdk.simulation_manager import SimulationManager
 
-class RainfallProcessor(BaseModel):
+
+class RainfallProcessor:
     """
     A preprocessing component that generates spatially distributed rainfall
     for hydrological models using a specified interpolation strategy.
+
+    This component runs before the main simulation loop to prepare all necessary
+    rainfall data.
     """
 
-    def __init__(self, strategy: BaseSpatialInterpolator, source_dataset: str, **kwargs):
+    def __init__(self, strategy: BaseSpatialInterpolator, source_dataset: str, id: str, **kwargs):
         """
         Initializes the RainfallProcessor.
 
         Args:
-            strategy (BaseSpatialInterpolator): The interpolation algorithm to use.
+            strategy (BaseSpatialInterpolator): An instance of an interpolation
+                                                algorithm to use (e.g., KrigingInterpolator).
             source_dataset (str): The key of the rain gauge dataset in the main
                                   simulation config's 'datasets' section.
-            **kwargs: Additional keyword arguments for the BaseModel.
+            id (str): The unique identifier for this component.
+            **kwargs: Additional keyword arguments.
         """
-        super().__init__(**kwargs)
+        if not isinstance(strategy, BaseSpatialInterpolator):
+            raise TypeError("The 'strategy' must be an instance of a class that inherits from BaseSpatialInterpolator.")
         self.strategy = strategy
         self.source_dataset = source_dataset
+        self.id = id
         self.interpolated_rainfall: pd.DataFrame = None
 
     def run_preprocessing(self, sim_manager: 'SimulationManager'):
@@ -36,16 +47,19 @@ class RainfallProcessor(BaseModel):
                                              providing access to the config and
                                              other components.
         """
+        logging.info(f"[{self.id}] Running rainfall preprocessing...")
         # 1. Load rain gauge data from the config
         try:
-            gauge_configs = sim_manager.config['datasets'][self.source_dataset]
+            # Access datasets via attribute on the Pydantic config model
+            gauge_configs = sim_manager.config.datasets[self.source_dataset]
+            logging.info(f"[{self.id}] Found {len(gauge_configs)} rain gauges in dataset '{self.source_dataset}'.")
         except KeyError:
+            logging.error(f"Dataset '{self.source_dataset}' not found in config's 'datasets' section.")
             raise ValueError(f"Dataset '{self.source_dataset}' not found in config's 'datasets' section.")
 
         rain_gauges = []
         for gauge_info in gauge_configs:
             try:
-                # Assuming time_series_path is relative to the execution directory
                 ts_df = pd.read_csv(
                     gauge_info['time_series_path'],
                     index_col=0,
@@ -59,33 +73,39 @@ class RainfallProcessor(BaseModel):
                     )
                 )
             except FileNotFoundError:
-                raise FileNotFoundError(f"Rainfall data file not found at: {gauge_info['time_series_path']}")
+                logging.error(f"Rainfall data file not found at: {gauge_info['time_series_path']}")
+                raise
             except Exception as e:
-                raise IOError(f"Error reading data for gauge {gauge_info['id']}: {e}")
+                logging.error(f"Error reading data for gauge {gauge_info['id']}: {e}")
+                raise IOError(f"Error reading data for gauge {gauge_info['id']}") from e
 
-        # 2. Collect target locations from all hydrological models in the simulation
+        # 2. Collect target locations (sub-basin centroids) from all hydrological models
         target_locations = {}
-        # This requires a way to identify hydrological models. For now, we assume
-        # they have a 'sub_basins' attribute. This might need refinement.
-        for name, component in sim_manager.components.items():
-            if hasattr(component, 'sub_basins'):
+        # This assumes hydrological models have a 'sub_basins' attribute.
+        for component in sim_manager.components.values():
+            if hasattr(component, 'sub_basins') and isinstance(getattr(component, 'sub_basins'), list):
                 for sub_basin in component.sub_basins:
-                    # Assuming sub_basin has 'id' and 'coords' attributes
-                    target_locations[sub_basin.id] = sub_basin.coords
+                    if hasattr(sub_basin, 'id') and hasattr(sub_basin, 'coords'):
+                        target_locations[sub_basin.id] = sub_basin.coords
+                    else:
+                        logging.warning(f"Component '{component.id}' has a sub-basin object without 'id' or 'coords'.")
 
         if not target_locations:
-            raise ValueError("No target locations (sub-basins with coordinates) found in any component.")
+            logging.error("No target locations (sub-basins with centroids) found in any component.")
+            raise ValueError("No target locations (sub-basins with centroids) found in any component.")
+        logging.info(f"[{self.id}] Found {len(target_locations)} target locations for interpolation.")
 
         # 3. Call the interpolation strategy
+        logging.info(f"[{self.id}] Applying '{self.strategy.__class__.__name__}' interpolation strategy.")
         self.interpolated_rainfall = self.strategy.interpolate(
             rain_gauges=rain_gauges,
             target_locations=target_locations
         )
+        logging.info(f"[{self.id}] Rainfall interpolation complete. Result shape: {self.interpolated_rainfall.shape}")
 
-    def get_state(self):
+    def get_state(self) -> Dict:
         """
         Exposes the component's state. The interpolated_rainfall is the primary output.
         """
-        state = super().get_state()
-        state['interpolated_rainfall'] = self.interpolated_rainfall
+        state = {"interpolated_rainfall": self.interpolated_rainfall}
         return state

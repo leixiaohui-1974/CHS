@@ -1,7 +1,7 @@
 import pandas as pd
 from typing import List, Union
-from chs_sdk.modeling.base_model import BaseModel
-from chs_sdk.modeling.hydrology.sub_basin import SubBasin
+from chs_sdk.modules.modeling.base_model import BaseModel
+from chs_sdk.modules.modeling.hydrology.sub_basin import SubBasin
 from .strategies import BaseRunoffModel, BaseRoutingModel
 
 
@@ -29,6 +29,9 @@ class SemiDistributedHydrologyModel(BaseModel):
         self.routing_strategy = routing_strategy
         self.output = 0.0
         self.input_rainfall: Union[pd.DataFrame, None] = None
+
+        # Create and store SubBasin objects so other components can inspect them
+        self.sub_basins = [SubBasin(**sb_data) for sb_data in sub_basins]
 
         # --- Vectorization Setup ---
         num_basins = len(sub_basins)
@@ -62,12 +65,28 @@ class SemiDistributedHydrologyModel(BaseModel):
         """
         Executes a single time step for the entire watershed model using vectorized operations.
         """
-        # For now, we assume uniform precipitation for the vectorized version
-        precipitation_per_hour = kwargs.get('precipitation', 0.0)
-        precipitation_mm = precipitation_per_hour * dt
+        precip_vector = np.zeros(self.num_basins, dtype=np.float32)
+        if self.input_rainfall is not None and not self.input_rainfall.empty:
+            # Find the row corresponding to the current time t
+            # We use a tolerance to handle potential floating point inaccuracies
+            time_slice = self.input_rainfall[np.isclose(self.input_rainfall.index.values, t)]
+            if not time_slice.empty:
+                # Get the rainfall for each sub-basin by its ID
+                sub_basin_ids = [sb.id for sb in self.sub_basins]
+                # Ensure all sub-basin IDs are present in the dataframe columns
+                if all(sid in time_slice.columns for sid in sub_basin_ids):
+                    precip_values = time_slice[sub_basin_ids].iloc[0].values
+                    # The input is assumed to be in mm/hr, convert to mm for the time step
+                    precip_vector = precip_values * dt
+                else:
+                    # Fallback or error if a sub-basin's data is missing
+                    pass # Defaulting to zeros
+        else:
+            # Fallback to uniform precipitation if no spatial data is provided
+            uniform_precip_per_hour = kwargs.get('precipitation', 0.0)
+            uniform_precip_mm = uniform_precip_per_hour * dt
+            precip_vector = np.full(self.num_basins, uniform_precip_mm, dtype=np.float32)
 
-        # Create a vector of precipitation for all sub-basins
-        precip_vector = np.full(self.num_basins, precipitation_mm, dtype=np.float32)
 
         # 1. Call the (vectorized) runoff strategy
         effective_rainfall_mm, self.runoff_state_W = self.runoff_strategy.calculate_runoff_vectorized(
