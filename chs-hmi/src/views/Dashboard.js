@@ -10,7 +10,7 @@ import {
   saveDashboardLayout,
 } from '../services/apiService';
 import { Responsive, WidthProvider } from 'react-grid-layout';
-import websocketService from '../services/websocketService';
+import scadaSocketService from '../services/scadaSocketService';
 import DeviceCard from '../components/DeviceCard';
 import EventList from '../components/EventList';
 import Modal from '../components/Modal';
@@ -58,6 +58,39 @@ const Dashboard = forwardRef(({ isEditMode, activeView, setActiveView }, ref) =>
       }
     },
   }));
+
+  // Effect for WebSocket connection and real-time updates
+  useEffect(() => {
+    // Initial data fetch
+    const initialLoad = async () => {
+      try {
+        const status = await fetchSystemStatus();
+        setSystemStatus(status);
+        const eventData = await fetchEvents();
+        setEvents(eventData);
+      } catch (err) {
+        setError(`Failed to fetch initial data: ${err.message}`);
+      }
+    };
+    initialLoad();
+
+    // Connect to the socket and set up listeners
+    scadaSocketService.connect(user);
+
+    scadaSocketService.onStatusUpdate((newStatus) => {
+      setSystemStatus(newStatus);
+    });
+
+    scadaSocketService.onDecisionRequest((data) => {
+      setDecisionRequests((prev) => ({ ...prev, [data.target_device_id]: data }));
+    });
+
+    // Cleanup on unmount
+    return () => {
+      scadaSocketService.disconnect();
+    };
+  }, [user]);
+
 
   // --- STYLES ---
   const devicesContainerStyle = {
