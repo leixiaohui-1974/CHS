@@ -55,3 +55,4 @@ class Disturbance(BaseModel):
     def get_state(self):
         """Returns the current state of the component."""
         return self.state.__dict__
+

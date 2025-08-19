@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 from chs_sdk.modules.modeling.pipeline_model import PipelineModel
 
 def run_simulation():
@@ -46,7 +48,7 @@ def run_simulation():
 
     color = 'tab:blue'
     ax1.set_xlabel('时间 (秒)')
-    ax1.set_ylabel('流量 (m³/s)', color=color)
+    ax1.set_ylabel('流量 (m^3/s)', color=color)
     ax1.plot(results['time'], results['flow'], color=color)
     ax1.tick_params(axis='y', labelcolor=color)
     ax1.grid(True)

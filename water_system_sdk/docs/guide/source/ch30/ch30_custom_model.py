@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 import pandas as pd
 
 from chs_sdk.core.host import AgentKernel as Host

@@ -1,5 +1,6 @@
-import numpy as np
 import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 import pandas as pd
 import sys
 import os
@@ -109,13 +110,13 @@ def run_simulation():
     ax2.set_xlabel('时间 (秒)'); ax2.set_ylabel('调度指令'); ax2.legend(); ax2.grid(True)
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-
-    output_dir = 'results/ch20'
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, 'ch20_rule_based_dispatch.png')
-    plt.savefig(output_path)
-    plt.close()
-    print(f"Plot saved to {output_path}")
+    plt.show()
+    # output_dir = 'results/ch20'
+    # os.makedirs(output_dir, exist_ok=True)
+    # output_path = os.path.join(output_dir, 'ch20_rule_based_dispatch.png')
+    # plt.savefig(output_path)
+    # plt.close()
+    # print(f"Plot saved to {output_path}")
 
 if __name__ == "__main__":
     run_simulation()

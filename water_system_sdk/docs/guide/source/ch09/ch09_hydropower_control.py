@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 import pandas as pd
 
 from chs_sdk.core.host import AgentKernel as Host
@@ -81,7 +83,7 @@ def run_simulation():
 
     # 图2：水电站流量
     ax2.plot(results_df['time'], results_df['HydroStation.flow'], 'c-', label='水电站流量')
-    ax2.set_ylabel('流量 (m³/s)')
+    ax2.set_ylabel('流量 (m^3/s)')
     ax2.legend()
     ax2.grid(True)
 

@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 import numpy as np
 import pandas as pd
 
@@ -100,7 +102,7 @@ def run_simulation():
 
     ax2b = ax2.twinx()
     ax2b.plot(results_df['time'] / 3600, results_df['Demand.value'].abs(), 'c:', label='城市需水量')
-    ax2b.set_ylabel('流量 (m³/s)'); ax2b.legend(loc='upper right');
+    ax2b.set_ylabel('流量 (m^3/s)'); ax2b.legend(loc='upper right');
     ax2.set_xlabel('时间 (小时)')
     ax2.grid(True)
 

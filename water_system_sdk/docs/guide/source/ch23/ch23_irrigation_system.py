@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 import pandas as pd
 
 from chs_sdk.core.host import AgentKernel as Host
@@ -125,7 +127,7 @@ def run_simulation():
     plt.plot(results_df['time'] / 60, results_df['MainCanal.outflow'], label='干渠出口流量')
     plt.plot(results_df['time'] / 60, results_df['BranchCanal1.outflow'], label='支渠1 出口流量')
     plt.plot(results_df['time'] / 60, results_df['BranchCanal2.outflow'], label='支渠2 出口流量')
-    plt.xlabel('时间 (分钟)'); plt.ylabel('流量 (m³/s)'); plt.legend(); plt.grid(True)
+    plt.xlabel('时间 (分钟)'); plt.ylabel('流量 (m^3/s)'); plt.legend(); plt.grid(True)
     plt.show()
 
 if __name__ == "__main__":

@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 import numpy as np
 import pandas as pd
 
@@ -82,7 +84,7 @@ def run_simulation():
 
     # 图2：流量
     ax2.plot(results_df['time'] / 3600, results_df['FloodInflow.value'], 'c-', label='入库流量')
-    ax2.set_ylabel('流量 (m³/s)')
+    ax2.set_ylabel('流量 (m^3/s)')
     ax2.set_xlabel('时间 (小时)')
     ax2.legend()
     ax2.grid(True)

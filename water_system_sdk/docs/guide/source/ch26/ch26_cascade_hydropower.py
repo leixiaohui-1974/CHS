@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
-import numpy as np
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 import pandas as pd
 
 from chs_sdk.core.host import AgentKernel as Host
@@ -103,7 +104,7 @@ def run_simulation():
 
     ax1.plot(time_hours, results_df['HydroStation1.flow'], 'b-', label='上游电站出流')
     ax1.plot(time_hours, results_df['RiverReach.outflow'], 'r--', label='下游水库入流 (滞后)')
-    ax1.set_ylabel('流量 (m³/s)'); ax1.legend(); ax1.grid(True)
+    ax1.set_ylabel('流量 (m^3/s)'); ax1.legend(); ax1.grid(True)
 
     ax2.plot(time_hours, results_df['Reservoir1.level'], 'b-', label='上游水库水位')
     ax2b = ax2.twinx()

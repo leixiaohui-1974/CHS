@@ -1,5 +1,7 @@
 import json
 import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 import pandas as pd
 import numpy as np
 import os
@@ -132,7 +134,7 @@ def main():
 
     ax1.plot(time_hours, forecasted_inflow, 'b-', label='水库天然入流 (预报)')
     ax1.plot(time_hours, dispatch_results_df['SpillwayGate.flow'], 'r--', label='水库下泄流量 (调度后)')
-    ax1.set_ylabel('流量 (m³/s)'); ax1.legend(); ax1.grid(True)
+    ax1.set_ylabel('流量 (m^3/s)'); ax1.legend(); ax1.grid(True)
 
     ax2.plot(time_hours, dispatch_results_df['FloodControlReservoir.level'], 'g-', label='水库水位')
     ax2.axhline(y=32.0, color='red', linestyle='--', label='警戒水位')

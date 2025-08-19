@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 import pandas as pd
 
 from chs_sdk.core.host import AgentKernel as Host
@@ -102,7 +104,7 @@ def run_simulation():
 
     ax2b = ax2.twinx()
     ax2b.plot(results_df['time'], results_df['InflowGate.value'], 'c:', label='闸门流量')
-    ax2b.set_ylabel('流量 (m³/s)')
+    ax2b.set_ylabel('流量 (m^3/s)')
     ax2b.legend(loc='upper right')
 
     plt.tight_layout()

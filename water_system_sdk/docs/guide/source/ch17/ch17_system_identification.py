@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import os
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 
 from chs_sdk.tools.identification_toolkit import IdentificationToolkit
 from chs_sdk.modules.modeling.integral_plus_delay_model import IntegralPlusDelayModel
@@ -81,16 +82,16 @@ def run_identification():
     plt.plot(observed_df.index, observed_df['outflow'], 'ko', markersize=3, alpha=0.5, label='观测出流')
     plt.plot(observed_df.index, simulated_outflow, 'r-', linewidth=2, label=f'辨识模型模拟出流 (K={identified_K:.4f}, T={identified_T:.1f})')
     plt.xlabel('时间步')
-    plt.ylabel('流量 (m³/s)')
+    plt.ylabel('流量 (m^3/s)')
     plt.legend()
     plt.grid(True)
-
-    output_dir = 'results/ch17'
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, 'ch17_system_identification.png')
-    plt.savefig(output_path)
-    plt.close()
-    print(f"Plot saved to {output_path}")
+    plt.show()
+    # output_dir = 'results/ch17'
+    # os.makedirs(output_dir, exist_ok=True)
+    # output_path = os.path.join(output_dir, 'ch17_system_identification.png')
+    # plt.savefig(output_path)
+    # plt.close()
+    # print(f"Plot saved to {output_path}")
 
 
 if __name__ == "__main__":

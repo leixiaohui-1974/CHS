@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 import numpy as np
 from chs_sdk.modules.modeling.st_venant_model import StVenantModel
 
@@ -77,7 +79,7 @@ def run_simulation():
     # 图1：流量过程线
     ax1.plot(results['time'], results['upstream_flow'], 'b-', label='上游流量')
     ax1.plot(results['time'], results['downstream_flow'], 'r--', label='下游流量')
-    ax1.set_ylabel('流量 (m³/s)')
+    ax1.set_ylabel('流量 (m^3/s)')
     ax1.legend()
     ax1.grid(True)
 

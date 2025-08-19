@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import os
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 
 from chs_sdk.modules.control.data_assimilation import EnsembleKalmanFilter
 
@@ -89,7 +90,7 @@ def run_enkf_simulation():
     ax1.grid(True)
 
     # 图2：观测空间y的对比
-    ax2.plot(results['time'], true_y, 'b-', linewidth=3, label='真实观测 (y = x²)')
+    ax2.plot(results['time'], true_y, 'b-', linewidth=3, label='真实观测 (y = x^2)')
     ax2.plot(results['time'], results['measurement_y'], 'ko', markersize=2, alpha=0.4, label='带噪声的测量值 (y)')
     ax2.set_xlabel('时间步')
     ax2.set_ylabel('观测 y')
@@ -97,13 +98,13 @@ def run_enkf_simulation():
     ax2.grid(True)
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-
-    output_dir = 'results/ch19'
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, 'ch19_enkf_simulation.png')
-    plt.savefig(output_path)
-    plt.close()
-    print(f"Plot saved to {output_path}")
+    plt.show()
+    # output_dir = 'results/ch19'
+    # os.makedirs(output_dir, exist_ok=True)
+    # output_path = os.path.join(output_dir, 'ch19_enkf_simulation.png')
+    # plt.savefig(output_path)
+    # plt.close()
+    # print(f"Plot saved to {output_path}")
 
 
 if __name__ == "__main__":

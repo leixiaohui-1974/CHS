@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import os
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 
 from chs_sdk.modules.modeling.storage_models import LinearTank
 from chs_sdk.modules.control.kalman_filter import KalmanFilter
@@ -93,13 +94,13 @@ def run_kalman_filter_simulation():
     plt.ylabel('水位 (m)')
     plt.legend()
     plt.grid(True)
-
-    output_dir = 'results/ch18'
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, 'ch18_kalman_filter.png')
-    plt.savefig(output_path)
-    plt.close()
-    print(f"Plot saved to {output_path}")
+    plt.show()
+    # output_dir = 'results/ch18'
+    # os.makedirs(output_dir, exist_ok=True)
+    # output_path = os.path.join(output_dir, 'ch18_kalman_filter.png')
+    # plt.savefig(output_path)
+    # plt.close()
+    # print(f"Plot saved to {output_path}")
 
 if __name__ == "__main__":
     run_kalman_filter_simulation()

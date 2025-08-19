@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 import pandas as pd
 
 from chs_sdk.core.host import AgentKernel as Host
@@ -76,8 +78,8 @@ def run_simulation():
 
     # 图1：流量控制
     ax1.plot(results_df['time'], results_df['ControlValve.value'], 'b-', label='实际流量')
-    ax1.axhline(y=2.5, color='r', linestyle='--', label='目标流量 (2.5 m³/s)')
-    ax1.set_ylabel('流量 (m³/s)')
+    ax1.axhline(y=2.5, color='r', linestyle='--', label='目标流量 (2.5 m^3/s)')
+    ax1.set_ylabel('流量 (m^3/s)')
     ax1.legend()
     ax1.grid(True)
 

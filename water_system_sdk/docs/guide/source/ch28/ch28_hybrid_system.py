@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 
 from chs_sdk.modules.modeling.pipeline_model import PipelineModel
 from chs_sdk.modules.modeling.valve_models import ButterflyValve
@@ -61,7 +61,7 @@ def run_simulation():
 
     ax1.plot(results['time'], results['channel_inflow'], 'b-', label='渠道入口流量 (阀门控制后)')
     ax1.axhline(y=20.0, color='r', linestyle='--', label='目标流量')
-    ax1.set_ylabel('流量 (m³/s)'); ax1.legend(); ax1.grid(True)
+    ax1.set_ylabel('流量 (m^3/s)'); ax1.legend(); ax1.grid(True)
 
     ax2.plot(results['time'], results['valve_opening'], 'g-', label='阀门开度')
     ax2.set_ylabel('开度 (0-1)', color='g'); ax2.tick_params(axis='y', labelcolor='g');
