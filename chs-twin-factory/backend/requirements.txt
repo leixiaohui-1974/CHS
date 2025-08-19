@@ -10,4 +10,4 @@ loguru
 pydantic
 stable-baselines3
 gymnasium
--e ../../water-system-simulator
+-e ../../water_system_sdk
