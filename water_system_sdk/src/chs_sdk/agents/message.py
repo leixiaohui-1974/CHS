@@ -29,3 +29,12 @@ class MacroCommandMessage(BaseModel):
     target_value: float
     duration_hours: float
     strategy: str = "default"
+
+class StateUpdateMessage(Message):
+    """
+    A specialized message for reporting the state of an agent.
+    The payload is expected to be a dictionary representing the agent's state,
+    e.g., {"level": 10.5, "outflow": 5.2}.
+    This is a convention-based message type; no strict payload model is enforced yet.
+    """
+    pass
