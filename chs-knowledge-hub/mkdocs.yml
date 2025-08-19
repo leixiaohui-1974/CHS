@@ -24,6 +24,9 @@ nav:
       - '线性水库 (LinearTank)': 'notebooks/02_Core_Model_LinearTank.ipynb'
       - '非线性水库 (NonlinearTank)': 'notebooks/03_Core_Model_NonlinearTank.ipynb'
       - '马斯京根模型 (Muskingum)': 'notebooks/04_Core_Model_Muskingum.ipynb'
+      - 'SCS产流模型 (SCSRunoff)': 'notebooks/05_Hydrology_SCSRunoff.ipynb'
+      - '新安江模型 (Xinanjiang)': 'notebooks/06_Hydrology_Xinanjiang.ipynb'
+      - '产流系数法 (RunoffCoefficient)': 'notebooks/07_Hydrology_RunoffCoefficient.ipynb'
     - '高级教程':
       - '使用MPC进行预测控制': 'sdk_tutorials/advanced_mpc.md'
       - '多智能体协同': 'sdk_tutorials/multi_agent_collaboration.md'
