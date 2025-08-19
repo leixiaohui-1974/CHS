@@ -23,6 +23,7 @@ nav:
       - '使用MPC进行预测控制': 'sdk_tutorials/advanced_mpc.md'
       - '多智能体协同': 'sdk_tutorials/multi_agent_collaboration.md'
       - '硬件在环(HIL)测试': 'sdk_tutorials/hil_testing.md'
+      - '创建自定义智能体': 'sdk_tutorials/creating_a_custom_agent.md'
   - '智能体动物园': 'agent_zoo.md'
   - '案例研究':
     - '概述': 'case_studies/index.md'
