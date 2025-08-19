@@ -7,7 +7,7 @@ import numpy as np
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from water_system_sdk.src.chs_sdk.modules.modeling.storage_models import LinearTank, MuskingumChannelModel, NonlinearTank
-from water_system_sdk.src.chs_sdk.modules.modeling.hydrology.runoff_models import SCSRunoffModel
+from water_system_sdk.src.chs_sdk.modules.modeling.hydrology.runoff_models import SCSRunoffModel, XinanjiangModel
 
 class TestCoreModels(unittest.TestCase):
 
@@ -183,3 +183,47 @@ class TestCoreModels(unittest.TestCase):
             places=7,
             msg="SCS model calculation is incorrect for P > Ia"
         )
+
+    def test_xinanjiang_runoff_model(self):
+        """
+        Tests the XinanjiangModel for correct runoff and state update.
+        """
+        # 1. Setup
+        params = {"WM": 100.0, "B": 0.3, "IM": 0.05}
+        # Start with soil half-saturated
+        initial_W = 50.0
+        model = XinanjiangModel(states={"initial_W": initial_W})
+
+        rainfall = 20.0
+        dt = 1.0 # Assume dt=1 for simplicity as model is event-based
+
+        # 2. Manual Calculation
+        # No evaporation in this test
+        W = initial_W
+        WM = params["WM"]
+        B = params["B"]
+
+        WMM = WM * (1 + B)  # 100 * 1.3 = 130
+        # A = 130 * (1 - (1 - 50/100)^(1/1.3)) = 130 * (1 - 0.5^0.769) = 130 * (1 - 0.58) = 130 * 0.42 = 54.6
+        A = WMM * (1 - (1 - W / WM)**(1 / (1 + B)))
+
+        # rainfall + A = 20 + 54.6 = 74.6, which is less than WMM (130)
+        # So runoff = P + W - WM + WM * (1 - (P+A)/WMM)^(1+B)
+        # runoff = 20 + 50 - 100 + 100 * (1 - 74.6/130)^(1.3)
+        # runoff = -30 + 100 * (1 - 0.5738)^(1.3) = -30 + 100 * 0.4262^1.3
+        # runoff = -30 + 100 * 0.325 = -30 + 32.5 = 2.5
+        term = 1 - (rainfall + A) / WMM
+        expected_runoff = rainfall + W - WM + WM * (term**(1 + B))
+
+        # Update state
+        expected_W = W + rainfall - expected_runoff
+
+        # 3. Run model
+        actual_runoff = model.calculate_runoff(rainfall, params, dt)
+        actual_W = model.W
+
+        # 4. Assert
+        self.assertAlmostEqual(expected_runoff, actual_runoff, places=5,
+                               msg="Xinanjiang runoff calculation is incorrect.")
+        self.assertAlmostEqual(expected_W, actual_W, places=5,
+                               msg="Xinanjiang soil moisture state update is incorrect.")
