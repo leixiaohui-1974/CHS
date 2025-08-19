@@ -130,6 +130,10 @@ class CentralExecutor:
             logging.info("Starting new decision cycle...")
             observation = self.timeseries_db.get_latest_statuses()
 
+            # Broadcast the latest observation to all connected HMI clients
+            if self.websocket_service and observation:
+                self.websocket_service.emit('status_update', observation)
+
             if not observation:
                 logging.warning("Observation is empty. Skipping decision cycle.")
                 time.sleep(self.decision_interval_sec)
