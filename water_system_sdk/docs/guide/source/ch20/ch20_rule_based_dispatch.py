@@ -1,6 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../../')))
+
 
 from chs_sdk.core.host import AgentKernel as Host
 from chs_sdk.modules.modeling.storage_models import LinearTank
@@ -104,7 +108,14 @@ def run_simulation():
     ax2.plot(results_df['time'], results_df['ReservoirDispatcher.pump_command'], 'm--', label='水泵开关指令')
     ax2.set_xlabel('时间 (秒)'); ax2.set_ylabel('调度指令'); ax2.legend(); ax2.grid(True)
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95]); plt.show()
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    output_dir = 'results/ch20'
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, 'ch20_rule_based_dispatch.png')
+    plt.savefig(output_path)
+    plt.close()
+    print(f"Plot saved to {output_path}")
 
 if __name__ == "__main__":
     run_simulation()

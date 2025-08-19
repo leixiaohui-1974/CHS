@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../../')))
+
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -75,7 +79,12 @@ def run_simulation():
     plt.text(1.1, inflow_peak, f'入流洪峰: {inflow_peak:.2f} m³/s')
     plt.text(2.5, outflow_peak, f'出流洪峰: {outflow_peak:.2f} m³/s')
 
-    plt.show()
+    output_dir = 'results/ch13'
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, 'ch13_pond_simulation.png')
+    plt.savefig(output_path)
+    plt.close()
+    print(f"Plot saved to {output_path}")
 
 if __name__ == "__main__":
     run_simulation()

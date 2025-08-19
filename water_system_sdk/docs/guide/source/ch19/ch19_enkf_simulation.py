@@ -1,10 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
-# This is a simple way to make the SDK accessible to the script.
-import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
 from chs_sdk.modules.control.data_assimilation import EnsembleKalmanFilter
 
@@ -101,7 +97,13 @@ def run_enkf_simulation():
     ax2.grid(True)
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.show()
+
+    output_dir = 'results/ch19'
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, 'ch19_enkf_simulation.png')
+    plt.savefig(output_path)
+    plt.close()
+    print(f"Plot saved to {output_path}")
 
 
 if __name__ == "__main__":

@@ -1,10 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
-# This is a simple way to make the SDK accessible to the script.
-import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
 from chs_sdk.modules.modeling.storage_models import LinearTank
 from chs_sdk.modules.control.kalman_filter import KalmanFilter
@@ -97,7 +93,13 @@ def run_kalman_filter_simulation():
     plt.ylabel('水位 (m)')
     plt.legend()
     plt.grid(True)
-    plt.show()
+
+    output_dir = 'results/ch18'
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, 'ch18_kalman_filter.png')
+    plt.savefig(output_path)
+    plt.close()
+    print(f"Plot saved to {output_path}")
 
 if __name__ == "__main__":
     run_kalman_filter_simulation()

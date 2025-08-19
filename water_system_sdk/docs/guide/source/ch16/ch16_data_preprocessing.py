@@ -1,12 +1,6 @@
 import pandas as pd
 import numpy as np
 
-# This is a simple way to make the SDK accessible to the script.
-# A proper setup would involve installing the package.
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
-
 from chs_sdk.preprocessing.data_processor import Pipeline, DataCleaner, UnitConverter
 
 def run_preprocessing():

@@ -3,11 +3,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 
-# This is a simple way to make the SDK accessible to the script.
-# A proper setup would involve installing the package.
-import sys
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
-
 from chs_sdk.modules.hydrology.core import Basin
 
 def run_simulation():
@@ -52,7 +47,13 @@ def run_simulation():
     plt.xlabel('时间 (小时)')
     plt.ylabel('流量 (m³/s)')
     plt.legend(title='出口位置')
-    plt.show()
+
+    output_dir = 'results/ch14'
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, 'ch14_hydrology_simulation.png')
+    plt.savefig(output_path)
+    plt.close()
+    print(f"Plot saved to {output_path}")
 
 if __name__ == "__main__":
     run_simulation()
