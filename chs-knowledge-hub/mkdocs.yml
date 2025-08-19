@@ -18,6 +18,8 @@ plugins:
 nav:
   - '首页': 'index.md'
   - '部署指南': 'deployment_guide.md'
+  - '评价与预警指南':
+    - '报警引擎 (AlarmEngine)': 'notebooks/23_Alarms_and_Events.ipynb'
   - '案例教程':
     - '基础PID控制': 'notebooks/19_Example_Simple_PID.ipynb'
     - '高级MPC对比': 'notebooks/20_Example_MPC_Comparison.ipynb'
