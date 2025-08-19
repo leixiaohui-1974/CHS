@@ -32,10 +32,19 @@ class BaseAgent(ABC):
     def execute(self, current_time: float, time_step: float):
         """
         The main execution loop for the agent.
-        This method delegates execution to the current state of the state machine.
+        This method calls the agent's specific logic and then the state machine.
         """
+        self.on_execute(current_time, time_step)
         if self.state_machine:
             self.state_machine.execute(current_time, time_step)
+
+    @abstractmethod
+    def on_execute(self, current_time: float, time_step: float):
+        """
+        Abstract method for the agent's core logic for each time step.
+        This must be implemented by subclasses.
+        """
+        pass
 
     def on_message(self, message: Message):
         """
