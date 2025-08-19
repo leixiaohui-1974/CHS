@@ -92,5 +92,17 @@ class TestAgentFramework(unittest.TestCase):
         with self.assertRaises(ValueError):
             kernel.add_agent(MockAgent, agent_id="agent1")
 
+    def test_add_invalid_agent_class_raises_error(self):
+        """
+        Tests that adding a class that is not a BaseAgent subclass raises a TypeError.
+        """
+        class NotAnAgent:
+            pass
+
+        kernel = AgentKernel()
+        with self.assertRaises(TypeError):
+            kernel.add_agent(NotAnAgent, agent_id="invalid_agent")
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -36,6 +36,9 @@ class AgentKernel:
         Instantiates and adds an agent to the kernel.
         Stores the configuration for potential restarts.
         """
+        if not isinstance(agent_class, type) or not issubclass(agent_class, BaseAgent):
+            raise TypeError(f"agent_class must be a subclass of BaseAgent, but got {agent_class}.")
+
         if agent_id in self._agents:
             raise ValueError(f"Agent with id '{agent_id}' already exists.")
 
