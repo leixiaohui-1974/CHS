@@ -131,6 +131,13 @@ def create_rest_app(timeseries_db: TimeSeriesDB, event_store: EventStore, mqtt_s
             logging.error(f"Error in /api/v1/devices/{device_id}/config: {e}", exc_info=True)
             return jsonify({"error": "An internal server error occurred"}), 500
 
+    @app.route('/health', methods=['GET'])
+    def health_check():
+        """
+        A simple health check endpoint that can be used by Docker/Kubernetes.
+        """
+        return jsonify({"status": "ok"}), 200
+
     @app.route('/api/v1/devices/<string:device_id>/history', methods=['GET'])
     def get_device_history(device_id):
         """

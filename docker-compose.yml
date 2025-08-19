@@ -1,6 +1,12 @@
 version: '3.8'
 
 services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+
   scada_dispatch:
     build:
       context: ./chs-scada-dispatch
@@ -11,6 +17,15 @@ services:
       - ./chs-scada-dispatch:/app
     environment:
       - PYTHONUNBUFFERED=1
+      - MQTT_BROKER_HOST=mqtt
+      - MQTT_BROKER_PORT=1883
+    depends_on:
+      - mqtt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
 
   twin_factory:
     build:
