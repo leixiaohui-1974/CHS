@@ -39,6 +39,9 @@ nav:
       - '多智能体协同': 'sdk_tutorials/multi_agent_collaboration.md'
       - '硬件在环(HIL)测试': 'sdk_tutorials/hil_testing.md'
       - '创建自定义智能体': 'sdk_tutorials/creating_a_custom_agent.md'
+  - '系统辨识指南':
+    - '递归最小二乘法 (RLS)': 'notebooks/17_SysID_RLS.ipynb'
+    - '卡尔曼滤波 (Kalman Filter)': 'notebooks/18_SysID_KalmanFilter.ipynb'
   - '扰动与事件指南':
     - '时间序列扰动 (TimeSeries)': 'notebooks/11_Disturbances_TimeSeries.ipynb'
     - '降雨事件 (RainfallAgent)': 'notebooks/12_Disturbances_Rainfall.ipynb'
