@@ -7,50 +7,9 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from chs_sdk.agents.message import Message
-from chs_sdk.agents.base import BaseAgent
 from chs_sdk.core.host import AgentKernel
 from chs_sdk.agents.message_bus import InMemoryMessageBus
-
-# --- Mock Agents for Testing ---
-
-class MockAgent(BaseAgent):
-    def __init__(self, agent_id: str, kernel: 'AgentKernel', **config):
-        super().__init__(agent_id, kernel, **config)
-        self.setup_called = False
-        self.execute_count = 0
-        self.shutdown_called = False
-        self.received_messages = []
-
-    def setup(self):
-        self.setup_called = True
-
-    def on_execute(self, current_time: float, time_step: float):
-        self.execute_count += 1
-
-    def on_message(self, message: Message):
-        self.received_messages.append(message)
-
-    def shutdown(self):
-        self.shutdown_called = True
-
-
-class PingAgent(MockAgent):
-    def on_execute(self, current_time: float, time_step: float):
-        super().on_execute(current_time, time_step)
-        # On the first step, publish a ping message
-        if self.execute_count == 1:
-            self._publish("pong_topic", {"content": "ping"})
-
-
-class PongAgent(MockAgent):
-    def setup(self):
-        super().setup()
-        self.kernel.message_bus.subscribe(self, "pong_topic")
-
-    def on_message(self, message: Message):
-        super().on_message(message)
-        if message.topic == "pong_topic":
-            self._publish("ping_topic", {"content": "pong"})
+from tests.helpers.mock_agents import MockAgent, RequestResponsePingAgent, RequestResponsePongAgent
 
 
 # --- Test Cases ---
@@ -92,8 +51,8 @@ class TestAgentFramework(unittest.TestCase):
         kernel = AgentKernel()
 
         # Create and add agents
-        kernel.add_agent(PingAgent, agent_id="pinger")
-        kernel.add_agent(PongAgent, agent_id="ponger")
+        kernel.add_agent(RequestResponsePingAgent, agent_id="pinger")
+        kernel.add_agent(RequestResponsePongAgent, agent_id="ponger")
         pinger = kernel._agents["pinger"]
         ponger = kernel._agents["ponger"]
 

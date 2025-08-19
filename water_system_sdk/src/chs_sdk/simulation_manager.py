@@ -7,6 +7,7 @@ import logging.config
 from typing import Dict, Any, List, Optional
 
 from chs_sdk.core.simulation_modes import SimulationMode
+from .config_models import TopLevelConfig
 
 # --- Helper functions for attribute access ---
 
@@ -164,7 +165,7 @@ class SimulationManager:
     """Manages the setup and execution of water system simulations.
 
     This class is the main entry point for running simulations. It is responsible
-    for parsing a configuration dictionary, building a system of interconnected
+    for parsing and validating a configuration, building a system of interconnected
     components, executing the simulation loop, and returning the results.
 
     The manager itself is stateless between runs, meaning a single instance can be
@@ -173,15 +174,15 @@ class SimulationManager:
     Attributes:
         components (Dict[str, Any]): A dictionary of all component instances
             in the current simulation, keyed by their names.
-        config (Dict[str, Any]): The configuration dictionary for the current
-            simulation.
+        config (TopLevelConfig): The validated Pydantic configuration model for the
+            current simulation.
         datasets (Dict[str, Any]): A dictionary to hold any datasets loaded
             during preprocessing, for access by components during the simulation.
     """
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initializes the simulation manager."""
         self.components: Dict[str, Any] = {}
-        self.config: Dict[str, Any] = {}
+        self.config: Optional[TopLevelConfig] = None
         self.datasets: Dict[str, Any] = {}
         self._current_t: float = 0.0
         self.logger = logging.getLogger(__name__)
@@ -225,17 +226,16 @@ class SimulationManager:
 
     def _build_system(self):
         """Constructs the system of components from the configuration."""
-        if "components" not in self.config:
-            raise ValueError("Configuration must contain a 'components' dictionary.")
+        if not self.config or not self.config.components:
+            raise ValueError("Configuration with a 'components' dictionary must be loaded first.")
 
-        component_configs = self.config["components"]
+        # Easiest to work with the raw dict for this part
+        component_configs = self.config.model_dump()['components']
+
         for name, comp_info in component_configs.items():
             comp_type = comp_info["type"]
             # Handle both 'properties' and 'params' for component configuration
-            if 'properties' in comp_info:
-                params = comp_info.get("properties", {})
-            else:
-                params = comp_info.get("params", {})
+            params = comp_info.get("properties") or comp_info.get("params") or {}
 
             # --- Determine Component Type ---
             component_class = ComponentRegistry.get_class(comp_type)
@@ -406,7 +406,9 @@ class SimulationManager:
 
     def _check_and_execute_events(self, t: float):
         """Checks and executes events based on triggers."""
-        events = self.config.get("events", [])
+        if not self.config:
+            return
+        events = self.config.events
         for event in events:
             trigger = event["trigger"]
             action = event["action"]
@@ -492,38 +494,33 @@ class SimulationManager:
 
     def _setup_logging(self) -> None:
         """Configures logging for the simulation."""
-        log_config = self.config.get("logging")
-        if log_config and isinstance(log_config, dict):
-            try:
-                logging.config.dictConfig(log_config)
-                self.logger.info("Logging configured from dictionary.")
-            except (ValueError, TypeError, AttributeError, ImportError) as e:
-                logging.basicConfig(level=logging.WARNING)
-                self.logger.warning(f"Failed to configure logging from dictConfig: {e}. Falling back to basic config.")
-        else:
-            # Default basic configuration if no config is provided or it's invalid
+        if not self.config or not self.config.logging:
             logging.basicConfig(level=logging.INFO,
                                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
             self.logger.info("Using default basic logging configuration because no valid 'logging' section was found in config.")
+            return
 
-    def load_config(self, config: Dict[str, Any]):
-        """Loads a configuration and builds the system."""
+        try:
+            logging.config.dictConfig(self.config.logging)
+            self.logger.info("Logging configured from dictionary.")
+        except (ValueError, TypeError, AttributeError, ImportError) as e:
+            logging.basicConfig(level=logging.WARNING)
+            self.logger.warning(f"Failed to configure logging from dictConfig: {e}. Falling back to basic config.")
+
+    def load_config(self, config_dict: Dict[str, Any]):
+        """Loads and validates a configuration, then builds the system."""
+        # --- Pre-process for YAML list style ---
+        # Pydantic expects a dict for components, but YAML can produce a list of dicts.
+        if isinstance(config_dict.get("components"), list):
+            components_dict = {comp.pop('name'): comp for comp in config_dict['components']}
+            config_dict['components'] = components_dict
+
         # Reset state for the new run
-        self.config = self._preprocess_config(config)
+        self.config = TopLevelConfig.model_validate(config_dict)
         self._setup_logging()
-        self.datasets = self.config.get("datasets", {})
+        self.datasets = self.config.datasets
         self.components = {}
         self._build_system()
-
-    def _preprocess_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Pre-processes the raw config to a standard format."""
-        # This handles the case where 'components' is a list from YAML
-        if isinstance(config.get("components"), list):
-            processed_config = config.copy()
-            components_dict = {comp['name']: comp for comp in config['components']}
-            processed_config['components'] = components_dict
-            return processed_config
-        return config
 
     def run(self, mode: str = "DYNAMIC", **kwargs) -> pd.DataFrame:
         """Runs a complete simulation based on the loaded configuration.
@@ -552,7 +549,7 @@ class SimulationManager:
             raise ValueError(f"Invalid simulation mode '{mode}'. Must be one of 'STEADY', 'DYNAMIC', 'PRECISION'.")
 
         # --- Preprocessing Step ---
-        preprocessing_order = self.config.get("preprocessing", [])
+        preprocessing_order = self.config.preprocessing
         for comp_name in preprocessing_order:
             if comp_name not in self.components:
                 raise ValueError(f"Component '{comp_name}' in 'preprocessing' order not found.")
@@ -562,13 +559,12 @@ class SimulationManager:
             component.run_preprocessing(self)
 
         # --- Simulation Loop ---
-        sim_params = self.config.get("simulation_params", {})
-        total_time = kwargs.get('total_time', sim_params.get("total_time", 100))
-        dt = kwargs.get('dt', sim_params.get("dt", 1.0))
+        total_time = kwargs.get('total_time', self.config.simulation_params.total_time)
+        dt = kwargs.get('dt', self.config.simulation_params.dt)
 
-        connections = self.config.get("connections", [])
-        execution_order = self.config.get("execution_order", [])
-        logger_config = self.config.get("logger_config", [])
+        connections = self.config.connections
+        execution_order = self.config.execution_order
+        logger_config = self.config.logger_config
 
         if not execution_order:
             raise ValueError("'execution_order' cannot be empty.")
