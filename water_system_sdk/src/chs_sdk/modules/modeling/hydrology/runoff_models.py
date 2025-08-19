@@ -57,6 +57,17 @@ class RunoffCoefficientModel(BaseRunoffModel):
         """Returns the model's current state."""
         return {"output": self.output}
 
+    def calculate_runoff_vectorized(self, rainfall_vector, **kwargs):
+        """Vectorized version of the runoff calculation."""
+        # The params are not needed for this simple model, but the signature must match.
+        # In a real scenario, you might have a vector of coefficients.
+        # For now, we use a single coefficient for all sub-basins.
+        coefficient = self.params.get('coefficient', 0.5)
+        runoff_vector = rainfall_vector * coefficient
+        # Return a dummy state vector as the second argument to match the expected signature
+        dummy_state = np.zeros_like(rainfall_vector)
+        return runoff_vector, dummy_state
+
 class XinanjiangModel(BaseRunoffModel):
     """
     Implementation of the Xinanjiang rainfall-runoff model.

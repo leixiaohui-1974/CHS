@@ -78,56 +78,56 @@ class ComponentRegistry:
         "PriceAgent": "chs_sdk.disturbances.agents.PriceAgent",
         "FaultAgent": "chs_sdk.disturbances.agents.FaultAgent",
         # --- Entities ---
-        "BasePhysicalEntity": "chs_sdk.modeling.base_physical_entity.BasePhysicalEntity",
-        "ChannelEntity": "chs_sdk.modeling.entities.channel_entity.ChannelEntity",
+        "BasePhysicalEntity": "chs_sdk.modules.modeling.base_physical_entity.BasePhysicalEntity",
+        "ChannelEntity": "chs_sdk.modules.modeling.entities.channel_entity.ChannelEntity",
 
         # --- Models ---
         # Hydrodynamic Models
-        "SteadyChannelModel": "chs_sdk.modeling.hydrodynamics.channel_models.SteadyChannelModel",
-        "StVenantModel": "chs_sdk.modeling.hydrodynamics.channel_models.StVenantModel",
+        "SteadyChannelModel": "chs_sdk.modules.modeling.hydrodynamics.channel_models.SteadyChannelModel",
+        "StVenantModel": "chs_sdk.modules.modeling.hydrodynamics.channel_models.StVenantModel",
 
         # Storage / Routing Models
-        "ReservoirModel": "chs_sdk.modeling.storage_models.ReservoirModel",
-        "FirstOrderSystem": "chs_sdk.modeling.first_order_system.FirstOrderSystem",
-        "MuskingumChannelModel": "chs_sdk.modeling.storage_models.MuskingumChannelModel",
-        "FirstOrderInertiaModel": "chs_sdk.modeling.storage_models.FirstOrderInertiaModel",
-        "IntegralDelayModel": "chs_sdk.modeling.delay_models.IntegralDelayModel",
-        "IntegralPlusDelayModel": "chs_sdk.modeling.integral_plus_delay_model.IntegralPlusDelayModel",
-        "PiecewiseIntegralDelayModel": "chs_sdk.modeling.adaptive_models.PiecewiseIntegralDelayModel",
-        "GateModel": "chs_sdk.modeling.control_structure_models.GateModel",
-        "PumpStationModel": "chs_sdk.modeling.control_structure_models.PumpStationModel",
-        "TwoDimensionalHydrodynamicModel": "chs_sdk.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
-        "SemiDistributedHydrologyModel": "chs_sdk.modeling.hydrology.semi_distributed.SemiDistributedHydrologyModel",
+        "ReservoirModel": "chs_sdk.modules.modeling.storage_models.ReservoirModel",
+        "FirstOrderSystem": "chs_sdk.modules.modeling.first_order_system.FirstOrderSystem",
+        "MuskingumChannelModel": "chs_sdk.modules.modeling.storage_models.MuskingumChannelModel",
+        "FirstOrderInertiaModel": "chs_sdk.modules.modeling.storage_models.FirstOrderInertiaModel",
+        "IntegralDelayModel": "chs_sdk.modules.modeling.delay_models.IntegralDelayModel",
+        "IntegralPlusDelayModel": "chs_sdk.modules.modeling.integral_plus_delay_model.IntegralPlusDelayModel",
+        "PiecewiseIntegralDelayModel": "chs_sdk.modules.modeling.adaptive_models.PiecewiseIntegralDelayModel",
+        "GateModel": "chs_sdk.modules.modeling.control_structure_models.GateModel",
+        "PumpStationModel": "chs_sdk.modules.modeling.control_structure_models.PumpStationModel",
+        "TwoDimensionalHydrodynamicModel": "chs_sdk.modules.modeling.two_dimensional_hydrodynamic_model.TwoDimensionalHydrodynamicModel",
+        "SemiDistributedHydrologyModel": "chs_sdk.modules.modeling.hydrology.semi_distributed.SemiDistributedHydrologyModel",
         # Runoff Models
-        "RunoffCoefficientModel": "chs_sdk.modeling.hydrology.runoff_models.RunoffCoefficientModel",
-        "XinanjiangModel": "chs_sdk.modeling.hydrology.runoff_models.XinanjiangModel",
-        "SCSRunoffModel": "chs_sdk.modeling.hydrology.runoff_models.SCSRunoffModel",
-        "TankModel": "chs_sdk.modeling.hydrology.runoff_models.TankModel",
-        "HYMODModel": "chs_sdk.modeling.hydrology.runoff_models.HYMODModel",
-        "GreenAmptRunoffModel": "chs_sdk.modeling.hydrology.runoff_models.GreenAmptRunoffModel",
-        "TOPMODEL": "chs_sdk.modeling.hydrology.runoff_models.TOPMODEL",
-        "WETSPAModel": "chs_sdk.modeling.hydrology.runoff_models.WETSPAModel",
-        "ShanbeiModel": "chs_sdk.modeling.hydrology.runoff_models.ShanbeiModel",
-        "HebeiModel": "chs_sdk.modeling.hydrology.runoff_models.HebeiModel",
+        "RunoffCoefficientModel": "chs_sdk.modules.modeling.hydrology.runoff_models.RunoffCoefficientModel",
+        "XinanjiangModel": "chs_sdk.modules.modeling.hydrology.runoff_models.XinanjiangModel",
+        "SCSRunoffModel": "chs_sdk.modules.modeling.hydrology.runoff_models.SCSRunoffModel",
+        "TankModel": "chs_sdk.modules.modeling.hydrology.runoff_models.TankModel",
+        "HYMODModel": "chs_sdk.modules.modeling.hydrology.runoff_models.HYMODModel",
+        "GreenAmptRunoffModel": "chs_sdk.modules.modeling.hydrology.runoff_models.GreenAmptRunoffModel",
+        "TOPMODEL": "chs_sdk.modules.modeling.hydrology.runoff_models.TOPMODEL",
+        "WETSPAModel": "chs_sdk.modules.modeling.hydrology.runoff_models.WETSPAModel",
+        "ShanbeiModel": "chs_sdk.modules.modeling.hydrology.runoff_models.ShanbeiModel",
+        "HebeiModel": "chs_sdk.modules.modeling.hydrology.runoff_models.HebeiModel",
         # Routing Models
-        "MuskingumModel": "chs_sdk.modeling.hydrology.routing_models.MuskingumModel",
-        "UnitHydrographRoutingModel": "chs_sdk.modeling.hydrology.routing_models.UnitHydrographRoutingModel",
-        "LinearReservoirRoutingModel": "chs_sdk.modeling.hydrology.routing_models.LinearReservoirRoutingModel",
-        "VariableVolumeRoutingModel": "chs_sdk.modeling.hydrology.routing_models.VariableVolumeRoutingModel",
+        "MuskingumModel": "chs_sdk.modules.modeling.hydrology.routing_models.MuskingumModel",
+        "UnitHydrographRoutingModel": "chs_sdk.modules.modeling.hydrology.routing_models.UnitHydrographRoutingModel",
+        "LinearReservoirRoutingModel": "chs_sdk.modules.modeling.hydrology.routing_models.LinearReservoirRoutingModel",
+        "VariableVolumeRoutingModel": "chs_sdk.modules.modeling.hydrology.routing_models.VariableVolumeRoutingModel",
         # Instruments
-        "LevelSensor": "chs_sdk.modeling.instrument_models.LevelSensor",
-        "GateActuator": "chs_sdk.modeling.instrument_models.GateActuator",
+        "LevelSensor": "chs_sdk.modules.modeling.instrument_models.LevelSensor",
+        "GateActuator": "chs_sdk.modules.modeling.instrument_models.GateActuator",
 
         # --- Data Processing ---
-        "DataSmoother": "chs_sdk.data_processing.processors.DataSmoother",
-        "DataFusionEngine": "chs_sdk.data_processing.processors.DataFusionEngine",
-        "OutlierRemover": "chs_sdk.data_processing.processors.OutlierRemover",
-        "NoiseInjector": "chs_sdk.data_processing.processors.NoiseInjector",
+        "DataSmoother": "chs_sdk.modules.data_processing.processors.DataSmoother",
+        "DataFusionEngine": "chs_sdk.modules.data_processing.processors.DataFusionEngine",
+        "OutlierRemover": "chs_sdk.modules.data_processing.processors.OutlierRemover",
+        "NoiseInjector": "chs_sdk.modules.data_processing.processors.NoiseInjector",
 
         # --- Custom Agents ---
-        "SensorClusterAgent": "chs_sdk.modeling.sensor_cluster_agent.SensorClusterAgent",
-        "PumpStationAgent": "chs_sdk.modeling.pump_station_agent.PumpStationAgent",
-        "CentralDataFusionAgent": "chs_sdk.modeling.central_data_fusion_agent.CentralDataFusionAgent",
+        "SensorClusterAgent": "chs_sdk.modules.modeling.sensor_cluster_agent.SensorClusterAgent",
+        "PumpStationAgent": "chs_sdk.modules.modeling.pump_station_agent.PumpStationAgent",
+        "CentralDataFusionAgent": "chs_sdk.modules.modeling.central_data_fusion_agent.CentralDataFusionAgent",
 
         # --- Body Agents ---
         # "BaseBodyAgent": "chs_sdk.modeling.body_agent.BaseBodyAgent",
@@ -336,6 +336,7 @@ class SimulationManager:
                     raise ValueError("RainfallProcessor requires a 'strategy' config.")
                 interpolation_strategy = self._create_strategy(strategy_config)
                 self.components[name] = component_class(
+                    id=name,
                     strategy=interpolation_strategy,
                     **params
                 )
@@ -583,8 +584,8 @@ class SimulationManager:
 
             # 2. Process connections (for simple, state-copying links)
             for conn in connections:
-                source_comp_name, source_attr_path = conn["source"].split('.', 1)
-                target_comp_name, target_attr_path = conn["target"].split('.', 1)
+                source_comp_name, source_attr_path = conn.source.split('.', 1)
+                target_comp_name, target_attr_path = conn.target.split('.', 1)
                 value = getattr_by_path(self.components[source_comp_name], source_attr_path)
                 setattr_by_path(self.components[target_comp_name], target_attr_path, value)
 

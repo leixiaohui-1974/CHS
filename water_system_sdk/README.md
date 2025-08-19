@@ -1,126 +1,78 @@
-# CHS-SDK - 代码及功能说明
+# CHS-SDK - Code and Functionality Overview
 
-## 产品说明：核心版与智能体版的关系
+## Product Description: Core vs. Agent Versions
 
-CHS-SDK 的架构设计体现了清晰的层次关系，可以理解为包含一个 “核心版 (Core Version)” 和一个在其之上构建的 “智能体版 (Agent Version)”。
+The CHS-SDK architecture has a clear layered design, consisting of a "Core Version" and an "Agent Version" built on top of it.
 
-### 核心版 (Core Version)
+### Core Version
 
-*   **核心目录**: `modules/`
-*   **定位**: 科学计算内核与数字孪生基础。`modules` 目录是整个 SDK 的技术基石，它提供了一套专业、完整的水文水动力学仿真模型。这一版本专注于精确地模拟物理世界，回答“如果……会发生什么？”的问题。
+*   **Core Directory**: `modules/`
+*   **Purpose**: Scientific computing kernel and digital twin foundation. The `modules` directory is the technical cornerstone of the entire SDK, providing a professional and complete set of hydrological and hydrodynamic simulation models. This version focuses on accurately simulating the physical world to answer "what if...?" questions.
 
-### 智能体版 (Agent Version)
+### Agent Version
 
-*   **核心目录**: `agents/`, `factory/`, `workflows/`, `interfaces/` 等，它们围绕并消费 `modules/` 的能力。
-*   **定位**: 智能决策与自动化控制解决方案。智能体版在核心版提供的数字孪生环境之上，构建了一整套用于研发、训练、评估和部署“智能大脑”（Agent）的工具链。它专注于解决“接下来该怎么做？”的问题。
+*   **Core Directories**: `agents/`, `factory/`, `workflows/`, `interfaces/`, etc., which consume the capabilities of the `modules/`.
+*   **Purpose**: Intelligent decision-making and automated control solutions. The Agent Version builds on the digital twin environment provided by the Core Version, offering a toolchain for developing, designing, and deploying "intelligent brains" (Agents). It focuses on answering the question "what should be done next?".
 
-## 完整目录结构与文件功能详解
+## Corrected Directory Structure and File Functions
+
+*Note: This structure has been updated to reflect the actual state of the codebase. Previous versions of this document were out of sync.*
 
 ```
 chs_sdk/
 ├── __init__.py
-├── agents/
+├── agents/                 # Contains control logic (PID, MPC, etc.)
+│   ├── ...
+├── components/             # Reusable components like loggers
+│   ├── ...
+├── core/                   # Heart of the SDK, drives the simulation
+│   ├── ...
+├── factory/                # Tools for automated design and configuration of agents
 │   ├── __init__.py
-│   ├── base_agent.py
-│   ├── pid.py
-│   ├── mpc.py
-│   └── rl/
-│       ├── __init__.py
-│       ├── ppo_agent.py
-│       └── sac_agent.py
-├── components/
+│   └── mother_machine.py   # High-level engine for running design workflows
+├── interfaces/             # Defines standards for module interaction
+│   ├── ...
+├── modules/                # The scientific computing core (hydro models)
+│   ├── ...
+├── preprocessing/          # Tools for data cleaning and preparation
 │   ├── __init__.py
-│   ├── logger.py
-│   └── config_loader.py
-├── core/
-│   ├── __init__.py
-│   ├── simulator.py
-│   ├── state_manager.py
-│   └── event_bus.py
-├── factory/
-│   ├── __init__.py
-│   ├── trainer.py
-│   ├── evaluator.py
-│   └── model_registry.py
-├── interfaces/
-│   ├── __init__.py
-│   ├── env_interface.py
-│   └── module_interface.py
-├── modules/
-│   ├── __init__.py
-│   ├── hydrology/
-│   │   ├── xinanjiang.py
-│   │   └── swat.py
-│   ├── hydrodynamics/
-│   │   ├── saint_venant_solver.py
-│   │   └── network_builder.py
-│   ├── hydrodynamics_2d/
-│   │   ├── shallow_water_solver.py
-│   │   └── wet_dry_handler.py
-│   ├── hydro_distributed/
-│   │   └── grid_model.py
-│   ├── meshing/
-│   │   ├── tri_generator.py
-│   │   └── grid_generator.py
-│   ├── modeling/
-│   │   ├── coupler.py
-│   │   └── model_builder.py
-│   ├── identification/
-│   │   ├── objective_functions.py
-│   │   └── optimizers.py
-│   ├── data_processing/
-│   ├── basic_tools/
-│   ├── control/
-│   └── disturbances/
-├── preprocessing/
-│   ├── __init__.py
-│   ├── timeseries.py
-│   └── feature_engineering.py
-├── tools/
-│   ├── __init__.py
-│   └── epanet_adapter.py
-├── utils/
-│   ├── __init__.py
-│   └── helpers.py
-└── workflows/
+│   ├── data_processor.py   # Core data cleaning tools (cleaner, resampler)
+│   ├── interpolators.py    # Spatial interpolation algorithms (New & Refactored)
+│   ├── rainfall_processor.py # Applies interpolation to create rainfall data
+│   └── structures.py       # Data structures like RainGauge
+├── tools/                  # Adapters for third-party software
+│   ├── ...
+├── utils/                  # General-purpose helper functions
+│   ├── ...
+└── workflows/              # Multi-step tasks orchestrating SDK capabilities
     ├── __init__.py
-    ├── training_workflow.py
-    └── simulation_workflow.py
+    ├── base_workflow.py
+    ├── control_tuning_workflow.py # Logic for optimizing controller params
+    └── system_id_workflow.py      # Logic for identifying model params from data
 ```
 
-*   **agents/**: 系统的大脑。定义了所有用于控制系统的决策逻辑。
-*   **components/**: 提供了可在项目中多处复用的、具有特定功能的高级组件。
-*   **core/**: SDK 的心脏，负责驱动整个仿真流程。
-*   **factory/**: 智能体的“兵工厂”，负责 Agent 的训练、评估和打包。
-*   **interfaces/**: 模块间的“法律合同”，定义了各模块交互的标准。
-*   **modules/**: 数字孪生的科学计算核心，一个专业级的科学计算引擎。
-*   **preprocessing/**: 数据的“清洗工”，负责处理输入到 SDK 的原始数据。
-*   **tools/**: 与行业标准软件进行交互的适配器。
-*   **utils/**: 提供了被广泛使用的通用、低级别的辅助函数。
-*   **workflows/**: 任务的“总导演”，将 SDK 的各种能力串联成端到端的任务流。
+*   **agents/**: The brains of the system. Defines the decision-making logic for system control.
+*   **components/**: High-level, reusable components with specific functions.
+*   **core/**: The heart of the SDK, responsible for driving the entire simulation process.
+*   **factory/**: **(Updated Description)** This is the "Design Automation" center. It does not contain a generic trainer or evaluator. Instead, it contains the `MotherMachine`, a powerful tool that automates the design of specific models and controllers by running pre-defined `workflows`. For example, it can take sensor data and automatically generate a calibrated digital twin model.
+*   **interfaces/**: The "legal contracts" between modules, defining the standards for their interaction.
+*   **modules/**: The scientific computing core for the digital twin, a professional-grade simulation engine.
+*   **preprocessing/**: **(Updated Description)** The "data janitors" responsible for processing raw data fed into the SDK. This includes tools for cleaning, resampling, and spatial interpolation. *Note: This module was recently refactored to improve consistency and fix bugs.*
+*   **tools/**: Adapters for interacting with industry-standard software.
+*   **utils/**: Widely used, low-level utility functions.
+*   **workflows/**: The "task directors" that chain together various SDK capabilities into end-to-end task flows, such as identifying a system model from data or tuning a controller. These are called by the `factory/mother_machine.py`.
 
 ---
 
-## 新增功能：提升开发者体验与服务能力
+## Service and Developer Experience Features
 
-为了提升 SDK 的易用性并拓展其服务能力，我们引入了以下核心功能：
+To improve the usability and expand the service capabilities of the SDK, we have introduced the following core features:
 
-### 1. `SimulationBuilder`：更优雅的仿真配置方式
+### 1. `SimulationBuilder`: A More Elegant Way to Configure Simulations
 
-告别繁琐的字典配置，我们现在推出了 `SimulationBuilder`。它提供了一个流畅的、面向对象的 API，让您可以通过链式调用来以编程方式构建仿真任务。
+Say goodbye to tedious dictionary configurations. We now offer the `SimulationBuilder`, which provides a fluent, object-oriented API for programmatically building simulation tasks through method chaining. This approach leads to cleaner code and provides better autocompletion support in IDEs, reducing configuration errors.
 
-**旧方式 (字典配置):**
-```python
-sdk_config = {
-    "simulation_params": {"total_time": 1000, "dt": 1.0},
-    "components": {
-        "main_reservoir": {"type": "ReservoirModel", "params": {"area": 100.0}}
-    },
-    # ... and so on
-}
-```
-
-**新方式 (`SimulationBuilder`):**
+**Example:**
 ```python
 from chs_sdk.simulation_builder import SimulationBuilder
 
@@ -132,44 +84,39 @@ sdk_config = (builder
         component_type="ReservoirModel",
         params={"area": 100.0, "initial_level": 5.0}
     )
-    # ... continue chaining methods
     .build()
 )
 ```
-这种方式不仅代码更清晰，还能在 IDE 中获得更好的自动补全支持，减少配置错误。
 
-### 2. 模块化安装：按需选择功能
+### 2. Modular Installation: Choose Your Features on Demand
 
-为了让包体更轻量，我们将 SDK 的依赖分成了核心、智能体和Web服务三个部分。您可以根据需要进行安装：
+To make the package lighter, we have split the SDK's dependencies into three parts: core, agent, and web service. You can install what you need:
 
-- **核心版 (仅仿真引擎):**
-  ```bash
-  pip install .
-  ```
-- **智能体版 (包含机器学习等智能体依赖):**
-  ```bash
-  pip install .[agent]
-  ```
-- **Web服务版 (包含运行 API 服务所需依赖):**
-  ```bash
-  pip install .[service]
-  ```
-- **完整版 (包含所有功能):**
-  ```bash
-  pip install .[agent,service]
-  ```
+-   **Core (Simulation Engine Only):**
+    ```bash
+    pip install .
+    ```
+-   **Agent (Includes ML dependencies):**
+    ```bash
+    pip install .[agent]
+    ```
+-   **Web Service (For running the API):**
+    ```bash
+    pip install .[service]
+    ```
+-   **Full Version (All features):**
+    ```bash
+    pip install .[agent,service]
+    ```
 
-### 3. FastAPI Web 服务：将仿真能力 API 化
+### 3. FastAPI Web Service: Turn Your Simulation into an API
 
-我们内置了一个基于 FastAPI 的 Web 服务，可以轻松地将仿真能力作为 API 提供给其他系统调用。
+We have built-in a FastAPI-based web service that allows you to easily expose your simulation capabilities as an API for other systems to call.
 
-**如何启动服务:**
-1.  确保已安装 `service` 依赖: `pip install .[service]`
-2.  在 `water_system_sdk` 目录下运行以下命令:
+**How to Start the Service:**
+1.  Ensure you have installed the `service` dependencies: `pip install .[service]`
+2.  From the `water_system_sdk` directory, run:
     ```bash
     uvicorn chs_sdk.service.main:app --host 0.0.0.0 --port 8000
     ```
-3.  服务启动后，您可以访问 `http://localhost:8000/docs` 查看交互式 API 文档。
-
-**如何调用 API:**
-您可以使用 `curl` 或任何编程语言向 `/run_simulation/` 端点发送 POST 请求，请求体中包含 JSON 格式的仿真配置。
+3.  Once the service starts, you can access the interactive API documentation at `http://localhost:8000/docs`.

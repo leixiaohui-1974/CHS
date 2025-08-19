@@ -104,6 +104,9 @@ class MuskingumModel(BaseRoutingModel):
 
 # Placeholder for UnitHydrographRoutingModel
 class UnitHydrographRoutingModel(BaseRoutingModel):
+    def __init__(self, **kwargs):
+        pass
+
     def route_flow(self, effective_rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         # This requires convolution, which is complex for a simple placeholder.
         # For now, we'll just pass through the inflow.
@@ -115,6 +118,10 @@ class UnitHydrographRoutingModel(BaseRoutingModel):
 
 # Placeholder for LinearReservoirRoutingModel
 class LinearReservoirRoutingModel(BaseRoutingModel):
+    def __init__(self, **kwargs):
+        self.output = 0.0
+        self.O_prev = kwargs.get("initial_outflow", 0.0)
+
     def route_flow(self, effective_rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         # Simplified logic
         area_km2 = sub_basin_params.get("area")
@@ -122,11 +129,36 @@ class LinearReservoirRoutingModel(BaseRoutingModel):
             raise ValueError("LinearReservoirRoutingModel requires 'area' in sub_basin_params.")
         inflow_m3_per_s = (effective_rainfall * area_km2 * 1000) / (dt * 3600)
         k = float(sub_basin_params.get("k_res", 12)) # storage constant
-        # O_t = O_{t-1} + (dt/k)*(I_avg - O_{t-1}) -> Simplified, assumes O_prev is stored
-        return inflow_m3_per_s * 0.8 # Pass-through with damping
+
+        # O_t = O_{t-1} + (dt/k)*(I_avg - O_{t-1}) -> Simplified
+        # Assuming I_avg is roughly the current inflow for this step
+        I_avg = inflow_m3_per_s
+        self.output = self.O_prev + (dt / k) * (I_avg - self.O_prev)
+        self.output = max(0, self.output)
+        self.O_prev = self.output
+        return self.output
+
+    def route_flow_vectorized(self, effective_rainfall_vector, I_prev, O_prev, params, dt):
+        """Vectorized version of the linear reservoir routing."""
+        # This is a simplified vectorized model and does not use all params.
+        # A real implementation would use a vectorized version of the routing equation.
+        area_km2 = params['area']
+        inflow_m3_per_s = (effective_rainfall_vector * area_km2 * 1000) / (dt * 3600)
+
+        # Simplified pass-through with damping, applied element-wise
+        outflow_vector = inflow_m3_per_s * 0.8
+
+        # Return dummy states to match the expected signature
+        dummy_I_new = np.zeros_like(outflow_vector)
+        dummy_O_new = np.zeros_like(outflow_vector)
+
+        return outflow_vector, dummy_I_new, dummy_O_new
 
 # Placeholder for VariableVolumeRoutingModel
 class VariableVolumeRoutingModel(BaseRoutingModel):
+    def __init__(self, **kwargs):
+        pass
+
     def route_flow(self, effective_rainfall: float, sub_basin_params: Dict[str, Any], dt: float) -> float:
         # This is a complex method, placeholder will just pass through inflow.
         area_km2 = sub_basin_params.get("area")
