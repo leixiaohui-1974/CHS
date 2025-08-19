@@ -24,11 +24,21 @@ nav:
       - '线性水库 (LinearTank)': 'notebooks/02_Core_Model_LinearTank.ipynb'
       - '非线性水库 (NonlinearTank)': 'notebooks/03_Core_Model_NonlinearTank.ipynb'
       - '马斯京根模型 (Muskingum)': 'notebooks/04_Core_Model_Muskingum.ipynb'
+      - 'SCS产流模型 (SCSRunoff)': 'notebooks/05_Hydrology_SCSRunoff.ipynb'
+      - '新安江模型 (Xinanjiang)': 'notebooks/06_Hydrology_Xinanjiang.ipynb'
+      - '产流系数法 (RunoffCoefficient)': 'notebooks/07_Hydrology_RunoffCoefficient.ipynb'
+      - 'PID控制器 (PIDController)': 'notebooks/08_Control_PIDController.ipynb'
+      - '模型预测控制 (MPCController)': 'notebooks/09_Control_MPCController.ipynb'
+      - '一维水动力学 (StVenant)': 'notebooks/10_Hydrodynamics_StVenant.ipynb'
     - '高级教程':
       - '使用MPC进行预测控制': 'sdk_tutorials/advanced_mpc.md'
       - '多智能体协同': 'sdk_tutorials/multi_agent_collaboration.md'
       - '硬件在环(HIL)测试': 'sdk_tutorials/hil_testing.md'
       - '创建自定义智能体': 'sdk_tutorials/creating_a_custom_agent.md'
+  - '扰动与事件指南':
+    - '时间序列扰动 (TimeSeries)': 'notebooks/11_Disturbances_TimeSeries.ipynb'
+    - '降雨事件 (RainfallAgent)': 'notebooks/12_Disturbances_Rainfall.ipynb'
+    - '系统故障 (FaultAgent)': 'notebooks/13_Disturbances_Faults.ipynb'
   - '智能体动物园': 'agent_zoo.md'
   - '案例研究':
     - '概述': 'case_studies/index.md'

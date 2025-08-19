@@ -11,3 +11,5 @@ meshio
 pytest
 loguru
 pydantic
+requests
+paho-mqtt
