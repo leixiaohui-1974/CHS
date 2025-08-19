@@ -23,6 +23,7 @@ nav:
   - '案例教程':
     - '基础PID控制': 'notebooks/19_Example_Simple_PID.ipynb'
     - '高级MPC对比': 'notebooks/20_Example_MPC_Comparison.ipynb'
+    - '顶石案例：梯级水库优化': 'notebooks/24_Capstone_Cascade_Reservoirs.ipynb'
   - '数据预处理指南':
     - '降雨插值 (RainfallProcessor)': 'notebooks/15_Preprocessing_Rainfall.ipynb'
     - 'DEM与流域划分 (Watershed Delineation)': 'notebooks/16_Preprocessing_DEM.ipynb'
