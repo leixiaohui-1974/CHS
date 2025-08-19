@@ -118,5 +118,19 @@ class TestE2EWorkflow(unittest.TestCase):
         self.assertTrue(end_received, "Did not receive the simulation end event via WebSocket.")
         print("WebSocket verification successful.")
 
+        # 5. Verify the simulation run was saved
+        print("\n--- 5. Verifying Simulation Run Persistence ---")
+        response = requests.get(f"{BASE_URL}/api/projects/{project_id}/runs")
+        self.assertEqual(response.status_code, 200)
+        runs_data = response.json()
+        self.assertEqual(len(runs_data), 1, "Expected exactly one simulation run to be saved.")
+        self.assertEqual(runs_data[0]['project_id'], project_id)
+        self.assertIn('results', runs_data[0])
+        # The results should be a dict-like object from a pandas.to_json(orient='split')
+        self.assertIn('columns', runs_data[0]['results'])
+        self.assertIn('data', runs_data[0]['results'])
+        print("Simulation run persistence verified successfully.")
+
+
 if __name__ == '__main__':
     unittest.main()
