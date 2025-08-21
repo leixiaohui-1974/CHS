@@ -8,6 +8,18 @@ from chs_sdk.modules.modeling.storage_models import FirstOrderInertiaModel
 from chs_sdk.modules.control.pid_controller import PIDController
 from water_system_sdk.docs.guide.source.project_utils import EulerMethod, ModelAgent
 
+
+class StorageOutputInertiaModel(FirstOrderInertiaModel):
+
+    def step(self, t=0, dt=1.0, **kwargs):
+        # 更新 self.state.storage
+        super().step(t, dt, **kwargs)
+
+        # 更新状态量 `storage`
+        self.output = self.state.storage
+        self.state.output = self.state.storage
+        return self.output
+
 def run_simulation():
     """
     This script demonstrates how to use a PID controller to manage the
@@ -20,7 +32,7 @@ def run_simulation():
     host.add_agent(
         agent_class=ModelAgent,
         agent_id='MyReservoir',
-        model_class=FirstOrderInertiaModel,
+        model_class=StorageOutputInertiaModel,
         initial_storage=10.0,
         time_constant=5.0,
         solver_class=EulerMethod,
@@ -32,9 +44,9 @@ def run_simulation():
         agent_class=ModelAgent,
         agent_id='MyPIDController',
         model_class=PIDController,
-        Kp=1.5,
-        Ki=0.1,
-        Kd=0.5,
+        Kp=0.4,
+        Ki=0.2,
+        Kd=0.2,
         set_point=15.0
     )
 

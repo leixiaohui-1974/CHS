@@ -185,8 +185,8 @@ class FirstOrderInertiaModel(BaseModel):
         """
         Performs a single simulation step using the selected solver.
         """
-        if hasattr(self.state, 'output'):
-             self.state.storage = self.state.output * self.time_constant
+        # if hasattr(self.state, 'output'):
+        #      self.state.storage = self.state.output * self.time_constant
 
         self.state.storage = self.solver.step(t, self.state.storage)
         outflow = self.state.storage / self.time_constant if self.time_constant > 0 else 0
@@ -196,3 +196,6 @@ class FirstOrderInertiaModel(BaseModel):
 
     def get_state(self):
         return asdict(self.state)
+
+
+
