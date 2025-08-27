@@ -2,8 +2,7 @@ import matplotlib.pyplot as plt
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 import pandas as pd
-import copy
-import numpy as np
+
 
 from chs_sdk.agents.base import BaseAgent
 from chs_sdk.agents.message import Message
