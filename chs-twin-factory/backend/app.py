@@ -446,7 +446,7 @@ class LiveSimulationNamespace(Namespace):
 
 socketio.on_namespace(LiveSimulationNamespace('/live'))
 
-def _run_simulation_background(app, sim_id, scenario_json):
+def _run_simulation_background(app, project_id, sim_id, scenario_json):
     """The background task that runs the simulation and emits updates."""
     with app.app_context():
         sim_manager = None
@@ -497,6 +497,7 @@ def run_live_simulation(project_id):
     socketio.start_background_task(
         target=_run_simulation_background,
         app=app,
+        project_id=project.id, # Pass the project_id
         sim_id=sim_id,
         scenario_json=project.scenario_json
     )
