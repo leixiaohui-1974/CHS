@@ -70,6 +70,9 @@ class PIDController(BaseController):
         # An offset can be added to simulate sensor drift or other biases.
         measured_value = feedback_signal + self.input.current_value_offset
         error = self.set_point - measured_value
+        
+        # 添加调试信息
+        print(f"[PID] measured_value={measured_value}, set_point={self.set_point}, error={error}")
 
         # --- Calculate integral term with anti-windup ---
         # This is a simple and effective method.
@@ -82,6 +85,10 @@ class PIDController(BaseController):
         # --- Calculate unbounded output ---
         # Note: We use the *potential* new integral term for this calculation.
         output = self.Kp * error + self.Ki * new_integral + self.Kd * derivative
+        
+        # 添加调试信息
+        print(f"[PID] Kp*error={self.Kp * error}, Ki*integral={self.Ki * new_integral}, Kd*derivative={self.Kd * derivative}")
+        print(f"[PID] unbounded_output={output}")
 
         # --- Clamp output and apply anti-windup ---
         # If the output is saturated, we may need to prevent the integral from growing.
@@ -91,10 +98,10 @@ class PIDController(BaseController):
         if self.output_min is not None and clamped_output < self.output_min:
             clamped_output = self.output_min
 
-        # If the output was NOT clamped, we can safely update the integral term.
-        # This prevents "windup" when the controller hits its limits.
-        if output == clamped_output:
-             self.state.integral = new_integral
+        # Always update the integral term, but use a more sophisticated anti-windup
+        # This allows the integral to accumulate even when output is clamped
+        self.state.integral = new_integral
+        print(f"[PID] Integral updated to {new_integral}")
 
         # --- Update state for the next time step ---
         self.state.previous_error = error

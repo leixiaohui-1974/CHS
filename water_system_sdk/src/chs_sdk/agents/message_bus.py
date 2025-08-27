@@ -70,16 +70,22 @@ class InMemoryMessageBus(BaseMessageBus):
         """
         # Process all topics that have messages
         topics_to_process = list(self._message_queue.keys())
+        print(f"[MessageBus] dispatch() called, topics to process: {topics_to_process}")
+        
         for topic in topics_to_process:
             # Dispatch all messages for the current topic
             messages_to_dispatch = self._message_queue.pop(topic, [])
             if not messages_to_dispatch:
                 continue
 
+            print(f"[MessageBus] Processing {len(messages_to_dispatch)} messages for topic '{topic}'")
+
             # Get subscribers for the specific topic AND wildcard subscribers
             specific_subscribers = self._subscriptions.get(topic, [])
             wildcard_subscribers = self._subscriptions.get("#", [])
             subscribers = list(set(specific_subscribers + wildcard_subscribers)) # Use set to avoid duplicates
+
+            print(f"[MessageBus] Found {len(subscribers)} subscribers for topic '{topic}': {[s.agent_id for s in subscribers]}")
 
             if not subscribers:
                 log.warning(f"No subscribers for topic '{topic}', {len(messages_to_dispatch)} messages discarded.")
@@ -89,8 +95,12 @@ class InMemoryMessageBus(BaseMessageBus):
                 for subscriber in subscribers:
                     try:
                         # Only deliver messages to running agents
+                        print(f"[MessageBus] Checking subscriber {subscriber.agent_id} status: {subscriber.status}")
                         if subscriber.status == AgentStatus.RUNNING:
+                            print(f"[MessageBus] Delivering message to {subscriber.agent_id}")
                             subscriber.on_message(message)
+                        else:
+                            print(f"[MessageBus] Skipping {subscriber.agent_id} (status: {subscriber.status})")
                     except Exception as e:
                         subscriber.status = AgentStatus.FAULT
                         log.error(

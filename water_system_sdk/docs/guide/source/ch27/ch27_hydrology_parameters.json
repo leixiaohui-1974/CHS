@@ -2,9 +2,23 @@
   "UpstreamCatchment": {
     "runoff_model": "Xinanjiang",
     "runoff_parameters": {
-      "K": 0.3,
+      "WM": 120.0,
+      "B": 0.3,
       "IM": 0.05,
-      "C": 0.15
+      "states": {
+        "initial_W": 60.0
+      }
+    },
+    "routing_model": "Muskingum",
+    "routing_parameters": {
+      "K": 1.0,
+      "x": 0.2
+    }
+  },
+  "ReservoirInflow": {
+    "parameters": {
+      "initial_storage_m3": 0,
+      "time_constant_hr": 1.0
     }
   }
 }

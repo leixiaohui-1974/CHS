@@ -1,3 +1,9 @@
+import sys
+import os
+
+# 添加水系统SDK源码路径
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../src')))
+
 import numpy as np
 import matplotlib.pyplot as plt
 plt.rcParams['font.sans-serif'] = ['SimHei']
@@ -10,17 +16,10 @@ def run_enkf_simulation():
     This script demonstrates how to use the Ensemble Kalman Filter (EnKF)
     to track the state of a simple non-linear system.
     """
-    # 1. 定义“真实”系统和仿真参数
+    # 1. 定义"真实"系统和仿真参数
     num_steps = 100
     true_x = np.zeros(num_steps)
     true_y = np.zeros(num_steps)
-
-    # 真实的状态 x 是一个简单的斜坡函数
-    for i in range(1, num_steps):
-        true_x[i] = true_x[i-1] + 0.1
-
-    # 真实的观测 y 是 x 的平方
-    true_y = true_x**2
 
     # 2. 配置EnKF
     # 我们的状态只有一个变量 x
@@ -60,23 +59,55 @@ def run_enkf_simulation():
     results = {'time': [], 'true_x': [], 'estimated_x': [], 'measurement_y': []}
 
     print("Running Ensemble Kalman Filter simulation...")
+    print("=" * 60)
+    print("时间步 | 真实状态x | 真实观测y | 测量值y+noise | EnKF估计x | 误差")
+    print("=" * 60)
+    
     for i in range(num_steps):
-        # 预测
-        enkf.predict()
-
-        # 生成带噪声的测量
+        # 1. 传播真实状态（模拟真实系统）
+        if i > 0:
+            true_x[i] = true_x[i-1] + 0.1  # 真实状态传播
+        
+        # 2. 基于真实状态生成观测
+        true_y[i] = true_x[i]**2  # 真实观测
         measurement = true_y[i] + np.random.normal(0, measurement_noise_std)
-
-        # 更新
+        
+        # 3. EnKF预测
+        enkf.predict()
+        
+        # 4. EnKF更新
         enkf.update(np.array([measurement]))
-
-        # 记录结果
+        
+        # 5. 记录结果
         estimated_x = enkf.get_state()
         results['time'].append(i)
         results['true_x'].append(true_x[i])
         results['estimated_x'].append(estimated_x[0])
         results['measurement_y'].append(measurement)
+        
+        # 6. 输出中间参数（每10步输出一次，避免输出过多）
+        if i % 10 == 0 or i < 5 or i > num_steps - 5:
+            error = abs(true_x[i] - estimated_x[0])
+            print(f"{i:6d} | {true_x[i]:9.3f} | {true_y[i]:9.3f} | {measurement:12.3f} | {estimated_x[0]:9.3f} | {error:6.3f}")
+    
+    print("=" * 60)
     print("Simulation finished.")
+    
+    # 输出最终统计信息
+    print("\n" + "=" * 60)
+    print("仿真结果统计")
+    print("=" * 60)
+    print(f"仿真时长: {num_steps} 步")
+    print(f"真实状态范围: {true_x[0]:.3f} → {true_x[-1]:.3f}")
+    print(f"观测值范围: {true_y[0]:.3f} → {true_y[-1]:.3f}")
+    print(f"测量噪声标准差: {measurement_noise_std:.3f}")
+    
+    # 计算估计误差统计
+    errors = [abs(tx - ex) for tx, ex in zip(results['true_x'], results['estimated_x'])]
+    print(f"平均绝对误差: {np.mean(errors):.4f}")
+    print(f"最大绝对误差: {np.max(errors):.4f}")
+    print(f"误差标准差: {np.std(errors):.4f}")
+    print("=" * 60)
 
     # 4. 绘图
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 10), sharex=True)

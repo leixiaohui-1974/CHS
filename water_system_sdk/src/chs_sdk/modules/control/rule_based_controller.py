@@ -15,6 +15,8 @@ class RuleBasedOperationalController(BaseModel):
         self.rules = rules
         self.default_actions = default_actions
         self.current_actions = default_actions.copy()
+        # 添加output属性，用于消息发布
+        self.output = self.current_actions
 
     def step(self, system_state: dict, dt: float):
         """
@@ -26,6 +28,7 @@ class RuleBasedOperationalController(BaseModel):
             dt (float): The time step for the simulation.
         """
         self.current_actions = self.default_actions.copy()
+        self.output = self.current_actions  # 确保output初始化为默认值
 
         for rule in self.rules:
             conditions_met = True
@@ -73,7 +76,12 @@ class RuleBasedOperationalController(BaseModel):
 
             if conditions_met:
                 self.current_actions = rule['then']
+                self.output = self.current_actions  # 更新output属性
                 break
+        
+        # 如果没有匹配的规则，确保output是默认值
+        if self.current_actions == self.default_actions:
+            self.output = self.current_actions
 
     def _evaluate_condition(self, actual, op, target):
         """

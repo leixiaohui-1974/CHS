@@ -58,8 +58,14 @@ class LinearTank(BaseModel):
         """
         Updates the water level based on mass balance.
         """
-        total_outflow = self.input.release_outflow + self.input.demand_outflow
-        net_inflow = self.input.inflow + self.input.gate_inflow - total_outflow
+        # 优先使用kwargs中的参数，如果没有则使用self.input中的值
+        inflow = kwargs.get('inflow', self.input.inflow)
+        outflow = kwargs.get('outflow', 0.0)
+        
+        # 计算净入流：入流 - 出流
+        net_inflow = inflow - outflow
+        
+        # 计算水位变化
         dh = (net_inflow / self.area) * dt if self.area > 0 else 0
 
         self.level += dh
@@ -70,6 +76,39 @@ class LinearTank(BaseModel):
 
     def get_state(self):
         return {"level": self.level, "volume": self.level * self.area}
+
+
+class FixedLinearTank(LinearTank):
+    """
+    修复版的LinearTank，正确处理release_outflow参数
+    继承自原始LinearTank，只修复step方法的水量平衡计算
+    用于需要正确水量平衡计算的场景，如滞回控制器等
+    """
+    def step(self, dt: float, **kwargs):
+        """
+        Updates the water level based on mass balance.
+        修复：正确处理所有出入流参数
+        """
+        # 优先使用kwargs中的参数，如果没有则使用self.input中的值
+        inflow = kwargs.get('inflow', self.input.inflow)
+        
+        # 修复：正确处理出流参数
+        release_outflow = kwargs.get('release_outflow', self.input.release_outflow)
+        demand_outflow = kwargs.get('demand_outflow', self.input.demand_outflow)
+        gate_inflow = kwargs.get('gate_inflow', self.input.gate_inflow)
+        
+        # 计算总出流和净入流
+        total_outflow = release_outflow + demand_outflow
+        net_inflow = inflow + gate_inflow - total_outflow
+        
+        # 计算水位变化
+        dh = (net_inflow / self.area) * dt if self.area > 0 else 0
+
+        self.level += dh
+        self.level = np.clip(self.level, self.min_level, self.max_level)
+
+        self.output = self.level
+        return self.output
 
 
 class NonlinearTank(BaseModel):

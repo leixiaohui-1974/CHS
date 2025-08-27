@@ -5,7 +5,12 @@
       "type": "sub_basin",
       "area_km2": 500,
       "downstream": "ReservoirInflow"
+    },
+    {
+      "id": "ReservoirInflow",
+      "type": "reservoir",
+      "downstream": null
     }
   ],
-  "sinks": ["ReservoirInflow"]
+  "sinks": []
 }

@@ -23,6 +23,7 @@ def run_simulation():
         model_class=FirstOrderInertiaModel,
         initial_storage=10.0,
         time_constant=5.0,
+        reservoir_area=100.0,  # 添加水库面积100 m²
         solver_class=EulerMethod,
         dt=1.0
     )
@@ -51,6 +52,7 @@ def run_simulation():
         results.append({
             'time': host.current_time,
             'reservoir_storage': reservoir_agent.model.state.storage,
+            'reservoir_water_level': reservoir_agent.model.state.storage / 100.0,  # 计算水位 = 蓄水量/面积
             'reservoir_outflow': reservoir_agent.model.state.output
         })
 
@@ -59,14 +61,29 @@ def run_simulation():
     results_df = pd.DataFrame(results)
     print("仿真结果:")
     print(results_df)
+    print(f"\n初始水位: {results_df['reservoir_water_level'].iloc[0]:.3f} m")
+    print(f"最终水位: {results_df['reservoir_water_level'].iloc[-1]:.3f} m")
+    print(f"水位变化: {results_df['reservoir_water_level'].iloc[-1] - results_df['reservoir_water_level'].iloc[0]:.3f} m")
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(results_df['time'], results_df['reservoir_storage'], label='水库蓄水量')
-    plt.xlabel('时间 (小时)')
-    plt.ylabel('蓄水量 (单位)')
-    plt.title('水库仿真结果')
-    plt.grid(True)
-    plt.legend()
+    # 创建两个子图
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8))
+    
+    # 上图：水位
+    ax1.plot(results_df['time'], results_df['reservoir_water_level'], 'b-', linewidth=2, label='水库水位')
+    ax1.set_ylabel('水位 (m)')
+    ax1.set_title('水库水位变化')
+    ax1.legend()
+    ax1.grid(True)
+    
+    # 下图：蓄水量
+    ax2.plot(results_df['time'], results_df['reservoir_storage'], 'g-', linewidth=2, label='水库蓄水量')
+    ax2.set_xlabel('时间 (h)')
+    ax2.set_ylabel('蓄水量 (m^3)')
+    ax2.set_title('水库蓄水量变化')
+    ax2.legend()
+    ax2.grid(True)
+    
+    plt.tight_layout()
     plt.show()
 
 if __name__ == "__main__":

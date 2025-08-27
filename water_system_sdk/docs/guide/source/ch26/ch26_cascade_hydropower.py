@@ -6,7 +6,11 @@ import pandas as pd
 from chs_sdk.core.host import AgentKernel as Host
 from chs_sdk.modules.modeling.storage_models import LinearTank, MuskingumChannelModel
 from chs_sdk.modules.modeling.control_structure_models import HydropowerStationModel
-from water_system_sdk.docs.guide.source.project_utils import ModelAgent, EulerMethod
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from project_utils import ModelAgent, EulerMethod
+from fixed_hydro_utils import FixedModelAgentForHydro, EnhancedLinearTankForHydro
 
 def run_simulation():
     """
@@ -15,22 +19,22 @@ def run_simulation():
     """
     host = Host()
 
-    # 1. 创建组件
+    # 1. 创建组件 - 使用增强版LinearTank修复参数传递问题
     host.add_agent(
-        agent_class=ModelAgent,
+        agent_class=FixedModelAgentForHydro,
         agent_id='Reservoir1',
-        model_class=LinearTank,
+        model_class=EnhancedLinearTankForHydro,
         area=5e6,
         initial_level=100.0)
     host.add_agent(
-        agent_class=ModelAgent,
+        agent_class=FixedModelAgentForHydro,
         agent_id='HydroStation1',
         model_class=HydropowerStationModel,
         max_flow_area=50.0,
         discharge_coeff=0.9,
         efficiency=0.85)
     host.add_agent(
-        agent_class=ModelAgent,
+        agent_class=FixedModelAgentForHydro,
         agent_id='RiverReach',
         model_class=MuskingumChannelModel,
         K=6*3600.0,
@@ -39,13 +43,13 @@ def run_simulation():
         initial_inflow=10,
         initial_outflow=10)
     host.add_agent(
-        agent_class=ModelAgent,
+        agent_class=FixedModelAgentForHydro,
         agent_id='Reservoir2',
-        model_class=LinearTank,
+        model_class=EnhancedLinearTankForHydro,
         area=4e6,
         initial_level=50.0)
     host.add_agent(
-        agent_class=ModelAgent,
+        agent_class=FixedModelAgentForHydro,
         agent_id='HydroStation2',
         model_class=HydropowerStationModel,
         max_flow_area=50.0,
@@ -116,7 +120,32 @@ def run_simulation():
     ax2.legend(lines + lines2, labels + labels2, loc='best')
     ax2.grid(True)
 
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95]); plt.show()
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    
+    # 显示图形（如果在GUI环境中）
+    try:
+        plt.show()
+    except Exception as e:
+        print(f"无法显示图形: {e}")
+    
+    # 打印仿真统计信息
+    print("\n=== 两级水电站联动仿真统计 ===")
+    print(f"仿真时长: {num_steps * dt_seconds / 3600:.1f} 小时")
+    print(f"水电站最大流量面积: 50.0 m²")
+    print(f"河道演进参数 K: {6:.1f} 小时")
+    
+    # 计算关键指标
+    hs1_flows = results_df['HydroStation1.flow']
+    reach_flows = results_df['RiverReach.outflow']
+    
+    print(f"\n=== 关键指标 ===")
+    print(f"上游电站平均流量: {hs1_flows.mean():.1f} m³/s")
+    print(f"下游水库平均入流: {reach_flows.mean():.1f} m³/s")
+    print(f"流量差异: {abs(hs1_flows.mean() - reach_flows.mean()):.1f} m³/s")
+    
+        
+    return results_df
 
 if __name__ == "__main__":
     run_simulation()

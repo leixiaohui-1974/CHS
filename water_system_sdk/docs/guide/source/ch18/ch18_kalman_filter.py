@@ -1,9 +1,16 @@
+import sys
+import os
+
+# This is a simple way to make the SDK accessible to the script.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'src')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..')))
+
 import numpy as np
 import matplotlib.pyplot as plt
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
-from chs_sdk.modules.modeling.storage_models import LinearTank
+from chs_sdk.modules.modeling.storage_models import FixedLinearTank
 from chs_sdk.modules.control.kalman_filter import KalmanFilter
 
 def run_kalman_filter_simulation():
@@ -11,13 +18,13 @@ def run_kalman_filter_simulation():
     This script demonstrates how a Kalman Filter can fuse a simple, imperfect
     model with noisy measurements to produce a high-fidelity state estimate.
     """
-    # 1. 设置“真实世界”和“不完美模型”
+    # 1. 设置“真实世界”和“不完美模型” - 使用FixedLinearTank确保水量平衡计算正确
     dt = 60.0 # 60秒步长
-    true_model = LinearTank(area=1000.0, initial_level=5.0)
+    true_model = FixedLinearTank(area=1000.0, initial_level=5.0)
     # 我们的仿真模型，参数不准
-    open_loop_model = LinearTank(area=800.0, initial_level=5.0)
+    open_loop_model = FixedLinearTank(area=800.0, initial_level=5.0)
     # 将被KF修正的模型
-    kf_model = LinearTank(area=800.0, initial_level=5.0)
+    kf_model = FixedLinearTank(area=800.0, initial_level=5.0)
 
     # 2. 配置卡尔曼滤波器
     # 对于水库模型: level_t = level_{t-1} + (inflow/area)*dt
@@ -46,13 +53,11 @@ def run_kalman_filter_simulation():
 
     print("Running Kalman Filter simulation...")
     for i in range(num_steps):
-        # 更新“真实”模型
-        true_model.input.inflow = inflow
-        true_model.step(dt)
+        # 更新“真实”模型 - 使用step方法的kwargs参数
+        true_model.step(dt, inflow=inflow)
 
-        # 更新“开环”模型 (无修正)
-        open_loop_model.input.inflow = inflow
-        open_loop_model.step(dt)
+        # 更新“开环”模型 (无修正) - 使用step方法的kwargs参数
+        open_loop_model.step(dt, inflow=inflow)
 
         # --- 卡尔曼滤波核心步骤 ---
         # 1. 预测

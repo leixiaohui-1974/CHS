@@ -2,11 +2,14 @@ import matplotlib.pyplot as plt
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 import pandas as pd
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from chs_sdk.core.host import AgentKernel as Host
 from chs_sdk.modules.modeling.base_model import BaseModel
 from chs_sdk.modules.modeling.storage_models import LinearTank
-from water_system_sdk.docs.guide.source.project_utils import ModelAgent
+from project_utils import EnhancedModelAgent
 
 # 1. 创建自定义的蒸发模型
 class EvaporationModel(BaseModel):
@@ -30,7 +33,8 @@ class EvaporationModel(BaseModel):
         return {
             "evaporation_rate_ms": self.rate_m_s,
             "surface_area_m2": self.surface_area_m2,
-            "flow": self.evaporation_flow
+            "flow": self.evaporation_flow,
+            "output": self.output
         }
 
 def run_simulation_with_custom_model():
@@ -40,23 +44,23 @@ def run_simulation_with_custom_model():
     """
     host = Host()
 
-    # 2. 创建组件实例
+    # 2. 创建组件实例 - 使用project_utils中的EnhancedModelAgent支持kwargs参数传递
     host.add_agent(
-        agent_class=ModelAgent,
+        agent_class=EnhancedModelAgent,
         agent_id='MyReservoir',
         model_class=LinearTank,
         area=5e5,
         initial_level=20.0)
     host.add_agent(
-        agent_class=ModelAgent,
+        agent_class=EnhancedModelAgent,
         agent_id='Evaporation',
         model_class=EvaporationModel,
         evaporation_rate_mm_day=5.0)
 
-    # 3. 建立连接
+    # 3. 建立连接 - 修改连接方式，直接设置input字段
     reservoir_agent = host._agents['MyReservoir']
     evaporation_agent = host._agents['Evaporation']
-    reservoir_agent.subscribe(f"{evaporation_agent.agent_id}/output", 'release_outflow')
+    reservoir_agent.subscribe(f"{evaporation_agent.agent_id}/output", 'outflow')
 
     # 4. 运行仿真
     num_steps = 365 * 24

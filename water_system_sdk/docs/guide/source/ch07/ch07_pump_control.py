@@ -1,10 +1,16 @@
 import matplotlib.pyplot as plt
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
+
+# This is a simple way to make the SDK accessible to the script.
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'src')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..')))
 import pandas as pd
 
 from chs_sdk.core.host import AgentKernel as Host
-from chs_sdk.modules.modeling.storage_models import LinearTank
+from chs_sdk.modules.modeling.storage_models import FixedLinearTank
 from chs_sdk.modules.modeling.control_structure_models import PumpStationModel
 from chs_sdk.modules.disturbances.predefined import Disturbance
 from water_system_sdk.docs.guide.source.project_utils import ModelAgent
@@ -16,17 +22,17 @@ def run_simulation():
     """
     host = Host()
 
-    # 1. 创建组件
+    # 1. 创建组件 - 使用FixedLinearTank确保水量平衡计算正确
     host.add_agent(
         agent_class=ModelAgent,
         agent_id='Sump',
-        model_class=LinearTank,
+        model_class=FixedLinearTank,
         initial_level=1.5,
         area=200)
     host.add_agent(
         agent_class=ModelAgent,
         agent_id='Reservoir',
-        model_class=LinearTank,
+        model_class=FixedLinearTank,
         initial_level=20.0,
         area=1000)
     host.add_agent(
@@ -87,33 +93,50 @@ def run_simulation():
     # 4. 绘图
     results_df = pd.DataFrame(results)
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 10), sharex=True)
-    fig.suptitle('第七章: 水泵启停控制仿真', fontsize=16)
+    # 创建2x2的子图布局
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+    fig.suptitle('第七章: 水泵启停控制仿真 - 四图分析', fontsize=16)
 
-    # 图1：水位变化
-    ax1.plot(results_df['time'], results_df['Sump.value'], label='低位集水池水位')
-    ax1.axhline(y=3.0, color='r', linestyle='--', label='开泵水位 (3m)')
-    ax1.axhline(y=1.0, color='g', linestyle='--', label='关泵水位 (1m)')
-    ax1.set_ylabel('水位 (m)')
-    ax1.legend()
-    ax1.grid(True)
+    # 左上：开泵水位、关泵水位、低位集水池水位
+    ax1.plot(results_df['time'], results_df['Sump.value'], 'b-', linewidth=2, label='低位集水池水位')
+    ax1.axhline(y=3.0, color='r', linestyle='--', linewidth=2, label='开泵水位 (3m)')
+    ax1.axhline(y=1.0, color='g', linestyle='--', linewidth=2, label='关泵水位 (1m)')
+    ax1.set_ylabel('水位 (m)', fontsize=12)
+    ax1.set_title('低位集水池水位控制', fontsize=14)
+    ax1.legend(fontsize=10)
+    ax1.grid(True, alpha=0.3)
+    ax1.set_xlim(0, 200)
 
-    ax1b = ax1.twinx()
-    ax1b.plot(results_df['time'], results_df['Reservoir.value'], 'k:', label='高位水库水位')
-    ax1b.set_ylabel('高位水库水位 (m)')
-    ax1b.legend(loc='upper right')
+    # 右上：高位水库水位
+    ax2.plot(results_df['time'], results_df['Reservoir.value'], 'k-', linewidth=2, label='高位水库水位')
+    ax2.set_ylabel('水位 (m)', fontsize=12)
+    ax2.set_title('高位水库水位变化', fontsize=14)
+    ax2.legend(fontsize=10)
+    ax2.grid(True, alpha=0.3)
+    ax2.set_xlim(0, 200)
 
-    # 图2：水泵状态和流量
-    ax2.plot(results_df['time'], results_df['pump_status'], 'm-', drawstyle='steps-post', label='水泵状态 (On/Off)')
-    ax2.set_ylabel('水泵状态')
-    ax2.set_xlabel('时间 (秒)')
-    ax2.legend(loc='upper left')
+    # 左下：水泵状态
+    ax3.plot(results_df['time'], results_df['pump_status'], 'm-', drawstyle='steps-post', 
+             linewidth=3, label='水泵状态 (On/Off)')
+    ax3.set_ylabel('水泵状态', fontsize=12)
+    ax3.set_xlabel('时间 (秒)', fontsize=12)
+    ax3.set_title('水泵启停状态', fontsize=14)
+    ax3.legend(fontsize=10)
+    ax3.grid(True, alpha=0.3)
+    ax3.set_ylim(-0.1, 1.1)
+    ax3.set_xlim(0, 200)
+    # 设置y轴刻度
+    ax3.set_yticks([0, 1])
+    ax3.set_yticklabels(['关闭', '开启'])
 
-    ax2b = ax2.twinx()
-    ax2b.plot(results_df['time'], results_df['PumpStation.value'], 'c:', label='泵站流量')
-    ax2b.set_ylabel('流量 (m^3/s)')
-    ax2b.legend(loc='upper right')
-    ax2b.grid(True)
+    # 右下：泵站流量
+    ax4.plot(results_df['time'], results_df['PumpStation.value'], 'c-', linewidth=2, label='泵站流量')
+    ax4.set_ylabel('流量 (m^3/s)', fontsize=12)
+    ax4.set_xlabel('时间 (秒)', fontsize=12)
+    ax4.set_title('泵站流量变化', fontsize=14)
+    ax4.legend(fontsize=10)
+    ax4.grid(True, alpha=0.3)
+    ax4.set_xlim(0, 200)
 
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.show()

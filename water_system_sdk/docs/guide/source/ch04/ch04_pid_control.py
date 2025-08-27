@@ -6,7 +6,10 @@ import pandas as pd
 from chs_sdk.core.host import AgentKernel as Host
 from chs_sdk.modules.modeling.storage_models import FirstOrderInertiaModel
 from chs_sdk.modules.control.pid_controller import PIDController
-from water_system_sdk.docs.guide.source.project_utils import EulerMethod, ModelAgent
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from project_utils import EulerMethod, ModelAgent
 
 
 class StorageOutputInertiaModel(FirstOrderInertiaModel):
@@ -33,10 +36,11 @@ def run_simulation():
         agent_class=ModelAgent,
         agent_id='MyReservoir',
         model_class=StorageOutputInertiaModel,
-        initial_storage=10.0,
-        time_constant=5.0,
+        initial_storage=5.0,   # 与ch06一致
+        time_constant=10.0,    # 与ch06一致
+        reservoir_area=1000.0, # 与ch06一致
         solver_class=EulerMethod,
-        dt=1.0
+        dt=0.5                 # 与ch06一致
     )
 
     # 3. 创建并注册PID控制器智能体
@@ -44,10 +48,12 @@ def run_simulation():
         agent_class=ModelAgent,
         agent_id='MyPIDController',
         model_class=PIDController,
-        Kp=0.4,
-        Ki=0.2,
-        Kd=0.2,
-        set_point=15.0
+        Kp=10.0,    # 使用纯比例控制，大幅增加比例增益
+        Ki=7.0,    # 完全禁用积分项，避免积分饱和
+        Kd=5.0,    # 完全禁用微分项，简化控制
+        set_point=5.0,   # 目标水位5.0米，与ch06一致
+        output_min=10.0,  # 最小输出：
+        output_max=600.0  # 最大输出：最大入流300 m³/h
     )
 
     # 4. 建立连接
@@ -55,15 +61,15 @@ def run_simulation():
     pid_agent = host._agents['MyPIDController']
 
     # 将水库水位连接到PID输入
-    pid_agent.subscribe(topic=f"{reservoir_agent.agent_id}/output", port_name='error_source')
+    pid_agent.subscribe(topic=f"{reservoir_agent.agent_id}/water_level", port_name='error_source')
 
     # 将PID输出连接到水库入流
     reservoir_agent.subscribe(topic=f"{pid_agent.agent_id}/output", port_name='inflow')
 
 
     # 5. 运行仿真
-    num_steps = 50
-    dt = 1.0
+    num_steps = 100  # 50秒 ÷ 0.5秒 = 100步
+    dt = 0.5         # 与水库模型步长一致
     results = []
     host.start(time_step=dt)
     for i in range(num_steps):
@@ -71,6 +77,7 @@ def run_simulation():
         results.append({
             'time': host.current_time,
             'reservoir_storage': reservoir_agent.model.state.storage,
+            'reservoir_water_level': reservoir_agent.model.state.storage / 1000.0,  # 计算水位用于显示
             'pid_output': pid_agent.model.output
         })
 
@@ -78,25 +85,40 @@ def run_simulation():
     results_df = pd.DataFrame(results)
     print("仿真结果:")
     print(results_df.head())
+    print(f"\n目标水位: {5.0:.3f} m")
+    print(f"初始水位: {results_df['reservoir_water_level'].iloc[0]:.3f} m")
+    print(f"最终水位: {results_df['reservoir_water_level'].iloc[-1]:.3f} m")
+    print(f"水位变化: {results_df['reservoir_water_level'].iloc[-1] - results_df['reservoir_water_level'].iloc[0]:.3f} m")
 
-    plt.figure(figsize=(12, 8))
-
-    plt.subplot(2, 1, 1)
-    plt.plot(results_df['time'], results_df['reservoir_storage'], label='水库蓄水量')
-    plt.axhline(y=15.0, color='r', linestyle='--', label='设定值 (15.0)')
-    plt.title('水库蓄水水位 (PID 控制)')
-    plt.ylabel('蓄水量 (单位)')
-    plt.legend()
-    plt.grid(True)
-
-    plt.subplot(2, 1, 2)
-    plt.plot(results_df['time'], results_df['pid_output'], label='PID 输出 (入流量)')
-    plt.title('控制器输出')
-    plt.ylabel('流量 (单位)')
-    plt.xlabel('时间 (小时)')
-    plt.legend()
-    plt.grid(True)
-
+    # 创建三个子图
+    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 10))
+    
+    # 上图：水位控制
+    ax1.plot(results_df['time'], results_df['reservoir_water_level'], 'b-', linewidth=2, label='水库水位')
+    ax1.axhline(y=5.0, color='r', linestyle='--', label='目标水位 (5.0 m)')
+    ax1.set_title('水库水位控制 (PID)')
+    ax1.set_ylabel('水位 (m)')
+    ax1.legend()
+    ax1.grid(True)
+    
+    # 中图：蓄水量
+    ax2.plot(results_df['time'], results_df['reservoir_storage'], 'g-', linewidth=2, label='水库蓄水量')
+    ax2.axhline(y=5000.0, color='r', linestyle='--', label='目标蓄水量 (5000.0 m^3)')
+    ax2.set_title('水库蓄水量变化')
+    ax2.set_ylabel('蓄水量 (m^3)')
+    ax2.legend()
+    ax2.grid(True)
+    
+    # 下图：PID输出
+    ax3.plot(results_df['time'], results_df['pid_output'], 'm-', linewidth=2, label='PID 输出 (入流量)')
+    ax3.axhline(y=10.0, color='k', linestyle=':', alpha=0.5, label='最小入流线')
+    ax3.axhline(y=600.0, color='r', linestyle=':', alpha=0.5, label='最大入流线')
+    ax3.set_title('控制器输出')
+    ax3.set_ylabel('流量 (m^3/h)')
+    ax3.set_xlabel('时间 (小时)')
+    ax3.legend()
+    ax3.grid(True)
+    
     plt.tight_layout()
     plt.show()
 

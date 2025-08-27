@@ -38,7 +38,7 @@ class SluiceGate(GateBase):
     Represents a vertical sluice gate, automatically switching between
     free-flow and submerged-flow discharge equations.
     """
-    def step(self, upstream_level: float, downstream_level: float, dt: float, command: float = None, **kwargs):
+    def step(self, upstream_level: float, downstream_level: float = 0.0, dt: float = 1.0, command: float = None, **kwargs):
         """
         Calculates flow based on upstream/downstream levels and gate opening.
         """
@@ -121,11 +121,21 @@ class RadialGate(GateBase):
         self.output = self.flow
         return self.output
 
+
+class SluiceGateWithOutput(SluiceGate):
+    """专门用于ch27防洪调度的闸门类，支持完整的状态输出"""
+    
+    def get_state(self):
+        """返回包含flow和output字段的完整状态"""
+        base_state = super().get_state()
+        base_state.update({
+            "flow": self.flow,
+            "output": self.output
+        })
+        return base_state
+
+
 class PumpStationModel(BaseModel):
-    """
-    Represents a pump station with one or more pumps operating in parallel.
-    The pump's performance is defined by a characteristic curve (head vs. flow).
-    """
     def __init__(self, num_pumps_total: int, curve_coeffs: list, initial_num_pumps_on: int = 1, **kwargs):
         """
         Initializes the Pump Station model.
